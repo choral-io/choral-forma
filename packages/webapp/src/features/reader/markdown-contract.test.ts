@@ -381,6 +381,25 @@ describe("Markdown reader contract", () => {
         expect(body.querySelector("h2#forma-heading-foo")?.textContent).toBe("Forma heading foo");
     });
 
+    it("keeps both body anchors when they conflict with both names of an omitted title", async () => {
+        const html = postProcessMarkdownHtml(
+            await renderMarkdown("# Forma heading foo\n\n## Foo\n\n## Forma heading forma heading foo"),
+            [
+                { id: "forma-heading-foo", level: 1, text: "Forma heading foo" },
+                { id: "foo", level: 2, text: "Foo" },
+                { id: "forma-heading-forma-heading-foo", level: 2, text: "Forma heading forma heading foo" },
+            ],
+            "reader.md",
+            [],
+            true,
+        );
+        const body = new DOMParser().parseFromString(html, "text/html").body;
+        expect(body.querySelector("[data-reader-omitted-title]")?.id).toBe("forma-omitted-title");
+        expect(body.querySelector("#foo > #forma-heading-foo")).not.toBeNull();
+        expect(body.querySelectorAll("#forma-heading-foo")).toHaveLength(1);
+        expect(body.querySelector("h2#forma-heading-forma-heading-foo")).not.toBeNull();
+    });
+
     it("does not confuse an authored heading with the generated footnote label", async () => {
         const html = postProcessMarkdownHtml(
             await renderMarkdown("## Footnote label\n\nBody[^label]\n\n[^label]: Note"),

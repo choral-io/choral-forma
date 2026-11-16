@@ -95,6 +95,21 @@ describe("scrollReaderAnchor", () => {
         expect(findFragmentTarget(reader, "Host-Visual-—-2026-09-24")?.id).toBe("host-visual-2026-09-24");
     });
 
+    it("resolves legacy spellings to an omitted title with no historical id in the reader", () => {
+        const reader = document.createElement("main");
+        reader.innerHTML =
+            '<span id="forma-heading-hello-world" data-reader-heading-text="Hello world" data-reader-omitted-title></span>';
+        document.body.append(reader);
+
+        expect(findFragmentTarget(reader, "HELLO-WORLD")?.id).toBe("forma-heading-hello-world");
+        expect(findFragmentTarget(reader, "hello_world")?.id).toBe("forma-heading-hello-world");
+
+        const bodyHeading = document.createElement("h2");
+        bodyHeading.id = "hello-world";
+        reader.append(bodyHeading);
+        expect(findFragmentTarget(reader, "hello-world")).toBe(bodyHeading);
+    });
+
     it("restores a nested heading after native fragment navigation clears link focus", () => {
         const callbacks: FrameRequestCallback[] = [];
         vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {

@@ -87,6 +87,13 @@ export function EntryPage({
     const languageVersions = entryLanguageVersions(entries, entry, canonicalLanguage);
     const outlineTree = getEntryOutlineTree(outline);
     const hasOutline = outlineTree.length > 0;
+    const bodyIds = new Set(outline.map((item) => item.id));
+    for (const block of entry.body) {
+        if (block.type !== "markdown") continue;
+        for (const heading of block.anchors ?? block.outline) bodyIds.add(heading.id);
+    }
+    let topId = entryTopId;
+    while (bodyIds.has(topId)) topId += "-";
     const contentRef = useRef<HTMLDivElement>(null);
     const { activeHeadingId, pastFirstViewport } = useReadingPosition(
         contentRef,
@@ -112,7 +119,7 @@ export function EntryPage({
         <div className="w-full">
             <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12">
                 <div className="mx-auto flex w-full min-w-0 flex-col gap-6 xl:mx-0">
-                    <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id={entryTopId}>
+                    <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id={topId}>
                         <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl" ref={titleRef} tabIndex={-1}>
                             {entry.title}
                         </h1>
@@ -202,6 +209,7 @@ export function EntryPage({
                             onNavigate={navigateOutline}
                             routePath={routePath}
                             showBackToTop={pastFirstViewport}
+                            topId={topId}
                             tree={outlineTree}
                         />
                     </aside>
@@ -250,6 +258,7 @@ export function EntryPage({
                                 onNavigate={navigateOutline}
                                 routePath={routePath}
                                 showBackToTop={pastFirstViewport}
+                                topId={topId}
                             />
                         </div>
                     </aside>
@@ -269,22 +278,29 @@ export function EntryPage({
 function EntryClassifications({ classifications }: { classifications: EntryClassification[] }) {
     return (
         // An explicit role: Safari drops list semantics from a list whose markers are removed.
-        <ul aria-label="Classifications" className="flex flex-wrap items-center gap-x-2 gap-y-1" role="list">
+        <ul
+            aria-label="Classifications"
+            className="flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 wrap-anywhere"
+            role="list"
+        >
             {classifications.map((classification, index) => (
-                <li className="flex flex-wrap items-baseline gap-x-1" key={classification.key}>
+                <li className="flex max-w-full min-w-0 flex-wrap items-baseline gap-x-1" key={classification.key}>
                     <span>{classification.taxonomyTitle}:</span>
                     {classification.terms.map((term, termIndex) => {
                         const lastTerm = termIndex === classification.terms.length - 1;
-                        const hasSeparator = lastTerm && index < classifications.length - 1;
-                        // Remove invisible trailing break opportunities, then join across punctuation.
-                        const title = hasSeparator ? term.title.replace(/[ \t\n\r\f\u200b]+$/u, "") : term.title;
+                        const punctuation = lastTerm ? (index < classifications.length - 1 ? "\u00a0·" : null) : ",";
+                        // Trim breakable whitespace while retaining the three Unicode no-break spaces.
+                        const title = punctuation
+                            ? term.title.replace(/(?:(?![\u00a0\u2007\u202f])\p{White_Space}|\u200b)+$/u, "")
+                            : term.title;
                         return (
                             <span key={term.key}>
                                 <Link className="link text-base-content/80 link-hover" to={term.to}>
                                     {title}
                                 </Link>
-                                {!lastTerm ? "," : null}
-                                {hasSeparator ? <span aria-hidden="true">{"\u2060\u00a0·"}</span> : null}
+                                {punctuation ? (
+                                    <span aria-hidden={lastTerm || undefined}>{"\u2060" + punctuation}</span>
+                                ) : null}
                             </span>
                         );
                     })}

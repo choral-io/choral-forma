@@ -19,6 +19,7 @@ interface OutlineFooterProps extends Omit<OutlineProps, "activeHeadingId"> {
     /** Present when the document has a related-documents section to jump to. */
     backlinkCount?: number;
     showBackToTop: boolean;
+    topId: string;
 }
 
 export function EntryOutlineSection({
@@ -27,6 +28,7 @@ export function EntryOutlineSection({
     onNavigate,
     routePath,
     showBackToTop,
+    topId,
     tree,
 }: OutlineProps & OutlineFooterProps & { tree: EntryOutlineNode[] }) {
     return (
@@ -45,6 +47,7 @@ export function EntryOutlineSection({
                 onNavigate={onNavigate}
                 routePath={routePath}
                 showBackToTop={showBackToTop}
+                topId={topId}
             />
         </section>
     );
@@ -95,7 +98,7 @@ export function OutlineNav({
     );
 }
 
-export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBackToTop }: OutlineFooterProps) {
+export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBackToTop, topId }: OutlineFooterProps) {
     if (backlinkCount === undefined && !showBackToTop) return null;
 
     return (
@@ -117,7 +120,7 @@ export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBac
                 )}
                 {showBackToTop ? (
                     <li>
-                        <a href={rootAwareHref(`${routePath}#${entryTopId}`)} onClick={onNavigate}>
+                        <a href={rootAwareHref(`${routePath}#${topId}`)} onClick={onNavigate}>
                             <span>Back to top</span>
                             <ArrowUp aria-hidden="true" className="size-3.5" />
                         </a>

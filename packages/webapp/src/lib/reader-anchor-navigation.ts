@@ -66,8 +66,24 @@ export function findFragmentTarget(root: Document | HTMLElement, id: string, raw
         const hyphenated = headingText.replace(/\s+/gu, "-");
         return headings.find((heading) => textOf(heading).replace(/\s+/gu, "-") === hyphenated) ?? null;
     }
-    const legacyId = headingText.match(/[a-z0-9]+/gu)?.join("-");
-    return legacyId ? byId(legacyId) : null;
+    const legacyId = legacyHeadingId(headingText);
+    if (!legacyId) return null;
+    return (
+        byId(legacyId) ??
+        headings.find((heading) => {
+            const text = textOf(heading);
+            return (
+                heading.hasAttribute("data-reader-omitted-title") &&
+                !/\P{ASCII}/u.test(text) &&
+                legacyHeadingId(text) === legacyId
+            );
+        }) ??
+        null
+    );
+}
+
+function legacyHeadingId(text: string) {
+    return text.match(/[a-z0-9]+/gu)?.join("-");
 }
 
 function normalizeHeadingText(text: string) {

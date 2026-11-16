@@ -36,7 +36,7 @@ const sourceIds = {
     callouts: Array.from({ length: 14 }, (_, i) => `callout-${i}`),
     disclosures: ["first", "second"],
 };
-test("plans isolated disclosure and existing regression coverage for every host", () => {
+test("plans isolated disclosure, navigation, and existing regression coverage for every host", () => {
     const phases = markdownBrowserPhases([{ name: "static" }, { name: "webapp" }], sourceIds);
     assert.deepEqual(
         phases.map(({ name, mode, expectedResults }) => [name, mode, expectedResults.length]),
@@ -45,14 +45,17 @@ test("plans isolated disclosure and existing regression coverage for every host"
             ["webapp-disclosures", "disclosures", 1],
             ["static-disclosures", "disclosures", 1],
             ["noscript-disclosures", "disclosures", 1],
-            ["webapp", "enhanced", 13],
-            ["static", "enhanced", 19],
+            ["webapp-navigation", "navigation", 2],
+            ["static-navigation", "navigation", 2],
+            ["noscript-navigation", "navigation", 1],
+            ["webapp", "enhanced", 12],
+            ["static", "enhanced", 18],
             ["noscript", "noscript", 12],
         ],
     );
     assert.deepEqual(
         phases.map((p) => p.hosts[0].name),
-        ["webapp", "webapp", "static", "static", "webapp", "static", "static"],
+        ["webapp", "webapp", "static", "static", "webapp", "static", "static", "webapp", "static", "static"],
     );
     assert.deepEqual(
         phases[0].hosts.map((host) => host.name),
@@ -62,9 +65,13 @@ test("plans isolated disclosure and existing regression coverage for every host"
         phases.slice(1, 4).map((p) => p.noScript),
         [false, false, true],
     );
+    assert.deepEqual(
+        phases.slice(4, 7).map((p) => p.noScript),
+        [false, false, true],
+    );
     const coverage = phases.flatMap((p) => p.expectedResults);
-    assert.equal(coverage.length, 55);
-    assert.equal(new Set(coverage).size, 55);
+    assert.equal(coverage.length, 58);
+    assert.equal(new Set(coverage).size, 58);
     for (const phase of phases) {
         assert.deepEqual(
             validateMarkdownBrowserPhase(

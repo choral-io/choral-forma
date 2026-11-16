@@ -1219,6 +1219,12 @@ fn resolve_heading_fragment(
         return None;
     }
     let normalized = fragment.trim();
+    // Slug guesses are for historical ASCII IDs. Dropping all or part of a
+    // Unicode name can turn an unknown heading into an unrelated target.
+    let legacy_id = (!has_generated_fragment_prefix(fragment)
+        && normalized.is_ascii()
+        && normalized.bytes().any(|byte| byte.is_ascii_alphanumeric()))
+    .then(|| slugify_heading(normalized));
     if let Some(targets) = targets
         && let Some((index, heading)) = targets
             .headings
@@ -1242,6 +1248,14 @@ fn resolve_heading_fragment(
                     hyphenate_heading_text(&heading.text).eq_ignore_ascii_case(&hyphenated)
                 })
             })
+            .or_else(|| {
+                let id = legacy_id.as_deref()?;
+                targets
+                    .headings
+                    .iter()
+                    .enumerate()
+                    .find(|(_, heading)| heading.id == id)
+            })
     {
         let might_omit_title = index == 0 && heading.level == 1 && targets.omit_leading_title;
         // Real IDs keep precedence over literal titles that look like readable aliases
@@ -1258,16 +1272,7 @@ fn resolve_heading_fragment(
         }
         return Some(heading.id.clone());
     }
-    // Slug guesses are for historical ASCII IDs. Dropping all or part of a
-    // Unicode name can turn an unknown heading into an unrelated target.
-    if !has_generated_fragment_prefix(fragment)
-        && normalized.is_ascii()
-        && normalized.bytes().any(|byte| byte.is_ascii_alphanumeric())
-    {
-        Some(slugify_heading(normalized))
-    } else {
-        Some(percent_encode_segment(fragment))
-    }
+    Some(legacy_id.unwrap_or_else(|| percent_encode_segment(fragment)))
 }
 
 fn hyphenate_heading_text(text: &str) -> String {
@@ -1275,7 +1280,11 @@ fn hyphenate_heading_text(text: &str) -> String {
 }
 
 fn has_generated_fragment_prefix(fragment: &str) -> bool {
-    fragment.starts_with("forma-heading-") || fragment.starts_with("user-content-fn")
+    fragment.starts_with("forma-heading-")
+        || fragment.starts_with("user-content-fn")
+        || fragment
+            .strip_prefix("forma-omitted-title")
+            .is_some_and(|suffix| suffix.bytes().all(|byte| byte == b'-'))
 }
 
 fn has_static_anchor(html: &str, id: &str) -> bool {
@@ -1392,42 +1401,37 @@ fn render_static_markdown_html(
     omit_leading_title: bool,
 ) -> String {
     let mut html = render_markdown_source_html(markdown);
+    let leading_title = html
+        .strip_prefix("<h1>")
+        .and_then(|rest| rest.split_once("</h1>"));
     // A duplicate title can be hidden, but its annotation calls cannot disappear.
     let omit_leading_title = omit_leading_title
-        && !html
-            .strip_prefix("<h1>")
-            .and_then(|rest| rest.split_once("</h1>"))
-            .is_some_and(|(title, _)| title.contains("data-footnote-ref="));
-    if omit_leading_title
-        && let Some(rest) = html.strip_prefix("<h1>")
-        && let Some(end) = rest.find("</h1>")
-    {
-        let mut alias = rest
+        && leading_title.is_some_and(|(title, _)| !title.contains("data-footnote-ref="));
+    if omit_leading_title && let Some((title_html, rest)) = leading_title {
+        let mut alias = title_html
             .find("</span>")
-            .map(|end| &rest[..end + "</span>".len()])
+            .map(|end| &title_html[..end + "</span>".len()])
             .unwrap_or("")
             .to_string();
         if let Some((title, body)) = headings.split_first()
             && title.level == 1
             && let Some(id) = leading_heading_anchor(&alias)
             && body.iter().any(|heading| heading.id == id)
-            && body.iter().all(|heading| heading.id != title.id)
-            && !has_static_anchor(&html, &title.id)
         {
-            // A body heading may already own the title's readable alias.
-            // Keep the omitted title reachable through its free historical ID.
-            alias.replace_range(
-                "<span id=\"".len().."<span id=\"".len() + id.len(),
-                &title.id,
-            );
+            // Preserve both the historical IDs and the readable aliases of the body.
+            let taken = |id: &str| {
+                body.iter().any(|heading| heading.id == id) || has_static_anchor(&html, id)
+            };
+            let mut anchor = title.id.clone();
+            if taken(&anchor) {
+                anchor = "forma-omitted-title".to_string();
+                while taken(&anchor) {
+                    anchor.push('-');
+                }
+            }
+            alias.replace_range("<span id=\"".len().."<span id=\"".len() + id.len(), &anchor);
         }
-        html = format!(
-            "{}{}",
-            alias,
-            rest[end + "</h1>".len()..]
-                .strip_prefix('\n')
-                .unwrap_or(&rest[end + "</h1>".len()..])
-        );
+        html = format!("{alias}{}", rest.strip_prefix('\n').unwrap_or(rest));
     }
 
     let rendered_headings = headings
@@ -2741,6 +2745,133 @@ mod tests {
         );
         assert!(target.html.contains(r#"<h2 id="forma-heading-foo">"#));
         assert_eq!(target.html.matches(r#"id="forma-heading-foo""#).count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_resolves_legacy_fragment_spellings_of_omitted_titles() {
+        let root = copy_fixture("site-snapshot-omitted-title-legacy-fragments");
+        fs::write(
+            root.join("content/guides/target.md"),
+            "# Hello world\n\n## Body\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "# Source\n\n[Uppercase](target.md#HELLO-WORLD)\n\n[Underscore](target.md#hello_world)\n",
+        )
+        .unwrap();
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        let target = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/target.md")
+            .unwrap();
+        assert!(target.html.contains(r#"id="forma-heading-hello-world""#));
+        assert_eq!(
+            intro
+                .html
+                .matches(r#"href="/content/guides/target#forma-heading-hello-world""#)
+                .count(),
+            2,
+            "{}",
+            intro.html,
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_keeps_body_anchors_when_both_omitted_title_ids_are_occupied() {
+        let root = copy_fixture("site-snapshot-omitted-title-both-ids-occupied");
+        fs::write(
+            root.join("content/guides/target.md"),
+            "# Forma heading foo\n\n## Foo\n\n## Forma heading forma heading foo\n\n## Forma omitted title\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "# Source\n\n[[target#Forma heading foo|Omitted title]]\n\n[[target#forma-heading-foo|Body alias]]\n\n[[target#forma-heading-forma-heading-foo|Body ID]]\n",
+        )
+        .unwrap();
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let entry = |path: &str| {
+            snapshot
+                .entries
+                .iter()
+                .find(|entry| entry.path == path)
+                .unwrap()
+        };
+        let intro = entry("content/guides/intro.md");
+        let target = entry("content/guides/target.md");
+        for (id, label) in [
+            ("forma-omitted-title-", "Omitted title"),
+            ("forma-heading-foo", "Body alias"),
+            ("forma-heading-forma-heading-foo", "Body ID"),
+        ] {
+            assert!(
+                intro.html.contains(&format!(
+                    r#"href="/content/guides/target#{id}">{label}</a>"#
+                )),
+                "{}",
+                intro.html,
+            );
+            assert_eq!(target.html.matches(&format!(r#"id="{id}""#)).count(), 1);
+        }
+        assert!(
+            target
+                .html
+                .starts_with(r#"<span id="forma-omitted-title-" data-forma-heading-anchor=""#),
+            "{}",
+            target.html,
+        );
+        assert!(
+            target
+                .html
+                .contains(r#"<h2 id="foo"><span id="forma-heading-foo""#)
+        );
+        assert!(
+            target
+                .html
+                .contains(r#"<h2 id="forma-heading-forma-heading-foo">"#)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_keeps_view_heading_ids_when_prose_precedes_h1() {
+        let root = copy_fixture("site-snapshot-view-h1-after-prose");
+        let view_path = root.join(".forma/views/guide-table.md");
+        let source = fs::read_to_string(&view_path).unwrap();
+        let (frontmatter, _) = source[4..].split_once("\n---").unwrap();
+        fs::write(
+            view_path,
+            format!(
+                "---\n{frontmatter}\n---\n\nAn introductory paragraph.\n\n# Secondary View title\n\n## Setup\n\n[Setup](#setup)\n\n[Deploy](#deploy)\n\n<!-- forma:content -->\n\n## Deploy\n"
+            ),
+        )
+        .unwrap();
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let view = snapshot
+            .views
+            .iter()
+            .find(|view| view.id == "guide-table")
+            .unwrap();
+        let html = view.html.as_deref().unwrap();
+        for (level, id) in [(1, "secondary-view-title"), (2, "setup"), (2, "deploy")] {
+            assert!(
+                html.contains(&format!(
+                    r#"<h{level} id="{id}"><span id="forma-heading-{id}""#
+                )),
+                "{html}",
+            );
+        }
+        assert!(html.contains(r##"<a href="#setup">Setup</a>"##));
+        assert!(html.contains(r##"<a href="#deploy">Deploy</a>"##));
         fs::remove_dir_all(root).unwrap();
     }
 

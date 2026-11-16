@@ -555,35 +555,89 @@ export async function markdownBrowserScenarios(page, options) {
         const viewport = current.viewportSize();
         const selector = host.name === "static" ? "[data-enhancement-ready] main" : "main";
         try {
-            for (const [route, title] of [
+            const label = "Deployment and workspace configuration documentation";
+            for (const [route, title, punctuation = "·"] of [
                 ["classification-layout", "Deployment and workspace configuration documentation-"],
-                ["classification-space-layout", "Deployment and workspace configuration documentation"],
+                ["classification-space-layout", label],
+                ["classification-ideographic-layout", label],
+                ["classification-line-layout", label],
+                ["classification-paragraph-layout", label],
+                ["classification-long-layout", "ProductionConfigurationDeploymentManagementDocumentation"],
+                ["classification-comma-layout", label, ","],
             ]) {
                 await current.setViewportSize({ width: 320, height: 720 });
                 await current.goto(`${host.origin}${host.root}/${route}/`);
                 const groups = current.locator(selector).getByRole("list", { name: "Classifications" });
                 const term = groups.getByRole("link", { name: title, exact: true });
                 await term.waitFor();
-                for (const width of [320, 390, 408, 412]) {
+                for (const width of [320, 390, 402, 408, 412]) {
                     await current.setViewportSize({ width, height: 720 });
-                    const { wrapped, sameLine } = await term.evaluate((link) => {
-                        const lines = Array.from(link.getClientRects());
+                    const { wrapped, sameLine, fitsReader } = await term.evaluate((link, punctuation) => {
+                        const lines = Array.from(link.getClientRects()).filter((line) => line.width > 0);
                         const lastLine = lines.at(-1);
-                        const dot = link
-                            .closest("li")
-                            ?.querySelector('span[aria-hidden="true"]')
-                            ?.getBoundingClientRect();
+                        const following = link.nextSibling;
+                        const markRange = document.createRange();
+                        if (following?.textContent?.endsWith(punctuation)) markRange.selectNode(following);
+                        const mark = markRange.getBoundingClientRect();
+                        const reader = link.closest("main");
                         return {
                             wrapped: lines.length > 1,
-                            sameLine: lastLine && dot && lastLine.top < dot.bottom && dot.top < lastLine.bottom - 2,
+                            sameLine: lastLine && lastLine.top < mark.bottom && mark.top < lastLine.bottom - 2,
+                            fitsReader: reader && reader.scrollWidth <= reader.clientWidth + 1,
                         };
-                    });
+                    }, punctuation);
                     if (width === 320) assert(wrapped, `${host.name}: ${route} title wraps at narrow width`);
-                    assert(sameLine, `${host.name}: ${route} separator follows its last term at ${width}px`);
+                    assert(sameLine, `${host.name}: ${route} punctuation stays with the term at ${width}px`);
+                    assert(fitsReader, `${host.name}: ${route} fits the reader at ${width}px`);
+                }
+                if (route === "classification-long-layout") {
+                    await current.setViewportSize({ width: 320, height: 720 });
+                    await term.focus();
+                    await term.press("Enter");
+                    await current.waitForURL(
+                        (url) =>
+                            url.pathname.replace(/\/$/u, "") ===
+                            `${host.root}/-/browse/spaces/classification-long-layout`,
+                    );
                 }
             }
         } finally {
             if (viewport) await current.setViewportSize(viewport);
+        }
+    };
+
+    const publishedHeadingTargets = async (current, host, noScript) => {
+        const base = `${host.origin}${host.root}`;
+        const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
+        const cases = [
+            ["/notes/published-heading-links/", "Uppercase omitted title", "#forma-heading-hello-world"],
+            ["/notes/published-heading-links/", "Underscore omitted title", "#forma-heading-hello-world"],
+            ["/notes/published-heading-links/", "Named double collision", "#forma-omitted-title"],
+            ["/notes/published-heading-links/", "Body alias after collision", "h2#foo"],
+            ["/notes/shell-heading-links/", "Root title link", "h2#root"],
+            ["/notes/shell-heading-links/", "Entry top title link", "h2#entry-top"],
+            ["/-/views/view-heading-intro/", "Setup", "h2#setup"],
+            ["/-/views/view-heading-intro/", "Deploy", "h2#deploy"],
+        ];
+        for (const [source, label, selector] of cases) {
+            await current.goto(`${base}${source}`);
+            const link = main.locator("a[href]").filter({ hasText: new RegExp(`^${label}$`, "u") });
+            await link.click();
+            await current.waitForFunction(
+                ({ target, native }) => {
+                    const element = native ? document.querySelector(":target") : document.activeElement;
+                    return Boolean(element?.closest(target));
+                },
+                { target: selector, native: noScript },
+            );
+            if (source === "/notes/shell-heading-links/") {
+                const id = selector.slice("h2#".length);
+                assert((await current.locator(`[id="${id}"]`).count()) === 1, `${host.name}: ${label} has a unique ID`);
+                assert(
+                    (await current.locator("header#entry-top-").count()) === 1,
+                    `${host.name}: entry header keeps a separate ID`,
+                );
+            }
         }
     };
 
@@ -599,8 +653,11 @@ export async function markdownBrowserScenarios(page, options) {
         await current.waitForURL(
             (url) =>
                 url.pathname.replace(/\/$/u, "") === `${host.root}/notes/link-contracts` &&
-                url.hash === "#local-heading",
+                url.hash === (isStatic ? "#local-heading" : "#Local%20heading"),
         );
+        if (!noScript) {
+            await current.waitForFunction(() => document.activeElement?.id === "local-heading");
+        }
 
         const image = main.getByRole("img", { name: "Encoded image", exact: true });
         await image.waitFor();
@@ -722,6 +779,46 @@ export async function markdownBrowserScenarios(page, options) {
             assert(
                 new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.zh-hans`,
                 "static: View link opens localized variant",
+            );
+        }
+    };
+    const headingNavigation = async (current, host, noScript = false) => {
+        const base = `${host.origin}${host.root}`;
+        const aliases = "/notes/navigation-anchors";
+        const source = "/notes/navigation-source";
+        const mdx = "/guides/navigation-target";
+        const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
+        const cases = [
+            [aliases, "Local wiki alias", aliases, "前缀", 2],
+            [aliases, "Local explicit alias", aliases, "前缀", 2],
+            [source, "Cross-entry wiki alias", aliases, "前缀", 2],
+            [aliases, "Local repeated title", aliases, "Duplicate", 4],
+            [aliases, "Path-qualified repeated title", aliases, "Duplicate", 4],
+            [source, "Cross-entry repeated title", aliases, "Duplicate", 4],
+            [source, "Explicit MDX wiki", mdx, "第二节", 2],
+            [source, "Extensionless MDX wiki", mdx, "第二节", 2],
+            [source, "Ordinary MDX link", mdx, "第二节", 2],
+        ];
+        for (const [from, label, target, title, level] of cases) {
+            await current.goto(`${base}${from}/`);
+            await main
+                .locator("a[href]")
+                .filter({ hasText: new RegExp(`^${label}$`, "u") })
+                .click();
+            await current.waitForURL(
+                (url) => url.pathname.replace(/\/$/u, "") === `${host.root}${target}` && url.hash !== "",
+            );
+            await main.getByRole("heading", { name: title, level, exact: true }).waitFor();
+            await current.waitForFunction(
+                ({ title, level, native }) => {
+                    const target = native ? document.querySelector(":target") : document.activeElement;
+                    const heading = target?.closest("h1,h2,h3,h4,h5,h6");
+                    return (
+                        heading?.tagName === `H${level}` &&
+                        (heading.dataset.readerHeadingText ?? heading.textContent) === title
+                    );
+                },
+                { title, level, native: noScript },
             );
         }
     };
@@ -1144,7 +1241,10 @@ export async function markdownBrowserScenarios(page, options) {
         await current.emulateMedia({ colorScheme: "light" });
     };
     for (const host of options.mode === "noscript" ? [] : options.hosts) {
-        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        const context = await browser.newContext({
+            javaScriptEnabled: !options.noScript,
+            viewport: { width: 1280, height: 900 },
+        });
         const current = await context.newPage();
         const errors = [];
         const consoleErrors = [];
@@ -1153,11 +1253,38 @@ export async function markdownBrowserScenarios(page, options) {
             if (message.type() === "error") consoleErrors.push(message.text());
         });
         current.on("requestfailed", (request) => {
-            if (!request.failure()?.errorText.includes("ABORTED"))
-                failedRequests.push({ url: request.url(), error: request.failure()?.errorText });
+            const error = request.failure()?.errorText;
+            const url = request.url();
+            // Chromium blocks the site's module preloads in a JavaScript-disabled context.
+            const blockedModule =
+                options.noScript &&
+                error === "csp" &&
+                url.startsWith(`${host.origin}${host.root}/-/assets/`) &&
+                url.endsWith(".js");
+            if (!error?.includes("ABORTED") && !blockedModule) failedRequests.push({ url, error });
         });
         current.on("pageerror", (error) => errors.push(error.message));
+        const assertCleanPage = () => {
+            assert(errors.length === 0, `${host.name}: page errors: ${errors.join("; ")}`);
+            assert(consoleErrors.length === 0, `${host.name}: console errors: ${consoleErrors.join("; ")}`);
+            assert(failedRequests.length === 0, `${host.name}: failed requests: ${JSON.stringify(failedRequests)}`);
+        };
         try {
+            if (options.mode === "navigation") {
+                if (!options.noScript) {
+                    await classificationLayout(current, host);
+                    results.push(
+                        `${host.name}: narrow classifications keep punctuation with the term and fit the reader`,
+                    );
+                }
+                await publishedHeadingTargets(current, host, options.noScript);
+                await headingNavigation(current, host, options.noScript);
+                assertCleanPage();
+                results.push(
+                    `${options.noScript ? "static noscript" : host.name}: published anchors and authored heading links reach their targets`,
+                );
+                continue;
+            }
             await current.goto(`${host.origin}${host.root}/notes/images/`);
             const reader = current.locator('[data-reader="markdown"]');
             await reader.locator("img").first().waitFor();
@@ -1229,8 +1356,6 @@ export async function markdownBrowserScenarios(page, options) {
             results.push(`${host.name}: long sidebar titles truncate without shifting the tree`);
             await directoryPage(current, host);
             results.push(`${host.name}: directory page opened directly`);
-            await classificationLayout(current, host);
-            results.push(`${host.name}: narrow classifications keep the separator with the final term`);
             if (host.name === "static") {
                 await mountedDocument(current, host);
                 results.push("static: mounted document retains identity, selection and links");
@@ -1305,9 +1430,7 @@ export async function markdownBrowserScenarios(page, options) {
                 await current.evaluate(() => document.body.style.overflow !== "hidden"),
                 `${host.name}: Graph scroll lock leaked`,
             );
-            assert(errors.length === 0, `${host.name}: page errors: ${errors.join("; ")}`);
-            assert(consoleErrors.length === 0, `${host.name}: console errors: ${consoleErrors.join("; ")}`);
-            assert(failedRequests.length === 0, `${host.name}: failed requests: ${JSON.stringify(failedRequests)}`);
+            assertCleanPage();
             results.push(`${host.name}: Graph selection and focus retained`);
         } catch (error) {
             await failure(current, host.name, error, { errors, consoleErrors, failedRequests });
@@ -1315,7 +1438,9 @@ export async function markdownBrowserScenarios(page, options) {
             await context.close();
         }
     }
-    if (options.mode === "enhanced") return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+    if (options.mode === "enhanced" || options.mode === "navigation") {
+        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+    }
     const host = options.hosts.find((host) => host.name === "static");
     const context = await browser.newContext({ javaScriptEnabled: false });
     const current = await context.newPage();

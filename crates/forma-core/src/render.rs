@@ -14,7 +14,7 @@ use crate::config::{
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
     Discovery, IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
-    discover_loaded_workspace,
+    discover_loaded_workspace, discover_loaded_workspace_with_runtime,
 };
 use crate::markdown::{
     FormaHeading, FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
@@ -23,6 +23,7 @@ use crate::markdown::{
 use crate::model::ResolvedWorkspaceModel;
 use crate::operations::{
     OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
+    normalize_entry_path,
 };
 use crate::path::WorkspacePath;
 
@@ -769,9 +770,9 @@ pub fn render_file(
         return Err(OperationError::InvalidInput("format".to_string()));
     }
 
-    let path = normalize_markdown_path(path)?;
+    let path = normalize_entry_path(path)?;
     let workspace = load_workspace(root.as_ref())?;
-    let discovery = discover_loaded_workspace(&workspace);
+    let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
     let index_entry = discovery
         .index
         .entries
@@ -784,6 +785,35 @@ pub fn render_file(
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
+    let body_offset = source.len() - document.body.len();
+    let mdx_destinations = runtime
+        .references_by_target
+        .iter()
+        .filter(|(target, _)| target.ends_with(".mdx"))
+        .flat_map(|(_, occurrences)| occurrences)
+        .filter_map(|reference| {
+            (reference.source_path == path
+                && matches!(
+                    reference.syntax,
+                    crate::document::DocumentReferenceSyntax::Wikilink
+                        | crate::document::DocumentReferenceSyntax::ObsidianEmbed
+                ))
+            .then(|| {
+                reference
+                    .span
+                    .start_byte
+                    .checked_sub(body_offset)
+                    .map(|offset| (offset, reference.target_path.as_str()))
+            })
+            .flatten()
+        })
+        .collect::<BTreeMap<_, _>>();
+    let markdown = lower_wikilinks(&document, &mdx_destinations, format == "html");
+    let (markdown, html) = if format == "markdown" {
+        (Some(markdown), None)
+    } else {
+        (None, Some(render_markdown_source_html(&markdown)))
+    };
     let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
     diagnostics.extend(
         document
@@ -813,8 +843,8 @@ pub fn render_file(
         },
         render: FileRenderOutput {
             format: format.to_string(),
-            markdown: (format == "markdown").then(|| markdown_with_reference_fallbacks(&document)),
-            html: (format == "html").then(|| render_markdown_html(&document)),
+            markdown,
+            html,
             source: None,
             headings: render_headings(&document),
             refs: index_entry.refs.clone(),
@@ -2361,11 +2391,6 @@ fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
     Some(current)
 }
 
-pub(crate) fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
-    let markdown = markdown_with_reference_fallbacks(document);
-    render_markdown_source_html(&markdown)
-}
-
 pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
     let (disclosure_source, disclosures) = disclosures::prepare(markdown);
     let (prepared, marker) = prepare_callouts(&disclosure_source);
@@ -2880,6 +2905,14 @@ pub(crate) fn slugify_heading(text: &str) -> String {
 }
 
 pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument) -> String {
+    lower_wikilinks(document, &BTreeMap::new(), false)
+}
+
+fn lower_wikilinks(
+    document: &FormaMarkdownDocument,
+    mdx_destinations: &BTreeMap<usize, &str>,
+    use_legacy_local_heading_ids: bool,
+) -> String {
     let mut output = document.body.clone();
     let mut replacements = document
         .references
@@ -2901,16 +2934,26 @@ pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument
             .as_deref()
             .unwrap_or(reference.target.as_str());
         let href = if let Some(fragment) = reference.target.trim().strip_prefix('#') {
-            let headings = local_headings.get_or_insert_with(|| render_headings(document));
-            let target = headings
-                .iter()
-                .find(|heading| {
-                    heading.id == fragment || heading.text.eq_ignore_ascii_case(fragment)
-                })
-                .map_or(fragment, |heading| heading.id.as_str());
-            format!("#{}", crate::routes::percent_encode_segment(target))
+            // The client resolves the authored fragment against all rendered headings
+            // and their aliases. Keep the historical ID mapping for the HTML API.
+            let fragment = if use_legacy_local_heading_ids {
+                let headings = local_headings.get_or_insert_with(|| render_headings(document));
+                headings
+                    .iter()
+                    .find(|heading| {
+                        heading.id == fragment || heading.text.eq_ignore_ascii_case(fragment)
+                    })
+                    .map_or(fragment, |heading| heading.id.as_str())
+            } else {
+                fragment
+            };
+            format!("#{}", crate::routes::percent_encode_segment(fragment))
         } else {
-            reference_fallback_href(&reference.target)
+            let destination = reference
+                .target_span
+                .or(reference.syntax_span)
+                .and_then(|span| mdx_destinations.get(&span.start_byte).copied());
+            reference_fallback_href(&reference.target, destination)
         };
         let replacement = format!("[{label}](<{href}>)");
         output.replace_range(span.start_byte..span.end_byte, &replacement);
@@ -2918,31 +2961,24 @@ pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument
     output
 }
 
-fn reference_fallback_href(target: &str) -> String {
+fn reference_fallback_href(target: &str, mdx_destination: Option<&str>) -> String {
     let trimmed = target.trim();
     let (path, fragment) = trimmed.split_once('#').unwrap_or((trimmed, ""));
     // Preserve authored path syntax so a workspace reference does not become an
     // explicit source-relative link when the reader resolves it.
-    let mut path = path.to_string();
-    if !path.ends_with(".md") {
-        path.push_str(".md");
-    }
+    let path = if let Some(destination) = mdx_destination {
+        format!("/{destination}")
+    } else if path.ends_with(".md") || path.ends_with(".mdx") {
+        path.to_string()
+    } else {
+        format!("{path}.md")
+    };
     let path = crate::routes::encode_path(&path);
     if fragment.is_empty() {
         path
     } else {
         let fragment = crate::routes::percent_encode_segment(fragment);
         format!("{path}#{fragment}")
-    }
-}
-
-fn normalize_markdown_path(path: &str) -> Result<String, OperationError> {
-    let path = WorkspacePath::parse_cli(path)?;
-    let value = path.as_str();
-    if value.ends_with(".md") {
-        Ok(value.to_string())
-    } else {
-        Ok(format!("{value}.md"))
     }
 }
 
@@ -3506,13 +3542,67 @@ mod tests {
         let root = fixture_root("file-render-self-wikilink");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
-        fs::write(root.join("notes/source.md"),
-            "# Source\n\n[[#Hello world|Jump]]\n\n## Hello world\n\n[[#Percent %20|Percent]]\n\n## Percent %20\n"
-        ).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "# Source\n\n[[#Hello world|Jump]]\n\n## Hello world\n\n[[#Percent %20|Percent]]\n\n## Percent %20\n\n[[#forma-heading-前缀|Alias]]\n\n## 前缀\n\n## forma-heading-前缀\n\n[[#Duplicate|First match]]\n\n#### Duplicate\n\n## Duplicate\n",
+        )
+        .unwrap();
         let result = render_file(&root, "notes/source.md", "markdown").unwrap();
         let markdown = result.render.markdown.unwrap();
-        assert!(markdown.contains("[Jump](<#hello-world>)"), "{markdown}");
-        assert!(markdown.contains("[Percent](<#percent-20>)"), "{markdown}");
+        for link in [
+            "[Jump](<#Hello%20world>)",
+            "[Percent](<#Percent%20%2520>)",
+            "[Alias](<#forma-heading-%E5%89%8D%E7%BC%80>)",
+            "[First match](<#Duplicate>)",
+        ] {
+            assert!(markdown.contains(link), "{link}: {markdown}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_configured_mdx_and_uses_indexed_wikilink_targets() {
+        let root = fixture_root("file-render-configured-mdx");
+        copy_starter_workspace(&root);
+        let notes_term = root.join(".forma/spaces/notes.md");
+        let config = fs::read_to_string(&notes_term).unwrap();
+        fs::write(
+            notes_term,
+            config.replace(
+                "  - \"notes/**/*.md\"",
+                "  - \"notes/**/*.md\"\n  - \"guides/**/*.mdx\"",
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("guides")).unwrap();
+        fs::write(root.join("guides/target.mdx"), "# Title\n\n## 第二节\n").unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "# Source\n\n[[guides/target.mdx#第二节|Explicit]]\n\n[[guides/target#第二节|Extensionless]]\n\n[[../guides/target#第二节|Relative]]\n\n[Ordinary](../guides/target.mdx#第二节)\n",
+        )
+        .unwrap();
+
+        let rendered = render_file(&root, "notes/source", "markdown").unwrap();
+        assert_eq!(rendered.file.path, "notes/source.md");
+        assert_eq!(rendered.status, OperationStatus::Passed);
+        let markdown = rendered.render.markdown.unwrap();
+        for label in ["Explicit", "Extensionless", "Relative"] {
+            let expected = format!("[{label}](</guides/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)");
+            assert!(markdown.contains(&expected), "{label}: {markdown}");
+        }
+        assert!(markdown.contains("[Ordinary](../guides/target.mdx#第二节)"));
+        assert!(
+            rendered
+                .render
+                .refs
+                .iter()
+                .all(|reference| reference.target_path == "guides/target.mdx")
+        );
+
+        let target = render_file(&root, "guides/target.mdx", "markdown").unwrap();
+        assert_eq!(target.file.path, "guides/target.mdx");
+        assert_eq!(target.render.headings[0].text, "第二节");
+        assert!(target.render.markdown.unwrap().contains("## 第二节"));
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -14,10 +14,10 @@ applyThemePreference(readThemePreference(), false);
 // failure here surfaces through the route error boundary when the route mounts.
 void preloadDashboardRoutes().catch(() => undefined);
 
-const root = document.getElementById("root");
+const root = document.querySelector("[data-forma-app-root]");
 
 if (!root) {
-    throw new Error("Root element #root was not found.");
+    throw new Error("Forma application mount was not found.");
 }
 const rootElement = root;
 

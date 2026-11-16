@@ -119,13 +119,14 @@ fn home_page(
 /// Home is the workspace root's page, so the page without scripts also lists the root folder.
 fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String {
     let home = &snapshot.workspace.home;
+    let entry_top = entry_top_id(&home.html);
     let reader = if home.html.trim().is_empty() {
         String::new()
     } else {
         rewrite_home_fragments(&home.html, "/", root_path)
     };
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{reader}</div>{}</article>",
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"{entry_top}\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{reader}</div>{}</article>",
         escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
         directory_contents(&snapshot.entries, "", root_path, None),
     )
@@ -300,8 +301,9 @@ fn entry_route_content(
 }
 
 fn entry_body(entry: &StaticSiteEntry, root_path: &str, directory_listing: &str) -> String {
+    let entry_top = entry_top_id(&entry.html);
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">{}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div>{directory_listing}</article>",
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"{entry_top}\"><p class=\"text-base-content/60 text-sm\">{}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div>{directory_listing}</article>",
         escape_attribute(&entry.id),
         escape_html(&entry.space),
         escape_html(entry.title.as_deref().unwrap_or(&entry.path)),
@@ -315,8 +317,9 @@ fn variant_body(
     variant: &StaticSiteEntryVariant,
     directory_listing: &str,
 ) -> String {
+    let entry_top = entry_top_id(&variant.html);
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">{} · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div>{directory_listing}</article>",
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"{entry_top}\"><p class=\"text-base-content/60 text-sm\">{} · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div>{directory_listing}</article>",
         escape_attribute(&variant.id),
         escape_html(&canonical.space),
         escape_html(&variant.language),
@@ -324,6 +327,15 @@ fn variant_body(
         optional_summary(variant.summary.as_deref().or(canonical.summary.as_deref())),
         variant.html,
     )
+}
+
+fn entry_top_id(body: &str) -> String {
+    // Keep authored heading fragments intact when naming the page header.
+    let mut id = "entry-top".to_string();
+    while body.contains(&format!(r#" id="{id}""#)) {
+        id.push('-');
+    }
+    id
 }
 
 fn rewrite_home_fragments(html: &str, route_path: &str, root_path: &str) -> String {
@@ -820,7 +832,7 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         ""
     };
     format!(
-        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Collections</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div data-forma-app-root><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Collections</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
         language = escape_attribute(&options.page.language),
         title_text = escape_html(&document_title),
         title_attribute = escape_attribute(&document_title),

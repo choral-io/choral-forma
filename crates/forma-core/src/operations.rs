@@ -4527,7 +4527,7 @@ fn parent_from_workspace_path(path: &str) -> String {
         .unwrap_or_default()
 }
 
-fn normalize_entry_path(path: &str) -> Result<String, OperationError> {
+pub(crate) fn normalize_entry_path(path: &str) -> Result<String, OperationError> {
     let normalized = WorkspacePath::parse_cli(path)?;
     let value = normalized.as_str();
     if value.ends_with(".md") || value.ends_with(".mdx") {

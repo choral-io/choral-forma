@@ -32,7 +32,6 @@ export function markdownBrowserPhases(hosts, sourceIds) {
         ...(host.name === "static" ? ["static: raw source navigation beside sidecar"] : []),
         `${host.name}: long sidebar titles truncate without shifting the tree`,
         `${host.name}: directory page opened directly`,
-        `${host.name}: narrow classifications keep the separator with the final term`,
         ...(host.name === "static"
             ? [
                   "static: mounted document retains identity, selection and links",
@@ -93,6 +92,23 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                 : `${name}: native disclosures, folding and navigation`,
         ],
     }));
+    const navigation = ["webapp", "static", "noscript"].map((name) => {
+        const noScript = name === "noscript";
+        const host = hosts.find((host) => host.name === (noScript ? "static" : name));
+        return {
+            name: `${name}-navigation`,
+            mode: "navigation",
+            expectedSourceCases: {},
+            noScript,
+            hosts: [host],
+            expectedResults: [
+                ...(noScript
+                    ? []
+                    : [`${host.name}: narrow classifications keep punctuation with the term and fit the reader`]),
+                `${noScript ? "static noscript" : host.name}: published anchors and authored heading links reach their targets`,
+            ],
+        };
+    });
     const geometryHosts = ["webapp", "static"].map((name) => hosts.find((host) => host.name === name));
     const geometry = {
         name: "mermaid-geometry",
@@ -103,7 +119,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
         ),
         expectedSourceCases: {},
     };
-    return [geometry, ...disclosures, ...phases];
+    return [geometry, ...disclosures, ...navigation, ...phases];
 }
 
 export function validateMarkdownBrowserPhase(result, phase) {

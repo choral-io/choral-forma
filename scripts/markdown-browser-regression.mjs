@@ -134,13 +134,27 @@ try {
             .replace('  - ".forma/spaces/*.md"\n', '  - ".forma/spaces/*.md"\n  - ".forma/topics/*.md"\n'),
     );
     await mkdir(join(workspace, ".forma/topics"));
+    const classificationLabel = "Deployment and workspace configuration documentation";
+    const classificationEntries = [
+        ["classification-layout", `${classificationLabel}-`],
+        ["classification-space-layout", `${classificationLabel} `],
+        ["classification-ideographic-layout", `${classificationLabel}\\u3000`],
+        ["classification-line-layout", `${classificationLabel}\\u2028`],
+        ["classification-paragraph-layout", `${classificationLabel}\\u2029`],
+        ["classification-long-layout", "ProductionConfigurationDeploymentManagementDocumentation"],
+        ["classification-comma-layout", "Primary"],
+    ];
     await writeFile(
         join(workspace, ".forma/topics/index.md"),
         "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: secondary\n---\n",
     );
     await writeFile(
         join(workspace, ".forma/topics/reference.md"),
-        "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Reference\ninclude: [classification-layout.md, classification-space-layout.md]\n---\n",
+        `---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Reference\ninclude: [${classificationEntries.map(([name]) => `${name}.md`).join(", ")}]\n---\n`,
+    );
+    await writeFile(
+        join(workspace, ".forma/topics/classification-comma.md"),
+        `---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: "${classificationLabel} "\ndisplay:\n  order: 1\ninclude: [classification-comma-layout.md]\n---\n`,
     );
     await mkdir(join(workspace, "graph"));
     await mkdir(join(workspace, "preview"));
@@ -148,16 +162,13 @@ try {
         join(workspace, ".forma/spaces/mount-probe.md"),
         '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment path fixture\ninclude:\n  - "preview/**/*.md"\n  - "same.md"\n  - "contract-target.md"\n---\n',
     );
-    await writeFile(
-        join(workspace, ".forma/spaces/classification-layout.md"),
-        "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment and workspace configuration documentation-\ninclude: [classification-layout.md]\n---\n",
-    );
-    await writeFile(join(workspace, "classification-layout.md"), "# Classification layout\n");
-    await writeFile(
-        join(workspace, ".forma/spaces/classification-space-layout.md"),
-        '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: "Deployment and workspace configuration documentation "\ninclude: [classification-space-layout.md]\n---\n',
-    );
-    await writeFile(join(workspace, "classification-space-layout.md"), "# Classification space layout\n");
+    for (const [name, title] of classificationEntries) {
+        await writeFile(
+            join(workspace, `.forma/spaces/${name}.md`),
+            `---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: "${title}"\ninclude: [${name}.md]\n---\n`,
+        );
+        await writeFile(join(workspace, `${name}.md`), "# Classification layout\n");
+    }
     await writeFile(
         join(workspace, ".forma/spaces/punctuation.md"),
         "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\nid: wow!\ntitle: Punctuation term\n---\n",
@@ -196,6 +207,41 @@ try {
         "# Route links\n\n[Encoded space](./route%20space.md)\n\n[Literal escape](./literal%2520.md)\n\n[Punctuation](./hash%20%23%E4%B8%AD%E6%96%87!.md)\n\n[Double extension](./target.md.md)\n",
     );
     await writeFile(
+        join(workspace, "notes/navigation-anchors.md"),
+        [
+            "# Anchor navigation",
+            "[[#forma-heading-前缀|Local wiki alias]]",
+            "[Local explicit alias](#forma-heading-%E5%89%8D%E7%BC%80)",
+            "## 前缀",
+            "## forma-heading-前缀",
+            "[[#Duplicate|Local repeated title]]",
+            "[[notes/navigation-anchors#Duplicate|Path-qualified repeated title]]",
+            "#### Duplicate",
+            "## Duplicate",
+            "",
+        ].join("\n\n"),
+    );
+    const notesTermPath = join(workspace, ".forma/spaces/notes.md");
+    const notesTermConfig = await readFile(notesTermPath, "utf8");
+    await writeFile(
+        notesTermPath,
+        notesTermConfig.replace('  - "notes/**/*.md"\n', '  - "notes/**/*.md"\n  - "guides/**/*.mdx"\n'),
+    );
+    await mkdir(join(workspace, "guides"));
+    await writeFile(join(workspace, "guides/navigation-target.mdx"), "# Alternate format\n\n## 第二节\n");
+    await writeFile(
+        join(workspace, "notes/navigation-source.md"),
+        [
+            "# Navigation source",
+            "[[notes/navigation-anchors#forma-heading-前缀|Cross-entry wiki alias]]",
+            "[[notes/navigation-anchors#Duplicate|Cross-entry repeated title]]",
+            "[[guides/navigation-target.mdx#第二节|Explicit MDX wiki]]",
+            "[[guides/navigation-target#第二节|Extensionless MDX wiki]]",
+            "[Ordinary MDX link](../guides/navigation-target.mdx#第二节)",
+            "",
+        ].join("\n\n"),
+    );
+    await writeFile(
         join(workspace, "notes/contract-target.md"),
         [
             "---\ntitle: Contract target\n---",
@@ -211,6 +257,40 @@ try {
     );
     await writeFile(join(workspace, "notes/omitted-title.md"), "# 总览\n\n## 正文\n");
     await writeFile(join(workspace, "notes/omitted-collision.md"), "# Alias owner\n\n## Forma heading alias owner\n");
+    await writeFile(join(workspace, "notes/legacy-omitted.md"), "# Hello world\n\n## Body\n");
+    await writeFile(
+        join(workspace, "notes/double-omitted.md"),
+        "# Forma heading foo\n\n## Foo\n\n## Forma heading forma heading foo\n",
+    );
+    await writeFile(
+        join(workspace, "notes/published-heading-links.md"),
+        [
+            "# Published heading links",
+            "[Uppercase omitted title](./legacy-omitted.md#HELLO-WORLD)",
+            "[Underscore omitted title](./legacy-omitted.md#hello_world)",
+            "[Named double collision](./double-omitted.md#Forma%20heading%20foo)",
+            "[Body alias after collision](./double-omitted.md#forma-heading-foo)",
+            "",
+        ].join("\n\n"),
+    );
+    await writeFile(
+        join(workspace, "notes/shell-heading-links.md"),
+        "# Shell heading links\n\n[Root title link](#Root)\n\n[Entry top title link](#Entry%20top)\n\n## Root\n\n## Entry top\n",
+    );
+    await writeFile(
+        join(workspace, ".forma/views/view-heading-intro.md"),
+        [
+            "---\nschemaVersion: 1\nkind: view\ntitle: View heading intro\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---",
+            "An introductory paragraph.",
+            "# Secondary view title",
+            "## Setup",
+            "[Setup](#setup)",
+            "[Deploy](#deploy)",
+            "<!-- forma:content -->",
+            "## Deploy",
+            "",
+        ].join("\n\n"),
+    );
     await writeFile(join(workspace, "contract-target.md"), "# Wrong root target\n");
     await writeFile(
         join(workspace, "notes/contract-target.zh-hans.md"),

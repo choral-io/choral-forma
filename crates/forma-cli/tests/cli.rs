@@ -228,7 +228,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     std::fs::create_dir_all(&root).unwrap();
     copy_starter_workspace(&root);
     let entry = root.join("notes/static-site.md");
-    let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n\nThe neutral homepage body is present.\n\n## Details\n\n![Diagram](../assets/diagram.svg)\n![Spaced Resource](<../assets/diagram space.svg>)\n![Unicode Resource](../assets/图.svg)\n![Percent Resource](../assets/100%.svg)\n\n[Spaced Page](<with space.md>)\n[Unicode Page](你好.md)\n[Percent Page](100%.md)\n";
+    let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n\nThe neutral homepage body is present.\n\n## Details\n\n![Diagram](../assets/diagram.svg)\n![Spaced Resource](<../assets/diagram space.svg>)\n![Unicode Resource](../assets/图.svg)\n![Percent Resource](../assets/100%.svg)\n\n[Spaced Page](<with space.md>)\n[Unicode Page](你好.md)\n[Percent Page](100%.md)\n\n## Root\n\n[Root title link](#Root)\n\n## Entry top\n\n[Entry top title link](#Entry%20top)\n";
     std::fs::write(&entry, source).unwrap();
     let mut workspace_source = std::fs::read_to_string(root.join(".forma.md")).unwrap();
     workspace_source.push_str("\n# Static Workspace Home\n\nThe workspace root body is present.\n\n![Diagram](assets/diagram.svg)\n![Spaced Resource](<assets/diagram space.svg>)\n![Unicode Resource](assets/图.svg)\n![Percent Resource](assets/100%.svg)\n\n[Spaced Page](<notes/with space.md>)\n[Unicode Page](notes/你好.md)\n[Percent Page](notes/100%.md)\n");
@@ -392,6 +392,13 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         std::fs::read_to_string(root.join("dist/site/notes/static-site/index.html")).unwrap();
     assert!(entry_html.contains(r#"id="details""#));
     assert!(entry_html.contains("The neutral homepage body is present."));
+    assert!(entry_html.contains("<div data-forma-app-root>"));
+    for (id, label) in [("root", "Root"), ("entry-top", "Entry top")] {
+        assert_eq!(entry_html.matches(&format!(r#"id="{id}""#)).count(), 1);
+        assert!(entry_html.contains(&format!(r#"<h2 id="{id}">"#)));
+        assert!(entry_html.contains(&format!("href=\"#{id}\">{label} title link</a>")));
+    }
+    assert!(entry_html.contains(r#"<header class="flex flex-col gap-3" id="entry-top-">"#));
     let variant_html =
         std::fs::read_to_string(root.join("dist/site/notes/static-site.zh-hans/index.html"))
             .unwrap();

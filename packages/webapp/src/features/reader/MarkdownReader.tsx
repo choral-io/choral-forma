@@ -429,8 +429,10 @@ export function postProcessMarkdownHtml(
             .filter((element) => !omitTitle || element !== leadingTitle)
             .map((element) => element.id),
     );
-    for (const heading of document.body.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")) {
-        if (heading === footnoteLabel) continue;
+    const authoredHeadings = Array.from(document.body.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")).filter(
+        (heading) => heading !== footnoteLabel,
+    );
+    const anchors = authoredHeadings.map((heading) => {
         const semanticHeading = heading.cloneNode(true) as HTMLElement;
         for (const reference of semanticHeading.querySelectorAll("[data-user-content-fn-ref]")) {
             if (reference.parentElement?.tagName === "SUP") reference.parentElement.remove();
@@ -443,12 +445,19 @@ export function postProcessMarkdownHtml(
         const projectedHeading = projectedHeadings.get(heading);
         heading.dataset.readerHeadingText = projectedHeading?.text ?? semanticHeading.textContent;
         const aliasId = projectedHeading?.aliasId;
-        let id = aliasId === undefined ? headingAnchor(semanticHeading.textContent) : aliasId;
-        if (omitTitle && heading === leadingTitle && (id === null || occupiedIds.has(id))) {
-            id = heading.id;
-            if (!id || occupiedIds.has(id)) {
+        return { heading, candidate: aliasId === undefined ? headingAnchor(semanticHeading.textContent) : aliasId };
+    });
+    const bodyAliases = new Set(
+        anchors.filter(({ heading }) => heading !== leadingTitle).map(({ candidate }) => candidate),
+    );
+    for (const { heading, candidate } of anchors) {
+        let id = candidate;
+        if (omitTitle && heading === leadingTitle) {
+            // The hidden title cannot take a readable alias that belongs to the body.
+            if (!id || occupiedIds.has(id) || bodyAliases.has(id)) id = heading.id;
+            if (!id || occupiedIds.has(id) || bodyAliases.has(id)) {
                 id = "forma-omitted-title";
-                while (occupiedIds.has(id)) id += "-";
+                while (occupiedIds.has(id) || bodyAliases.has(id)) id += "-";
             }
         }
         if (!id || occupiedIds.has(id)) continue;
@@ -466,6 +475,7 @@ export function postProcessMarkdownHtml(
         if (alias) {
             alias.setAttribute("aria-label", title.textContent);
             alias.dataset.readerHeadingText = title.getAttribute("data-reader-heading-text") ?? title.textContent;
+            alias.dataset.readerOmittedTitle = "";
             title.replaceWith(alias);
         } else title.remove();
     }
