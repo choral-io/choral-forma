@@ -1107,7 +1107,8 @@ export async function markdownBrowserScenarios(page, options) {
     };
     const callouts = async (current, host, noScript = false) => {
         await current.bringToFront();
-        await current.goto(`${host.origin}${host.root}/notes/callout-interaction/`);
+        const pageUrl = `${host.origin}${host.root}/notes/callout-interaction/`;
+        await current.goto(pageUrl);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const disclosures = current.locator("details[data-callout-fold]");
         await disclosures.first().waitFor({ state: "attached" });
@@ -1170,20 +1171,32 @@ export async function markdownBrowserScenarios(page, options) {
             await state(false);
             const returnId = await collapsed.locator(".collapse-content sup a").getAttribute("id");
             assert(returnId, `${host.name}: body reference ID missing`);
-            await current.locator(`a[href$="#${returnId}"]`).click();
-            await state(true);
-            await current.waitForFunction((id) => document.activeElement?.id === id, returnId);
-            assert(
-                await current.evaluate((id) => document.activeElement?.id === id, returnId),
-                `${host.name}: return focus lost`,
-            );
+            const returnHash = `#${returnId}`;
+            const expectFootnoteFocus = async () => {
+                if (host.name === "static") await current.locator("[data-enhancement-ready]").waitFor();
+                await state(true);
+                await current.waitForURL((url) => url.hash === returnHash);
+                await current.waitForFunction(
+                    (id) => {
+                        const active = document.activeElement;
+                        return active?.id === id && active.matches("a[data-user-content-fn-ref]");
+                    },
+                    returnId,
+                    { timeout: 3000 },
+                );
+            };
+            await current.locator(`a[data-footnote-backref][href$="${returnHash}"]`).click();
+            await expectFootnoteFocus();
             await current.reload();
-            await state(true);
+            await expectFootnoteFocus();
             await toggle();
             await state(false);
             await titleLink.click();
             await current.goBack();
-            await state(true);
+            await expectFootnoteFocus();
+            await current.goto("about:blank");
+            await current.goto(pageUrl + returnHash);
+            await expectFootnoteFocus();
         }
         await current.goto(`${host.origin}${host.root}/notes/callout-layout/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();

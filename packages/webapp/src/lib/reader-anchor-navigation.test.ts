@@ -49,6 +49,36 @@ describe("scrollReaderAnchor", () => {
         if (change === "focus moved") expect(document.activeElement).toBe(other);
     });
 
+    it("continues restoring the footnote reference when the expanded content is still hidden", () => {
+        const callbacks: FrameRequestCallback[] = [];
+        vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => callbacks.push(callback));
+        const disclosure = document.createElement("details");
+        disclosure.dataset.calloutFold = "";
+        const reference = document.createElement("a");
+        reference.id = "user-content-fnref-body";
+        reference.href = "#user-content-fn-body";
+        reference.scrollIntoView = vi.fn();
+        disclosure.append(reference);
+        document.body.append(disclosure);
+        let contentVisible = false;
+        const focus = reference.focus.bind(reference);
+        vi.spyOn(reference, "focus").mockImplementation((options) => {
+            if (contentVisible) focus(options);
+        });
+
+        window.history.replaceState(null, "", `/#${reference.id}`);
+        restoreReaderFragment(document.body);
+        expect(disclosure.open).toBe(true);
+        callbacks.shift()?.(0);
+        callbacks.shift()?.(16);
+        expect(document.activeElement).toBe(document.body);
+
+        contentVisible = true;
+        callbacks.shift()?.(32);
+        expect(document.activeElement).toBe(reference);
+        expect(callbacks).toHaveLength(0);
+    });
+
     it("finds a heading by the text a wiki fragment names when no id matches", () => {
         const reader = document.createElement("main");
         // Reader controls inside a heading do not change which heading the text names.

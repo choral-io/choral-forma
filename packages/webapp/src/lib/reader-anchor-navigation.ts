@@ -111,15 +111,12 @@ export function restoreReaderFragment(reader: HTMLElement) {
 
 function focusReaderTarget(target: HTMLElement, expectedHash: string) {
     // Reveal only reader-owned disclosure ancestors; targeting the disclosure itself never toggles it.
-    let revealed = false;
     let ancestor = target.parentElement?.closest<HTMLDetailsElement>(
         "details[data-callout-fold], details[data-markdown-disclosure]",
     );
+    const insideDisclosure = Boolean(ancestor);
     while (ancestor) {
-        if (!ancestor.open) {
-            ancestor.open = true;
-            revealed = true;
-        }
+        if (!ancestor.open) ancestor.open = true;
         ancestor = ancestor.parentElement?.closest<HTMLDetailsElement>(
             "details[data-callout-fold], details[data-markdown-disclosure]",
         );
@@ -130,30 +127,32 @@ function focusReaderTarget(target: HTMLElement, expectedHash: string) {
             : target;
     if (!focusTarget.hasAttribute("tabindex")) focusTarget.tabIndex = -1;
     focusTarget.focus({ preventScroll: true });
-    if (revealed && document.activeElement !== focusTarget) {
-        const previousFocus = document.activeElement;
-        // Native disclosure descendants can become focusable after the first expanded paint.
-        window.requestAnimationFrame(() => {
-            window.requestAnimationFrame(() => {
-                if (!target.isConnected || window.location.hash !== expectedHash) return;
-                if (
-                    target.parentElement?.closest(
-                        "details[data-callout-fold]:not([open]), details[data-markdown-disclosure]:not([open])",
-                    )
-                )
-                    return;
-                // Native fragment navigation may clear the opener's focus to body.
-                // Preserve an explicit intervening focus on any other control.
-                if (
-                    document.activeElement !== previousFocus &&
-                    document.activeElement !== target &&
-                    document.activeElement !== focusTarget &&
-                    document.activeElement !== document.body
-                )
-                    return;
-                focusTarget.focus({ preventScroll: true });
-                if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
-            });
-        });
+    if (!insideDisclosure || document.activeElement === focusTarget) return;
+
+    const previousFocus = document.activeElement;
+    // An open disclosure can still hide its descendants during its CSS transition.
+    const retryUntil = performance.now() + 500;
+    function restoreFocus() {
+        if (!target.isConnected || window.location.hash !== expectedHash) return;
+        if (
+            target.parentElement?.closest(
+                "details[data-callout-fold]:not([open]), details[data-markdown-disclosure]:not([open])",
+            )
+        ) {
+            return;
+        }
+        // Native fragment navigation may clear the opener's focus to body.
+        // Preserve an explicit intervening focus on any other control.
+        const active = document.activeElement;
+        if (active !== previousFocus && active !== target && active !== focusTarget && active !== document.body) {
+            return;
+        }
+        if (active !== focusTarget) focusTarget.focus({ preventScroll: true });
+        if (document.activeElement === focusTarget) {
+            if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
+        } else if (performance.now() < retryUntil) {
+            window.requestAnimationFrame(restoreFocus);
+        }
     }
+    window.requestAnimationFrame(() => window.requestAnimationFrame(restoreFocus));
 }
