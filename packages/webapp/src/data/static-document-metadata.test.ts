@@ -33,8 +33,16 @@ const dashboard = {
             summary: "Encoded summary.",
             variants: [],
         },
+        {
+            id: "preview--notes--home",
+            path: "preview/notes/home.md",
+            routePath: "/preview/notes/home",
+            title: "Mounted document",
+            summary: "Mounted summary.",
+            variants: [],
+        },
     ],
-    taxonomies: [],
+    taxonomies: [{ id: "topics", title: "Topics", terms: [{ id: "wow!", title: "Punctuation term" }] }],
     views: [
         {
             id: "notes",
@@ -50,6 +58,16 @@ describe("static document metadata", () => {
         clearStaticRuntimeConfig();
         document.head.innerHTML = "";
     });
+
+    it.each(["/-/browse/topics/wow%21/", "/-/browse/topics/wow!"])(
+        "resolves term metadata with the same canonical path from %s",
+        (pathname) => {
+            expect(resolveStaticDocumentMetadata(dashboard, pathname)).toMatchObject({
+                canonicalPath: "/-/browse/topics/wow%21",
+                title: "Punctuation term",
+            });
+        },
+    );
 
     it("titles a directory page by its name and leaves unknown paths not found", () => {
         expect(resolveStaticDocumentMetadata(dashboard, "/notes")).toEqual({
@@ -69,17 +87,17 @@ describe("static document metadata", () => {
             rootPath: "/preview",
         });
 
-        expect(resolveStaticDocumentMetadata(dashboard, "/preview/")).toEqual({
+        expect(resolveStaticDocumentMetadata(dashboard, "/")).toEqual({
             canonicalPath: "/",
             description: "Markdown-backed workspace content.",
             title: "Forma",
         });
-        expect(resolveStaticDocumentMetadata(dashboard, "/preview/notes/with%20space/")).toEqual({
+        expect(resolveStaticDocumentMetadata(dashboard, "/notes/with%20space/")).toEqual({
             canonicalPath: "/notes/with%20space",
             description: "Encoded summary.",
             title: "Encoded",
         });
-        expect(resolveStaticDocumentMetadata(dashboard, "/preview/-/views/notes")).toEqual({
+        expect(resolveStaticDocumentMetadata(dashboard, "/-/views/notes")).toEqual({
             canonicalPath: "/-/views/notes",
             description: "table workspace View.",
             title: "Notes",
@@ -103,7 +121,7 @@ describe("static document metadata", () => {
             rootPath: "/preview",
         });
 
-        syncStaticDocumentMetadata(dashboard, "/preview/notes/with%20space");
+        syncStaticDocumentMetadata(dashboard, "/notes/with%20space");
 
         expect(document.title).toBe("Encoded · Forma");
         expect(document.querySelector('meta[name="description"]')?.getAttribute("content")).toBe("Encoded summary.");
@@ -120,6 +138,22 @@ describe("static document metadata", () => {
         syncStaticDocumentMetadata(dashboard, "//evil.example");
         expect(document.querySelector('link[rel="canonical"]')?.getAttribute("href")).toBe(
             "https://example.test//evil.example",
+        );
+    });
+
+    it("keeps a basename-like content segment in router metadata and adds the deployment prefix", () => {
+        document.head.innerHTML = '<link rel="canonical">';
+        setStaticRuntimeConfig({
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/-/data",
+            rootPath: "/preview",
+        });
+
+        syncStaticDocumentMetadata(dashboard, "/preview/notes/home/");
+
+        expect(document.title).toBe("Mounted document · Forma");
+        expect(document.querySelector('link[rel="canonical"]')?.getAttribute("href")).toBe(
+            "https://example.test/preview/preview/notes/home",
         );
     });
 });

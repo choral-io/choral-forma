@@ -79,10 +79,13 @@ test("automatically deploys only a fully successful main push", () => {
 });
 
 test("binds the named static artifact to the current remote main commit", () => {
+    const build = job(ci, "site");
+    const buildCommands = build.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : [])).join("\n");
     const commands = deploy.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : [])).join("\n");
     assert.equal(commands.match(/git\/ref\/heads\/main/gu)?.length, 2);
     assert.match(commands, /current_main.*GITHUB_SHA/su);
-    assert.match(commands, /\.forma-source-sha/u);
+    assert.match(buildCommands, /"\$\{site\}\/-\/\.forma-source-sha"/u);
+    assert.match(commands, /< dist\/site\/-\/\.forma-source-sha\)/u);
     assert.match(commands, /pnpm install --frozen-lockfile/u);
     assert.match(commands, /pnpm site:deploy/u);
     const download = deploy.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));

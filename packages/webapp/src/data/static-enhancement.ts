@@ -10,7 +10,7 @@ import {
     viewsRoutePath,
 } from "@/lib/workspace-routes";
 
-import { resolveDashboardEntryTarget } from "./static-route-target";
+import { canonicalRoutePath, resolveDashboardEntryTarget } from "./static-route-target";
 import { logicalPathname } from "./static-runtime";
 import type { DashboardEntry, DashboardViewRender, WorkspaceDashboard } from "./workspace-client";
 import { createWorkspaceDashboardContext } from "./workspace-client";
@@ -34,13 +34,14 @@ export async function prepareStaticEnhancement(pathname: string) {
 
     // Home and the system pages render from the dashboard alone; any other route is content.
     const isContentRoute = routePath !== "/" && !isSystemRoutePath(routePath);
-    const pageTarget = isContentRoute ? resolveDashboardEntryTarget(dashboard, routePath) : undefined;
+    const contentRoute = isContentRoute ? canonicalRoutePath(routePath) : undefined;
+    const pageTarget = contentRoute ? resolveDashboardEntryTarget(dashboard, contentRoute) : undefined;
     const directory = directoryForRoutePath(dashboard.entries, routePath);
     // A document served at a route wins; a directory page lists the dashboard's own entries.
-    if (pageTarget) {
+    if (pageTarget && contentRoute) {
         seed.entry = {
             detail: await workspaceClient.getEntry(pageTarget.entryId, dashboardContext),
-            routePath,
+            routePath: contentRoute,
         };
     } else if (isContentRoute && !directory) {
         throw new Error(`Static artifact route was not listed: ${routePath}`);
@@ -68,9 +69,10 @@ function isDashboardOnlyRoute(dashboard: WorkspaceDashboard, routePath: string) 
     if (["/", `/${systemRouteSegment}`, viewsRoutePath, browseRoutePath, healthRoutePath].includes(routePath)) {
         return true;
     }
+    const collectionPath = canonicalRoutePath(routePath);
     return dashboard.taxonomies.some(
         (taxonomy) =>
-            routePath === taxonomyRoutePath(taxonomy.id) ||
-            taxonomy.terms.some((term) => routePath === taxonomyTermRoutePath(taxonomy.id, term.id)),
+            collectionPath === taxonomyRoutePath(taxonomy.id) ||
+            taxonomy.terms.some((term) => collectionPath === taxonomyTermRoutePath(taxonomy.id, term.id)),
     );
 }

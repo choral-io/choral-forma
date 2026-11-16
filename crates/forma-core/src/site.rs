@@ -27,9 +27,10 @@ use crate::render::{
     render_indexed_view_from_loaded, render_markdown_source_html, slugify_heading,
 };
 use crate::routes::{
-    BROWSE_ROUTE_PATH, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE, VIEWS_ROUTE_PATH,
-    directory_paths, directory_route_path, entry_route_path, public_view_id, raw_route_path,
-    route_output_path, taxonomy_route_path, taxonomy_term_route_path, view_route_path,
+    BROWSE_ROUTE_PATH, HEALTH_ROUTE_PATH, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE,
+    VIEWS_ROUTE_PATH, directory_paths, directory_route_path, entry_route_path, public_view_id,
+    raw_route_path, route_output_path, taxonomy_route_path, taxonomy_term_route_path,
+    view_route_path,
 };
 use crate::{media_type_for_workspace_path, version};
 
@@ -98,6 +99,7 @@ pub enum StaticSiteRouteKind {
     TaxonomyTerm,
     /// A directory of indexed source paths, listing its folders and pages.
     Directory,
+    Health,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -882,11 +884,11 @@ fn directory_routes(entries: &[StaticSiteEntry]) -> Vec<StaticSiteRoute> {
     let page_routes = entries
         .iter()
         .flat_map(|entry| {
-            std::iter::once(entry.route_path.to_ascii_lowercase()).chain(
+            std::iter::once(entry.route_path.as_str()).chain(
                 entry
                     .variants
                     .iter()
-                    .map(|variant| variant.route_path.to_ascii_lowercase()),
+                    .map(|variant| variant.route_path.as_str()),
             )
         })
         .collect::<BTreeSet<_>>();
@@ -894,7 +896,7 @@ fn directory_routes(entries: &[StaticSiteEntry]) -> Vec<StaticSiteRoute> {
         .into_iter()
         .filter_map(|directory| {
             let path = directory_route_path(&directory);
-            (!page_routes.contains(&path.to_ascii_lowercase())).then(|| StaticSiteRoute {
+            (!page_routes.contains(path.as_str())).then(|| StaticSiteRoute {
                 kind: StaticSiteRouteKind::Directory,
                 output_path: route_output_path(&path),
                 id: directory,
@@ -908,6 +910,7 @@ fn support_routes() -> Vec<StaticSiteRoute> {
     [
         (StaticSiteRouteKind::Views, "views", VIEWS_ROUTE_PATH),
         (StaticSiteRouteKind::Taxonomies, "browse", BROWSE_ROUTE_PATH),
+        (StaticSiteRouteKind::Health, "health", HEALTH_ROUTE_PATH),
     ]
     .into_iter()
     .map(|(kind, id, path)| StaticSiteRoute {
@@ -1632,7 +1635,8 @@ mod tests {
         collect_backlinks_by_target,
     };
     use crate::{
-        OperationStatus, ReferenceIntent, ReferenceSource, ViewRenderOutput, WorkspaceSnapshot,
+        DiagnosticSeverity, OperationStatus, ReferenceIntent, ReferenceSource, ViewRenderOutput,
+        WorkspaceSnapshot, check_workspace,
     };
 
     #[test]
@@ -1682,6 +1686,11 @@ mod tests {
         }));
         for (kind, path, output_path) in [
             (StaticSiteRouteKind::Views, "/-/views", "-/views/index.html"),
+            (
+                StaticSiteRouteKind::Health,
+                "/-/health",
+                "-/health/index.html",
+            ),
             (
                 StaticSiteRouteKind::Taxonomies,
                 "/-/browse",
@@ -2270,6 +2279,63 @@ mod tests {
             "{:?}",
             snapshot.diagnostics
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_rejects_case_only_document_and_directory_conflicts() {
+        let root = copy_fixture("site-snapshot-directory-case-conflict");
+        fs::create_dir_all(root.join("content/guides/guide")).unwrap();
+        fs::write(root.join("content/guides/Guide.md"), "# Guide\n").unwrap();
+        fs::write(root.join("content/guides/guide/child.md"), "# Child\n").unwrap();
+
+        let check = check_workspace(&root);
+        assert!(check.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == crate::routes::ROUTE_STATIC_OUTPUT_CONFLICT_CODE
+                && diagnostic.severity == DiagnosticSeverity::Warning
+                && diagnostic.path.as_deref() == Some("content/guides/Guide.md")
+        }));
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        assert_eq!(snapshot.status, OperationStatus::Failed);
+        assert!(snapshot.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == crate::routes::ROUTE_STATIC_OUTPUT_CONFLICT_CODE
+                && diagnostic.severity == DiagnosticSeverity::Error
+                && diagnostic.path.as_deref() == Some("content/guides/Guide.md")
+        }));
+        assert!(snapshot.routes.iter().any(|route| {
+            route.kind == StaticSiteRouteKind::Directory && route.path == "/content/guides/guide"
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_reports_document_routes_with_dot_segments() {
+        let root = copy_fixture("site-snapshot-invalid-document-segments");
+        let invalid_routes = [
+            ("content/guides/..md", "route `/content/guides/.`"),
+            ("content/guides/...md", "route `/content/guides/..`"),
+        ];
+        for (path, _) in invalid_routes {
+            fs::write(root.join(path), "# Guide\n").unwrap();
+        }
+
+        let check = check_workspace(&root);
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        assert_eq!(check.status, OperationStatus::Failed);
+        assert_eq!(snapshot.status, OperationStatus::Failed);
+        for (path, route) in invalid_routes {
+            assert!(check.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == crate::routes::ROUTE_INVALID_SEGMENT_CODE
+                    && diagnostic.severity == DiagnosticSeverity::Error
+                    && diagnostic.path.as_deref() == Some(path)
+                    && diagnostic.actual.as_deref() == Some(route)
+            }));
+            assert!(snapshot.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == crate::routes::ROUTE_INVALID_SEGMENT_CODE
+                    && diagnostic.severity == DiagnosticSeverity::Error
+                    && diagnostic.path.as_deref() == Some(path)
+            }));
+        }
         fs::remove_dir_all(root).unwrap();
     }
 

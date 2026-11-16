@@ -389,6 +389,62 @@ export async function markdownBrowserScenarios(page, options) {
             );
         }
     };
+    const mountedDocument = async (current, host) => {
+        const path = `${host.root}/preview/same`;
+        await current.goto(`${host.origin}${path}/`);
+        const enhanced = current.locator("[data-enhancement-ready]");
+        await enhanced.locator("main").getByRole("heading", { level: 1, name: "Mounted document" }).waitFor();
+        await current.waitForFunction(() => document.title.startsWith("Mounted document · "));
+        assert(
+            (await current.locator('link[rel="canonical"]').getAttribute("href")) === `${host.origin}${path}`,
+            "static: mounted document canonical URL",
+        );
+        assert(
+            (await enhanced.locator('aside a[aria-current="page"]').first().getAttribute("href")) === path,
+            "static: mounted document sidebar selection",
+        );
+        const jump = enhanced.locator("main").getByRole("link", { name: "Jump to details" });
+        assert((await jump.getAttribute("href")) === `${path}#details`, "static: mounted document fragment URL");
+        await jump.click();
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === path && url.hash === "#details");
+    };
+    const staticSystemRoutes = async (current, host, noScript = false) => {
+        const health = await current.goto(`${host.origin}${host.root}/-/health/`);
+        assert(health?.status() === 200, "static: direct Health response");
+        const page = noScript ? current.locator("main") : current.locator("[data-enhancement-ready] main");
+        await page.getByRole("heading", { level: 1, name: "Health", exact: true }).waitFor();
+        if (!noScript) {
+            const healthLink = current.locator('aside nav[aria-label="Workspace status"] a[aria-current="page"]');
+            assert(
+                (await healthLink.getAttribute("href")) === `${host.root}/-/health`,
+                "static: direct Health selection",
+            );
+        }
+        await current.goto(`${host.origin}${host.root}/-/`, { waitUntil: "commit" });
+        await current.waitForURL(`${host.origin}${host.root}/`);
+    };
+    const canonicalTerm = async (current, host) => {
+        const path = `${host.root}/-/browse/spaces/wow%21`;
+        const canonical = `${host.origin}${path}`;
+        const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
+        assert(
+            sitemap.ok() && (await sitemap.text()).includes(`<loc>${canonical}</loc>`),
+            "static: canonical term URL",
+        );
+        const response = await current.goto(canonical);
+        assert(response?.ok(), "static: direct canonical term response");
+        const enhanced = current.locator("[data-enhancement-ready]");
+        await enhanced
+            .locator("main")
+            .getByRole("heading", { level: 1, name: "Punctuation term", exact: true })
+            .waitFor();
+        const currentTerm = enhanced.locator('aside a[aria-current="page"]', { hasText: "Punctuation term" });
+        assert((await currentTerm.getAttribute("href")) === path, "static: encoded term sidebar selection");
+        assert(
+            (await current.locator('link[rel="canonical"]').getAttribute("href")) === canonical,
+            "static: canonical term URL after enhancement",
+        );
+    };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
             Array.isArray(options.calloutBoundaries) && options.calloutBoundaries.length > 0,
@@ -875,6 +931,14 @@ export async function markdownBrowserScenarios(page, options) {
             results.push(`${host.name}: long sidebar titles truncate without shifting the tree`);
             await directoryPage(current, host);
             results.push(`${host.name}: directory page opened directly`);
+            if (host.name === "static") {
+                await mountedDocument(current, host);
+                results.push("static: mounted document retains identity, selection and links");
+                await staticSystemRoutes(current, host);
+                results.push("static: direct Health and reserved segment routes");
+                await canonicalTerm(current, host);
+                results.push("static: encoded canonical term URL enhances on direct load");
+            }
             sourceCases.reading = await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);
             sourceCases.callouts = await calloutSourceCases(current, host);
@@ -1008,6 +1072,13 @@ export async function markdownBrowserScenarios(page, options) {
         results.push("static noscript: callout defaults, pointer/keyboard and header links");
         await directoryPage(current, host, true);
         results.push("static noscript: directory page listing");
+        await current.goto(`${host.origin}${host.root}/preview/`);
+        await current.locator("main").getByRole("heading", { level: 1, name: "Folder landing" }).waitFor();
+        await current.locator("main").getByRole("link", { name: "Mounted document" }).click();
+        await current.locator("main").getByRole("heading", { level: 1, name: "Mounted document" }).waitFor();
+        results.push("static noscript: directory landing document links to children");
+        await staticSystemRoutes(current, host, true);
+        results.push("static noscript: direct Health and reserved segment routes");
     } catch (error) {
         await failure(current, "noscript", error);
     } finally {

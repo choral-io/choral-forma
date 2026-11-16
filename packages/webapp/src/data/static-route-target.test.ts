@@ -2,7 +2,8 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "./static-route-target";
+import { canonicalRoutePath, resolveDashboardEntryTarget } from "./static-route-target";
+import { logicalPathname } from "./static-runtime";
 import { clearStaticRuntimeConfig, setStaticRuntimeConfig } from "./static-runtime.test-support";
 import type { WorkspaceDashboard } from "./workspace-client";
 
@@ -102,7 +103,7 @@ describe("resolveDashboardEntryTarget", () => {
         ];
         const encodedDashboard = { entries: encodedEntries } as unknown as WorkspaceDashboard;
 
-        const canonicalPath = canonicalRoutePathFromLocation(pathname);
+        const canonicalPath = canonicalRoutePath(logicalPathname(pathname));
 
         expect(canonicalPath).toBe(routePath);
         expect(resolveDashboardEntryTarget(encodedDashboard, canonicalPath)?.entryId).toBe(entryId);

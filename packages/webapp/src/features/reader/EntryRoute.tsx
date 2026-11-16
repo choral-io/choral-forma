@@ -3,7 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
 import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
-import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/data/static-route-target";
+import { canonicalRoutePath, resolveDashboardEntryTarget } from "@/data/static-route-target";
 import type { DashboardEntry } from "@/data/workspace-client";
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
@@ -34,7 +34,7 @@ export function DashboardRoute() {
 
 export function EntryRoute() {
     const location = useLocation();
-    return <EntryRouteContent routePath={canonicalRoutePathFromLocation(location.pathname)} />;
+    return <EntryRouteContent routePath={canonicalRoutePath(location.pathname)} />;
 }
 
 function EntryRouteContent({

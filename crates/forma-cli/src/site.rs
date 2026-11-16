@@ -6,7 +6,7 @@ use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::Uri;
-use forma_core::routes::RAW_ROUTE_PREFIX;
+use forma_core::routes::{RAW_ROUTE_PREFIX, SYSTEM_ROUTE_SEGMENT};
 use forma_core::{
     DiagnosticSeverity, OperationStatus, StaticSiteDiagnostic, StaticSiteEntry, StaticSiteSnapshot,
     StaticSiteView, build_static_site_snapshot_with_root_path,
@@ -15,7 +15,8 @@ use include_dir::Dir;
 use serde::Serialize;
 
 use crate::static_html::{
-    PageShellOptions, not_found_page, page_shell, public_href, render_pages, sitemap_xml,
+    PageShellOptions, home_redirect_html, not_found_page, page_shell, public_href, render_pages,
+    sitemap_xml,
 };
 
 const OPERATION: &str = "site.build";
@@ -231,6 +232,12 @@ fn write_artifact(
             .map(|logo| (logo.public_path.as_str(), logo.alt.as_str())),
     });
     bytes += write_bytes(staging, &not_found.output_path, not_found_html.as_bytes())?;
+    let home_redirect = home_redirect_html(root_path, &snapshot.workspace.canonical_language);
+    bytes += write_bytes(
+        staging,
+        &format!("{SYSTEM_ROUTE_SEGMENT}/index.html"),
+        home_redirect.as_bytes(),
+    )?;
     bytes += write_bytes(
         staging,
         "sitemap.xml",
@@ -256,7 +263,7 @@ fn write_artifact(
         assets: asset_count,
         bytes,
         copied_resources,
-        pages: pages.len() + 1,
+        pages: pages.len() + 2,
     })
 }
 

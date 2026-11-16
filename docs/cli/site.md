@@ -21,14 +21,14 @@ order: 60
 
 Content owns the root of the URL space: a page is served at its source path without the Markdown extension, so `notes/welcome.md` is `/notes/welcome`, and `notes/index.md` is `/notes`. The root page is `.forma.md` and also lists the root folders. Each other directory that holds an indexed page has its own page at its path listing its folders and pages, unless a page is served at that route already, such as the directory's `index.md` or a same-named page beside it. Everything Forma adds is under the reserved `-` segment: collections at `/-/browse/<taxonomy>/<term>`, Views at `/-/views/<view>`, and the artifact's data, assets, and resources.
 
-The initial HTML contains readable entry bodies and ordinary links. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `-/data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
+The initial HTML contains readable entry bodies and ordinary links, with directory lists below the documents that represent folders. The static Health page at `/-/health` shows the recorded export check status. Opening `/-/` leads to Home, including when JavaScript is disabled. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `-/data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
 
 ### Route Conflicts
 
 `forma check` reports content that cannot be served at its route, and `site build` refuses to write an artifact while any of these remain, listing each one:
 
 - `route.reserved`: a document whose top-level name is `-`, the segment reserved for Forma.
-- `route.invalidSegment`: a taxonomy or term id that is empty, `.`, or `..`.
+- `route.invalidSegment`: a generated document route segment, taxonomy id, or term id that is empty, `.`, or `..`.
 - `route.collision`: two sources at one route, such as `x.md` beside `x/index.md`.
 - `route.staticOutputConflict`: routes a static artifact cannot hold apart, such as paths that differ only in case, a page named `index.html`, or a root page named after one of the artifact's root files. A local server still serves these, so `forma check` reports them as warnings; `site build` treats them as errors.
 

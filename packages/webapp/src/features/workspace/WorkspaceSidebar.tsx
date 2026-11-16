@@ -2,7 +2,7 @@ import { ChevronRight, HeartPulse, PanelLeftClose } from "lucide-react";
 import { useId, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 
-import { canonicalRoutePathFromLocation } from "@/data/static-route-target";
+import { canonicalRoutePath } from "@/data/static-route-target";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { collectionIdsContaining } from "@/features/navigation/collection-tree";
@@ -40,7 +40,7 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
     const { pathname } = useLocation();
     // A language variant is not in the tree, so its page reveals the document it belongs to.
-    const routePath = canonicalEntryRoutePath(dashboard.entries, canonicalRoutePathFromLocation(pathname));
+    const routePath = canonicalEntryRoutePath(dashboard.entries, canonicalRoutePath(pathname));
     const trees = useNavigationTrees(dashboard);
     const currentEntryPath = dashboard.entries.find((entry) => entry.routePath === routePath)?.path;
     const containsCurrentIds = useMemo(
@@ -144,7 +144,7 @@ export function WorkspaceSidebar({
             <nav aria-label="Workspace status" className="shrink-0 border-t border-base-300">
                 <ul className="menu w-full">
                     <SidebarLink
-                        active={pathname === healthRoutePath}
+                        active={routePath === healthRoutePath}
                         badge={healthFindingCount > 0 ? healthFindingCount : undefined}
                         icon={HeartPulse}
                         label="Health"

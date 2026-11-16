@@ -42,7 +42,7 @@ describe("static runtime URL helpers", () => {
 
         expect(staticRouterBasename()).toBe("/preview");
         expect(rootAwareHref("/notes/one#scope")).toBe("/preview/notes/one#scope");
-        expect(rootAwareHref("/preview/-/raw/notes/image.png")).toBe("/preview/-/raw/notes/image.png");
+        expect(rootAwareHref("/preview/notes/one#scope")).toBe("/preview/preview/notes/one#scope");
         expect(logicalHref("/preview/notes/one#scope")).toBe("/notes/one#scope");
         expect(logicalHref("/previewer/notes/one")).toBe("/previewer/notes/one");
         expect(logicalPathname("/preview/-/views/notes/")).toBe("/-/views/notes");
@@ -57,6 +57,7 @@ describe("static runtime URL helpers", () => {
         });
 
         expect(rootAwareHref("https://example.com/docs")).toBe("https://example.com/docs");
+        expect(rootAwareHref("//example.com/docs")).toBe("//example.com/docs");
         expect(rootAwareHref("mailto:team@example.com")).toBe("mailto:team@example.com");
         expect(rootAwareHref("#scope")).toBe("#scope");
         expect(rootAwareHref("notes/file.md")).toBe("notes/file.md");

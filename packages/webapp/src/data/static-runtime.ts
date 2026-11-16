@@ -42,12 +42,11 @@ export function staticRouterBasename() {
     return readStaticRuntimeConfig()?.rootPath ?? "/";
 }
 
+/** Convert an app-relative href to a public href under the deployment root. */
 export function rootAwareHref(href: string) {
     const rootPath = staticRouterBasename();
-    if (rootPath === "/" || !href.startsWith("/") || href === rootPath || href.startsWith(`${rootPath}/`)) {
-        return href;
-    }
-    return href === "/" ? `${rootPath}/` : `${rootPath}${href}`;
+    if (rootPath === "/" || !href.startsWith("/") || href.startsWith("//")) return href;
+    return `${rootPath}${href}`;
 }
 
 export function logicalHref(href: string) {
@@ -58,7 +57,11 @@ export function logicalHref(href: string) {
 }
 
 export function logicalPathname(pathname: string) {
-    return logicalHref(pathname).replace(/\/+$/, "") || "/";
+    return trimRoutePathname(logicalHref(pathname));
+}
+
+export function trimRoutePathname(pathname: string) {
+    return pathname.replace(/\/+$/, "") || "/";
 }
 
 export function isStaticRawHref(href: string) {

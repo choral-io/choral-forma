@@ -1744,7 +1744,7 @@ fn external_webapp_asset_response(
     let resolved = match candidate.canonicalize() {
         // A directory, such as the reserved `-` that holds the assets, is a route, not a file.
         Ok(resolved) if resolved.starts_with(&base) && resolved.is_file() => resolved,
-        _ if should_serve_spa_index(&asset_path) => {
+        _ if asset_path != "index.html" && should_serve_spa_index(&asset_path) => {
             return external_webapp_asset_response(webapp_dir, "index.html", root_path);
         }
         _ => return StatusCode::NOT_FOUND.into_response(),
@@ -3233,6 +3233,24 @@ mod tests {
             .await
             .unwrap();
         assert!(String::from_utf8_lossy(&system_body).contains("External Forma"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_router_returns_not_found_when_external_spa_index_is_missing() {
+        let root = fixture_root("external-webapp-missing-index");
+        fs::create_dir_all(&root).unwrap();
+        let router = rpc_router_with_options(Some(root.clone()), Vec::new()).unwrap();
+
+        for uri in ["/", "/notes/workspace-note"] {
+            let response = router
+                .clone()
+                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+        }
 
         fs::remove_dir_all(root).unwrap();
     }

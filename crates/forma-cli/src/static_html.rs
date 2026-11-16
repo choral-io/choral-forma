@@ -1,11 +1,11 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use forma_core::render::ViewRenderFieldValue;
 use forma_core::routes::{
     BROWSE_ROUTE_PATH, STATIC_DATA_ROUTE_PATH, VIEWS_ROUTE_PATH, directory_route_path,
 };
 use forma_core::{
-    StaticSiteEntry, StaticSiteEntryVariant, StaticSiteRoute, StaticSiteRouteKind,
+    OperationStatus, StaticSiteEntry, StaticSiteEntryVariant, StaticSiteRoute, StaticSiteRouteKind,
     StaticSiteSnapshot, StaticSiteTaxonomy, StaticSiteTaxonomyTerm, StaticSiteView, ViewRenderItem,
     ViewRenderOutput,
 };
@@ -29,6 +29,16 @@ pub(crate) fn render_pages(
         .iter()
         .map(|entry| (entry.id.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
+    let entry_directories = snapshot
+        .entries
+        .iter()
+        .flat_map(|entry| {
+            entry
+                .path
+                .match_indices('/')
+                .map(|(offset, _)| &entry.path[..offset])
+        })
+        .collect::<BTreeSet<_>>();
     let mut pages = Vec::with_capacity(snapshot.routes.len() + 1);
     pages.push(home_page(snapshot, root_path, &canonical_language));
 
@@ -37,6 +47,7 @@ pub(crate) fn render_pages(
             snapshot,
             route,
             &entries_by_id,
+            &entry_directories,
             root_path,
             &canonical_language,
         )?);
@@ -116,7 +127,7 @@ fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String
     format!(
         "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{reader}</div>{}</article>",
         escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
-        directory_contents(&snapshot.entries, "", root_path),
+        directory_contents(&snapshot.entries, "", root_path, None),
     )
 }
 
@@ -124,13 +135,19 @@ fn route_page(
     snapshot: &StaticSiteSnapshot,
     route: &StaticSiteRoute,
     entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entry_directories: &BTreeSet<&str>,
     root_path: &str,
     canonical_language: &str,
 ) -> Result<StaticPage, String> {
     match route.kind {
         StaticSiteRouteKind::Entry => {
+            // Core gives us the decoded directory represented by this URL.
+            let directory = route
+                .output_path
+                .strip_suffix("/index.html")
+                .filter(|path| entry_directories.contains(path));
             let (title, description, body, language) =
-                entry_route_content(snapshot, route, root_path, canonical_language)?
+                entry_route_content(snapshot, route, directory, root_path, canonical_language)?
                     .ok_or_else(|| format!("static entry route has no entry: {}", route.path))?;
             Ok(page(route, title, description, body, language))
         }
@@ -167,6 +184,13 @@ fn route_page(
             "Collections".to_string(),
             "Configured workspace taxonomies and terms.".to_string(),
             taxonomy_list(&snapshot.taxonomies, root_path),
+            canonical_language.to_string(),
+        )),
+        StaticSiteRouteKind::Health => Ok(page(
+            route,
+            "Health".to_string(),
+            "Workspace checks recorded during this static export.".to_string(),
+            health_body(snapshot),
             canonical_language.to_string(),
         )),
         StaticSiteRouteKind::Taxonomy => {
@@ -234,9 +258,15 @@ fn page(
 fn entry_route_content(
     snapshot: &StaticSiteSnapshot,
     route: &StaticSiteRoute,
+    directory: Option<&str>,
     root_path: &str,
     canonical_language: &str,
 ) -> Result<Option<(String, String, String, String)>, String> {
+    let directory_listing = |source_path| {
+        directory.map_or_else(String::new, |directory| {
+            directory_contents(&snapshot.entries, directory, root_path, Some(source_path))
+        })
+    };
     for entry in &snapshot.entries {
         if entry.id == route.id {
             return Ok(Some((
@@ -245,7 +275,7 @@ fn entry_route_content(
                     .summary
                     .clone()
                     .unwrap_or_else(|| "Published workspace entry.".to_string()),
-                entry_body(entry, &entry.route_path, root_path),
+                entry_body(entry, root_path, &directory_listing(&entry.path)),
                 canonical_language.to_string(),
             )));
         }
@@ -261,7 +291,7 @@ fn entry_route_content(
                     .clone()
                     .or_else(|| entry.summary.clone())
                     .unwrap_or_else(|| "Published localized workspace entry.".to_string()),
-                variant_body(entry, variant),
+                variant_body(entry, variant, &directory_listing(&variant.path)),
                 language,
             )));
         }
@@ -269,20 +299,24 @@ fn entry_route_content(
     Ok(None)
 }
 
-fn entry_body(entry: &StaticSiteEntry, route_path: &str, root_path: &str) -> String {
+fn entry_body(entry: &StaticSiteEntry, root_path: &str, directory_listing: &str) -> String {
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">{}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div></article>",
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">{}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div>{directory_listing}</article>",
         escape_attribute(&entry.id),
         escape_html(&entry.space),
         escape_html(entry.title.as_deref().unwrap_or(&entry.path)),
         optional_summary(entry.summary.as_deref()),
-        rewrite_home_fragments(&entry.html, route_path, root_path),
+        rewrite_home_fragments(&entry.html, &entry.route_path, root_path),
     )
 }
 
-fn variant_body(canonical: &StaticSiteEntry, variant: &StaticSiteEntryVariant) -> String {
+fn variant_body(
+    canonical: &StaticSiteEntry,
+    variant: &StaticSiteEntryVariant,
+    directory_listing: &str,
+) -> String {
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">{} · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div></article>",
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"{}\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">{} · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div>{directory_listing}</article>",
         escape_attribute(&variant.id),
         escape_html(&canonical.space),
         escape_html(&variant.language),
@@ -335,13 +369,18 @@ fn directory_body(entries: &[StaticSiteEntry], directory: &str, root_path: &str)
     format!(
         "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Folder</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{}",
         escape_html(directory_name(directory)),
-        directory_contents(entries, directory, root_path),
+        directory_contents(entries, directory, root_path, None),
     )
 }
 
 /// A directory's folders, then its pages; the empty path is the workspace root. A page served at
 /// a folder's route, such as its `index` file, titles that folder instead of being listed alone.
-fn directory_contents(entries: &[StaticSiteEntry], directory: &str, root_path: &str) -> String {
+fn directory_contents(
+    entries: &[StaticSiteEntry],
+    directory: &str,
+    root_path: &str,
+    current_entry_path: Option<&str>,
+) -> String {
     let prefix: Vec<&str> = directory
         .split('/')
         .filter(|segment| !segment.is_empty())
@@ -353,6 +392,9 @@ fn directory_contents(entries: &[StaticSiteEntry], directory: &str, root_path: &
     let mut folders = BTreeMap::<String, usize>::new();
     let mut pages = Vec::new();
     for entry in entries {
+        if current_entry_path == Some(entry.path.as_str()) {
+            continue;
+        }
         let segments: Vec<&str> = entry.path.split('/').collect();
         if segments.len() <= prefix.len() || segments[..prefix.len()] != prefix[..] {
             continue;
@@ -415,6 +457,19 @@ fn directory_contents(entries: &[StaticSiteEntry], directory: &str, root_path: &
         entry_list(pages.into_iter(), root_path)
     };
     format!("{folders_html}{pages_html}")
+}
+
+fn health_body(snapshot: &StaticSiteSnapshot) -> String {
+    let status = match snapshot.status {
+        OperationStatus::Passed => "Passed",
+        OperationStatus::Warning => "Warning",
+        OperationStatus::Failed => "Failed",
+    };
+    let summary = snapshot.summary.diagnostics;
+    format!(
+        "<header class=\"flex flex-col gap-2\"><h1 class=\"text-3xl font-semibold\">Health</h1><p class=\"text-base-content/60 text-sm\">Workspace checks recorded during this static export.</p></header><section class=\"mt-8\"><h2 class=\"text-xl font-semibold\">Workspace Health</h2><p>Check status: {status}</p><ul><li>Errors: {}</li><li>Warnings: {}</li><li>Informational: {}</li></ul></section>",
+        summary.errors, summary.warnings, summary.infos,
+    )
 }
 
 fn optional_list_summary(summary: Option<&str>) -> String {
@@ -788,6 +843,14 @@ pub(crate) fn not_found_page(workspace_name: &str, language: &str) -> StaticPage
             escape_html(workspace_name)
         ),
     }
+}
+
+pub(crate) fn home_redirect_html(root_path: &str, language: &str) -> String {
+    let home = escape_attribute(&public_href(root_path, "/"));
+    let language = escape_attribute(language);
+    format!(
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>Home</title><meta name=\"robots\" content=\"noindex, nofollow\" /><meta http-equiv=\"refresh\" content=\"0; url={home}\" /></head><body><main><a href=\"{home}\">Go to Home</a></main></body></html>"
+    )
 }
 
 fn validated_language_tag(value: &str) -> Result<String, String> {

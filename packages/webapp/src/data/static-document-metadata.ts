@@ -8,8 +8,8 @@ import {
     viewsRoutePath,
 } from "@/lib/workspace-routes";
 
-import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "./static-route-target";
-import { logicalPathname, readStaticRuntimeConfig, rootAwareHref } from "./static-runtime";
+import { canonicalRoutePath, resolveDashboardEntryTarget } from "./static-route-target";
+import { readStaticRuntimeConfig, rootAwareHref, trimRoutePathname } from "./static-runtime";
 import type { WorkspaceDashboard } from "./workspace-client";
 
 export interface StaticDocumentMetadata {
@@ -19,8 +19,9 @@ export interface StaticDocumentMetadata {
 }
 
 export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pathname: string): StaticDocumentMetadata {
-    const canonicalPath = logicalPathname(pathname);
-    const entry = resolveDashboardEntryTarget(dashboard, canonicalRoutePathFromLocation(pathname))?.summary;
+    const canonicalPath = trimRoutePathname(pathname);
+    const normalizedPath = canonicalRoutePath(pathname);
+    const entry = resolveDashboardEntryTarget(dashboard, normalizedPath)?.summary;
     if (entry) {
         return {
             canonicalPath,
@@ -61,19 +62,19 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
     }
 
     for (const taxonomy of dashboard.taxonomies) {
-        if (taxonomyRoutePath(taxonomy.id) === canonicalPath) {
+        if (taxonomyRoutePath(taxonomy.id) === normalizedPath) {
             return {
-                canonicalPath,
+                canonicalPath: normalizedPath,
                 description: taxonomy.description || "Configured workspace taxonomy.",
                 title: taxonomy.title,
             };
         }
         const term = taxonomy.terms.find(
-            (candidate) => taxonomyTermRoutePath(taxonomy.id, candidate.id) === canonicalPath,
+            (candidate) => taxonomyTermRoutePath(taxonomy.id, candidate.id) === normalizedPath,
         );
         if (term) {
             return {
-                canonicalPath,
+                canonicalPath: normalizedPath,
                 description: term.description || `Entries classified as ${term.title}.`,
                 title: term.title,
             };

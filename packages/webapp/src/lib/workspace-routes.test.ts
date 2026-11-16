@@ -22,6 +22,7 @@ describe("workspace route paths", () => {
         );
         // A taxonomy may share a name with a system page; it sits one segment deeper.
         expect(taxonomyRoutePath("browse")).toBe("/-/browse/browse");
+        expect(taxonomyTermRoutePath("topic!", "a!'()*")).toBe("/-/browse/topic%21/a%21%27%28%29%2A");
     });
 
     it("places directories at their workspace paths with Core's segment encoding", () => {

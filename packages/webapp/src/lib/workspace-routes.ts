@@ -29,7 +29,7 @@ export function viewRoutePath(viewId: string) {
  */
 export function directoryRoutePath(path: string) {
     const segments = path.split("/").filter((segment) => segment.length > 0);
-    return `/${segments.map(encodePageRouteSegment).join("/")}`;
+    return `/${segments.map(encodeRouteSegment).join("/")}`;
 }
 
 /** The directory path a content route names, or undefined for a system route. */
@@ -59,7 +59,7 @@ export function directoryForRoutePath(entries: readonly { path: string }[], rout
 }
 
 /** Core keeps ASCII letters, digits, and `-._~`; `encodeURIComponent` also keeps `!'()*`. */
-function encodePageRouteSegment(segment: string) {
+export function encodeRouteSegment(segment: string) {
     return encodeURIComponent(segment).replace(
         /[!'()*]/gu,
         (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
@@ -67,9 +67,9 @@ function encodePageRouteSegment(segment: string) {
 }
 
 export function taxonomyRoutePath(taxonomyId: string) {
-    return `${browseRoutePath}/${encodeURIComponent(taxonomyId)}`;
+    return `${browseRoutePath}/${encodeRouteSegment(taxonomyId)}`;
 }
 
 export function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
-    return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
+    return `${taxonomyRoutePath(taxonomyId)}/${encodeRouteSegment(termId)}`;
 }

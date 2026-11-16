@@ -375,6 +375,15 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(index.contains(r#"href="/preview/notes/%E4%BD%A0%E5%A5%BD""#));
     assert!(index.contains(r#"href="/preview/notes/100%25""#));
     assert!(index.contains(r#"<html lang="en">"#));
+    let redirect = std::fs::read_to_string(root.join("dist/site/-/index.html")).unwrap();
+    assert!(redirect.contains(r#"http-equiv="refresh" content="0; url=/preview/""#));
+    assert!(redirect.contains(r#"href="/preview/">Go to Home</a>"#));
+    assert!(redirect.contains(r#"name="robots" content="noindex, nofollow""#));
+    let health = std::fs::read_to_string(root.join("dist/site/-/health/index.html")).unwrap();
+    assert!(health.contains(">Health</h1>"));
+    assert!(health.contains("Check status: Passed"));
+    assert!(health.contains("<li>Warnings: 0</li>"));
+    assert!(health.contains(r#""dataBaseUrl":"/preview/-/data""#));
     let headers = std::fs::read_to_string(root.join("dist/site/_headers")).unwrap();
     assert!(headers.contains("Content-Security-Policy: default-src 'self'"));
     assert!(headers.contains("script-src 'self'"));
@@ -400,6 +409,9 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let sitemap = std::fs::read_to_string(root.join("dist/site/sitemap.xml")).unwrap();
     assert!(sitemap.contains("https://example.test/preview/notes/static-site"));
     assert!(sitemap.contains("https://example.test/preview/-/browse"));
+    assert!(sitemap.contains("https://example.test/preview/-/health"));
+    assert!(!sitemap.contains("https://example.test/preview/-</loc>"));
+    assert!(!sitemap.contains("https://example.test/preview/-/</loc>"));
     let robots = std::fs::read_to_string(root.join("dist/site/robots.txt")).unwrap();
     assert!(robots.contains("Sitemap: https://example.test/preview/sitemap.xml"));
     let not_found = std::fs::read_to_string(root.join("dist/site/404.html")).unwrap();
@@ -432,7 +444,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
             if path
                 .extension()
                 .is_some_and(|extension| extension == "html")
-                && path.file_name().is_some_and(|name| name != "404.html")
+                && !text.contains(r#"name="robots" content="noindex, nofollow""#)
             {
                 let title = html_between(text, "<title>", "</title>").to_string();
                 let description =
@@ -499,6 +511,8 @@ fn site_build_writes_directory_pages_that_no_page_serves() {
         ("notes/deep/inner.md", "Inner"),
         ("notes/guide/index.md", "Guide Overview"),
         ("notes/guide/setup.md", "Setup"),
+        ("notes/quick start.md", "Quick Start Overview"),
+        ("notes/quick start/basics.md", "Basics"),
     ] {
         std::fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
         std::fs::write(
@@ -546,6 +560,11 @@ fn site_build_writes_directory_pages_that_no_page_serves() {
         guide.contains("data-static-entry-id"),
         "the guide folder keeps its index page"
     );
+    assert!(guide.contains(r#"href="/preview/notes/guide/setup">Setup</a>"#));
+    assert!(!guide.contains(r#"href="/preview/notes/guide""#));
+    let quick_start = read("notes/quick start/index.html");
+    assert!(quick_start.contains(">Quick Start Overview</h1>"));
+    assert!(quick_start.contains(r#"href="/preview/notes/quick%20start/basics">Basics</a>"#));
     // Home is the root directory's page, so it lists the root folders too.
     let home = read("index.html");
     assert!(home.contains("href=\"/preview/notes\""), "{home}");

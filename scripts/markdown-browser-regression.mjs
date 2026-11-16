@@ -126,6 +126,21 @@ try {
     await rm(join(workspace, "notes"), { recursive: true });
     await mkdir(join(workspace, "notes"));
     await mkdir(join(workspace, "graph"));
+    await mkdir(join(workspace, "preview"));
+    await writeFile(
+        join(workspace, ".forma/spaces/mount-probe.md"),
+        '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment path fixture\ninclude:\n  - "preview/**/*.md"\n  - "same.md"\n---\n',
+    );
+    await writeFile(
+        join(workspace, ".forma/spaces/punctuation.md"),
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\nid: wow!\ntitle: Punctuation term\n---\n",
+    );
+    await writeFile(join(workspace, "same.md"), "# Root document\n");
+    await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
+    await writeFile(
+        join(workspace, "preview/same.md"),
+        "# Mounted document\n\n[Jump to details](#details)\n\n## Details\n\nMounted body.\n",
+    );
     for (const name of [
         "images.md",
         "image-links.md",

@@ -170,7 +170,7 @@ pub(crate) fn public_view_id(view: &IndexView) -> String {
 
 /// Diagnostic code for a document whose route lands in the reserved `-` segment.
 pub const ROUTE_RESERVED_CODE: &str = "route.reserved";
-/// Diagnostic code for a taxonomy or term id that cannot be a URL segment.
+/// Diagnostic code for a document route segment or taxonomy or term id that cannot be a URL segment.
 pub const ROUTE_INVALID_SEGMENT_CODE: &str = "route.invalidSegment";
 /// Diagnostic code for two sources served at the same route.
 pub const ROUTE_COLLISION_CODE: &str = "route.collision";
@@ -186,7 +186,7 @@ struct RouteSource {
 }
 
 /// Reports the routes that cannot be served as the workspace names them: documents in the reserved
-/// `-` segment, taxonomy or term ids that are not URL segments, two sources on one route, and
+/// `-` segment, invalid URL segments, two sources on one route, and
 /// routes a static artifact would write over one another.
 pub(crate) fn route_diagnostics(
     entries: &[IndexEntry],
@@ -231,6 +231,18 @@ pub(crate) fn route_diagnostics(
             );
             continue;
         }
+        if route.split('/').skip(1).any(invalid_route_segment) {
+            diagnostics.push(
+                Diagnostic::error(
+                    ROUTE_INVALID_SEGMENT_CODE,
+                    "Document route contains an invalid URL path segment.",
+                )
+                .with_path(path.to_string())
+                .with_actual(format!("route `{route}`"))
+                .with_expected("no empty, `.`, or `..` segments; rename or exclude the file"),
+            );
+            continue;
+        }
         routes.push(RouteSource {
             path: route,
             source: Some(path.to_string()),
@@ -239,7 +251,7 @@ pub(crate) fn route_diagnostics(
     }
     let page_routes = routes
         .iter()
-        .map(|route| route.path.to_ascii_lowercase())
+        .map(|route| route.path.clone())
         .collect::<BTreeSet<_>>();
     for directory in directory_paths(
         document_paths
@@ -248,7 +260,7 @@ pub(crate) fn route_diagnostics(
             .filter(|path| path.split('/').next() != Some(SYSTEM_ROUTE_SEGMENT)),
     ) {
         let route = directory_route_path(&directory);
-        if !page_routes.contains(&route.to_ascii_lowercase()) {
+        if !page_routes.contains(&route) {
             routes.push(RouteSource {
                 path: route,
                 source: None,

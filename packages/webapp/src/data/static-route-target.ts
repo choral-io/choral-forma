@@ -1,4 +1,6 @@
-import { logicalPathname } from "./static-runtime";
+import { encodeRouteSegment } from "@/lib/workspace-routes";
+
+import { trimRoutePathname } from "./static-runtime";
 import type { DashboardEntry, WorkspaceDashboard } from "./workspace-client";
 
 export interface DashboardEntryTarget {
@@ -6,8 +8,9 @@ export interface DashboardEntryTarget {
     summary: DashboardEntry;
 }
 
-export function canonicalRoutePathFromLocation(pathname: string) {
-    return logicalPathname(pathname)
+/** Canonicalize an app-relative pathname, such as the pathname from React Router. */
+export function canonicalRoutePath(pathname: string) {
+    return trimRoutePathname(pathname)
         .split("/")
         .map((segment) => canonicalRouteSegment(segment))
         .join("/");
@@ -20,9 +23,7 @@ function canonicalRouteSegment(segment: string) {
     } catch {
         // A raw literal percent is valid in a workspace filename and is encoded below.
     }
-    return encodeURIComponent(decoded).replace(/[!'()*]/gu, (character) => {
-        return `%${character.codePointAt(0)?.toString(16).toUpperCase() ?? ""}`;
-    });
+    return encodeRouteSegment(decoded);
 }
 
 export function resolveDashboardEntryTarget(
