@@ -125,11 +125,14 @@ try {
     await cp(join(root, "examples/minimal-workspace"), workspace, { recursive: true });
     await rm(join(workspace, "notes"), { recursive: true });
     await mkdir(join(workspace, "notes"));
+    const configPath = join(workspace, ".forma.md");
+    const config = await readFile(configPath, "utf8");
+    await writeFile(configPath, config.replace('    - "en"\n', '    - "en"\n    - "zh-Hans"\n'));
     await mkdir(join(workspace, "graph"));
     await mkdir(join(workspace, "preview"));
     await writeFile(
         join(workspace, ".forma/spaces/mount-probe.md"),
-        '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment path fixture\ninclude:\n  - "preview/**/*.md"\n  - "same.md"\n---\n',
+        '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment path fixture\ninclude:\n  - "preview/**/*.md"\n  - "same.md"\n  - "contract-target.md"\n---\n',
     );
     await writeFile(
         join(workspace, ".forma/spaces/punctuation.md"),
@@ -171,14 +174,19 @@ try {
         join(workspace, "notes/contract-target.md"),
         "---\ntitle: Contract target\n---\n\n# Contract target\n\n## Hello world\n\nFragment target.\n",
     );
+    await writeFile(join(workspace, "contract-target.md"), "# Wrong root target\n");
+    await writeFile(
+        join(workspace, "notes/contract-target.zh-hans.md"),
+        "---\ntitle: Localized target\n---\n\n# Localized target\n",
+    );
     await writeFile(join(workspace, "notes/contract-raw.txt"), "CONTRACT_RAW_RESOURCE\n");
     await writeFile(
         join(workspace, "notes/link-contracts.md"),
-        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
+        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Reference destination][entry-ref]\n\n[entry-ref]: /notes/contract-target.md\n\n[[#Local heading|Wiki jump]]\n\n## Local heading\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
     );
     await writeFile(
         join(workspace, ".forma/views/link-contracts.md"),
-        "---\nschemaVersion: 1\nkind: view\ntitle: Link contracts View\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---\n\n[Root source](/notes/contract-target.md#hello-world)\n\n[Encoded source](../../notes/contract-target%2Emd#hello%2Dworld)\n\n<!-- forma:content -->\n",
+        "---\nschemaVersion: 1\nkind: view\ntitle: Link contracts View\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---\n\n# forma-heading-repeat\n\n[Root source](/notes/contract-target.md#hello-world)\n\n[Encoded source](../../notes/contract-target%2Emd#hello%2Dworld)\n\n[Localized source](/notes/contract-target.zh-hans.md)\n\n[Second heading](#repeat-2)\n\n## Repeat\n\nFirst section.\n\n<!-- forma:content -->\n\n## Repeat\n\nSecond section.\n",
     );
     await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
     await writeFile(

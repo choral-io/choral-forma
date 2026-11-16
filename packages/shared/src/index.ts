@@ -436,12 +436,25 @@ export type ViewRenderOutput =
 
 export type ViewRenderDocument = {
     bodySource: string;
+    headings?: ViewDocumentHeadings;
     mounts?: Array<{
         kind: "content";
         startOffset: number;
         endOffset: number;
         location: DiagnosticLocation;
     }>;
+};
+
+export type ViewHeading = {
+    id: string;
+    level: number;
+    text: string;
+    aliasId: string | null;
+};
+
+export type ViewDocumentHeadings = {
+    beforeProjection: ViewHeading[];
+    afterProjection: ViewHeading[];
 };
 
 export type CheckResult = BaseOperationResult & {

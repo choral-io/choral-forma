@@ -121,6 +121,23 @@ pub struct ViewRenderDocument {
     pub body_source: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<ViewContentMount>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headings: Option<ViewDocumentHeadings>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewDocumentHeadings {
+    pub before_projection: Vec<ViewHeading>,
+    pub after_projection: Vec<ViewHeading>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewHeading {
+    #[serde(flatten)]
+    pub heading: RenderedHeading,
+    pub alias_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1058,7 +1075,58 @@ fn view_render_document(body_source: &str, body_line_offset: usize) -> ViewRende
     ViewRenderDocument {
         body_source: body_source.to_string(),
         mounts,
+        headings: view_document_headings(body_source, body_source.find(MARKER)),
     }
+}
+
+fn view_document_headings(
+    body_source: &str,
+    mount_byte: Option<usize>,
+) -> Option<ViewDocumentHeadings> {
+    let visible = rendered_markdown_headings(body_source);
+    if visible.is_empty() {
+        return None;
+    }
+    // Allocate IDs in whole-document render order, then assign them to the
+    // reader sections by source position so projection boundaries never reset IDs.
+    let headings = render_all_heading_ids(body_source, &visible, true);
+    let mut reserved = headings
+        .iter()
+        .map(|heading| heading.id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut used = std::collections::BTreeSet::new();
+    let aliases = headings
+        .iter()
+        .map(|heading| readable_heading_anchor(&heading.text, &mut used))
+        .collect::<Vec<_>>();
+    if let Some(title) = headings.first().filter(|heading| heading.level == 1)
+        && used.contains(&title.id)
+    {
+        // The leading title is represented by its alias when omitted. Its
+        // legacy ID only occupies a slot if the title itself stays visible.
+        let before_mount = mount_byte.map_or(body_source, |mount| &body_source[..mount]);
+        if render_markdown_source_html(before_mount)
+            .strip_prefix("<h1>")
+            .and_then(|html| html.split_once("</h1>"))
+            .is_some_and(|(title, _)| !title.contains("data-footnote-ref="))
+        {
+            reserved.remove(&title.id);
+        }
+    }
+    let mut before_projection = Vec::new();
+    let mut after_projection = Vec::new();
+    for ((source, heading), alias) in visible.into_iter().zip(headings).zip(aliases) {
+        let alias_id = (!reserved.contains(&alias)).then_some(alias);
+        let section = match (mount_byte, source.span) {
+            (Some(mount), Some(span)) if span.start_byte >= mount => &mut after_projection,
+            _ => &mut before_projection,
+        };
+        section.push(ViewHeading { heading, alias_id });
+    }
+    Some(ViewDocumentHeadings {
+        before_projection,
+        after_projection,
+    })
 }
 
 fn parse_view_definition(
@@ -2703,8 +2771,20 @@ pub(crate) fn render_all_headings(
     document: &FormaMarkdownDocument,
     omit_leading_title: bool,
 ) -> Vec<RenderedHeading> {
-    let mut headings = rendered_headings(&rendered_markdown_headings(&document.body));
-    let mut legacy = rendered_headings(&crate::markdown::all_markdown_headings(&document.body));
+    render_all_heading_ids(
+        &document.body,
+        &rendered_markdown_headings(&document.body),
+        omit_leading_title,
+    )
+}
+
+fn render_all_heading_ids(
+    body: &str,
+    visible: &[FormaHeading],
+    omit_leading_title: bool,
+) -> Vec<RenderedHeading> {
+    let mut headings = rendered_headings(visible);
+    let mut legacy = rendered_headings(&crate::markdown::all_markdown_headings(body));
     if omit_leading_title && headings.first().is_some_and(|heading| heading.level == 1) {
         let mut title = headings.remove(0);
         if legacy.first().is_some_and(|heading| heading.level == 1) {
@@ -2814,12 +2894,24 @@ pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument
         .collect::<Vec<_>>();
     replacements.sort_by_key(|(span, _)| span.start_byte);
 
+    let mut local_headings = None;
     for (span, reference) in replacements.into_iter().rev() {
         let label = reference
             .label
             .as_deref()
             .unwrap_or(reference.target.as_str());
-        let href = reference_fallback_href(&reference.target);
+        let href = if let Some(fragment) = reference.target.trim().strip_prefix('#') {
+            let headings = local_headings.get_or_insert_with(|| render_headings(document));
+            let target = headings
+                .iter()
+                .find(|heading| {
+                    heading.id == fragment || heading.text.eq_ignore_ascii_case(fragment)
+                })
+                .map_or(fragment, |heading| heading.id.as_str());
+            format!("#{}", crate::routes::percent_encode_segment(target))
+        } else {
+            reference_fallback_href(&reference.target)
+        };
         let replacement = format!("[{label}](<{href}>)");
         output.replace_range(span.start_byte..span.end_byte, &replacement);
     }
@@ -2829,16 +2921,18 @@ pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument
 fn reference_fallback_href(target: &str) -> String {
     let trimmed = target.trim();
     let (path, fragment) = trimmed.split_once('#').unwrap_or((trimmed, ""));
-    let mut path = path.trim_start_matches('/').to_string();
+    // Preserve authored path syntax so a workspace reference does not become an
+    // explicit source-relative link when the reader resolves it.
+    let mut path = path.to_string();
     if !path.ends_with(".md") {
         path.push_str(".md");
     }
     let path = crate::routes::encode_path(&path);
     if fragment.is_empty() {
-        format!("./{path}")
+        path
     } else {
         let fragment = crate::routes::percent_encode_segment(fragment);
-        format!("./{path}#{fragment}")
+        format!("{path}#{fragment}")
     }
 }
 
@@ -3356,7 +3450,7 @@ mod tests {
         let html = result.render.html.as_deref().unwrap_or_default();
         assert!(html.contains("id=\"forma-heading-source\""));
         assert!(html.contains("</span>Source</h1>"));
-        assert!(html.contains(r#"<a href="./notes/target.md">Target note</a>"#));
+        assert!(html.contains(r#"<a href="notes/target.md">Target note</a>"#));
         assert_eq!(
             result.render.headings,
             vec![
@@ -3401,9 +3495,24 @@ mod tests {
         let result = render_file(&root, "notes/source.md", "html").unwrap();
 
         let html = result.render.html.as_deref().unwrap_or_default();
-        assert!(html.contains(r#"<a href="./members/alex-chen.md">Alex Chen</a>"#));
+        assert!(html.contains(r#"<a href="members/alex-chen.md">Alex Chen</a>"#));
         assert!(!html.contains(r#"href="members/alex-chen""#));
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rendered_same_page_wikilinks_keep_fragment_only_destinations() {
+        let root = fixture_root("file-render-self-wikilink");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(root.join("notes/source.md"),
+            "# Source\n\n[[#Hello world|Jump]]\n\n## Hello world\n\n[[#Percent %20|Percent]]\n\n## Percent %20\n"
+        ).unwrap();
+        let result = render_file(&root, "notes/source.md", "markdown").unwrap();
+        let markdown = result.render.markdown.unwrap();
+        assert!(markdown.contains("[Jump](<#hello-world>)"), "{markdown}");
+        assert!(markdown.contains("[Percent](<#percent-20>)"), "{markdown}");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -3414,7 +3523,7 @@ mod tests {
         copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
-            "# Source\n\n[[notes/literal%20#Percent %20|Percent]]\n![[notes/query?#Bang!|Query]]\n",
+            "# Source\n\n[[notes/literal%20#Percent %20|Percent]]\n![[notes/query?#Bang!|Query]]\n[[./literal%20|Relative]]\n[[/notes/literal%20|Root]]\n",
         )
         .unwrap();
         fs::write(
@@ -3426,21 +3535,30 @@ mod tests {
         let result = render_file(&root, "notes/source.md", "markdown").unwrap();
         let markdown = result.render.markdown.unwrap();
         assert!(
-            markdown.contains("[Percent](<./notes/literal%2520.md#Percent%20%2520>)"),
+            markdown.contains("[Percent](<notes/literal%2520.md#Percent%20%2520>)"),
             "{markdown}"
         );
         assert!(
-            markdown.contains("[Query](<./notes/query%3F.md#Bang%21>)"),
+            markdown.contains("[Query](<notes/query%3F.md#Bang%21>)"),
+            "{markdown}"
+        );
+        assert!(
+            markdown.contains("[Relative](<./literal%2520.md>)"),
+            "{markdown}"
+        );
+        assert!(
+            markdown.contains("[Root](</notes/literal%2520.md>)"),
             "{markdown}"
         );
         let snapshot = crate::WorkspaceSnapshot::load(&root).unwrap();
         let analysis = snapshot.analyze_document("notes/source.md", &markdown);
-        assert_eq!(analysis.references.len(), 2);
-        for (reference, expected) in analysis
-            .references
-            .iter()
-            .zip(["notes/literal%20.md", "notes/query?.md"])
-        {
+        assert_eq!(analysis.references.len(), 4);
+        for (reference, expected) in analysis.references.iter().zip([
+            "notes/literal%20.md",
+            "notes/query?.md",
+            "notes/literal%20.md",
+            "notes/literal%20.md",
+        ]) {
             let resolved = snapshot
                 .resolve_document_reference("notes/source.md", reference)
                 .unwrap();
@@ -3452,7 +3570,9 @@ mod tests {
             );
             let target = resolved.target.unwrap();
             assert_eq!(target.path, expected);
-            assert!(target.fragment_location.is_some());
+            if reference.fragment.is_some() {
+                assert!(target.fragment_location.is_some());
+            }
         }
         fs::remove_dir_all(root).unwrap();
     }
@@ -3562,7 +3682,7 @@ mod tests {
         assert_eq!(result.render.html, None);
         let markdown = result.render.markdown.as_deref().unwrap_or_default();
         assert!(markdown.contains("# Source"));
-        assert!(markdown.contains("[Target note](<./notes/target.md>)"));
+        assert!(markdown.contains("[Target note](<notes/target.md>)"));
         assert_eq!(
             result.render.headings,
             vec![RenderedHeading {
@@ -4650,7 +4770,7 @@ mod tests {
         copy_starter_workspace(&root);
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\nBefore 🧭.\n\n<!-- forma:content -->\n\nAfter.\n",
+            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# forma-heading-repeat\n\nBefore 🧭.\n\n## Repeat\n\n<!-- forma:content -->\n\n## Repeat\n\nAfter.\n",
         )
         .unwrap();
 
@@ -4663,7 +4783,7 @@ mod tests {
         assert_eq!(
             document.mounts[0].location,
             crate::DiagnosticLocation::Body {
-                line: Some(13),
+                line: Some(15),
                 column: Some(1)
             }
         );
@@ -4679,6 +4799,17 @@ mod tests {
         assert_eq!(
             document.mounts[0].end_offset - document.mounts[0].start_offset,
             "<!-- forma:content -->".encode_utf16().count()
+        );
+        let headings = document.headings.expect("View document has headings");
+        assert_eq!(headings.before_projection[1].heading.id, "repeat");
+        assert_eq!(
+            headings.before_projection[1].alias_id.as_deref(),
+            Some("forma-heading-repeat"),
+        );
+        assert_eq!(headings.after_projection[0].heading.id, "repeat-2");
+        assert_eq!(
+            headings.after_projection[0].alias_id.as_deref(),
+            Some("forma-heading-repeat-2"),
         );
         fs::remove_dir_all(root).unwrap();
     }

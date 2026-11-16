@@ -100,11 +100,13 @@ function mapViewDocument(result: ViewRenderResult, viewId: string): DashboardVie
     const bodySource = result.document?.bodySource ?? "";
     const mount = result.document?.mounts?.[0];
     const path = result.view?.path ?? viewId;
+    const headings = result.document?.headings;
 
     if (!mount) {
         return {
             afterProjection: "",
             beforeProjection: bodySource,
+            headings,
             path,
         };
     }
@@ -115,6 +117,7 @@ function mapViewDocument(result: ViewRenderResult, viewId: string): DashboardVie
     return {
         afterProjection: bodySource.slice(endOffset),
         beforeProjection: bodySource.slice(0, startOffset),
+        headings,
         path,
     };
 }

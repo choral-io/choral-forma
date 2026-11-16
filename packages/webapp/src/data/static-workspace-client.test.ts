@@ -92,6 +92,50 @@ describe("StaticWorkspaceClient", () => {
     });
     afterEach(() => vi.unstubAllGlobals());
 
+    it.each([false, true])("loads a View with heading metadata present: %s", async (withHeadings) => {
+        const marker = "<!-- forma:content -->";
+        const beforeProjection = "## Repeat\n\n";
+        const afterProjection = "\n\n## Repeat";
+        const headings = withHeadings
+            ? {
+                  beforeProjection: [{ id: "repeat", level: 2, text: "Repeat", aliasId: "forma-heading-repeat" }],
+                  afterProjection: [{ id: "repeat-2", level: 2, text: "Repeat", aliasId: "forma-heading-repeat-2" }],
+              }
+            : undefined;
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) =>
+                path === "/data/dashboard.json"
+                    ? json(dashboard)
+                    : json({
+                          ...dashboard.views[0],
+                          sourcePath: "config/notes.md",
+                          document: {
+                              bodySource: `${beforeProjection}${marker}${afterProjection}`,
+                              mounts: [
+                                  {
+                                      kind: "content",
+                                      startOffset: beforeProjection.length,
+                                      endOffset: beforeProjection.length + marker.length,
+                                      location: { kind: "body", line: 3, column: 1 },
+                                  },
+                              ],
+                              ...(headings ? { headings } : {}),
+                          },
+                          projection: { kind: "list", items: [] },
+                      }),
+            ),
+        );
+        const client = new StaticWorkspaceClient("/data");
+        const result = await client.getViewRender("notes", await contextFor(client));
+        expect(result.document).toEqual({
+            beforeProjection,
+            afterProjection,
+            headings,
+            path: "config/notes.md",
+        });
+    });
+
     it("preserves Calendar semantics and resolves source navigation", async () => {
         const projection = {
             kind: "calendar",

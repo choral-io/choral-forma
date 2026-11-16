@@ -24,6 +24,7 @@ interface MarkdownHeading {
     id: string;
     level: number;
     text: string;
+    aliasId?: string | null;
 }
 
 export interface MarkdownReaderProps {
@@ -335,16 +336,20 @@ export function postProcessMarkdownHtml(
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
 
-    const headingSelector = headings.some((heading) => heading.level !== 2 && heading.level !== 3)
+    const headingSelector = headings.some(
+        (heading) => heading.aliasId !== undefined || (heading.level !== 2 && heading.level !== 3),
+    )
         ? "h1, h2, h3, h4, h5, h6"
         : "h2, h3";
     const elements = Array.from(document.body.querySelectorAll(headingSelector)).filter(
         (heading) => !heading.matches("[data-footnotes] > h2"),
     );
+    const projectedAliases = new Map<Element, string | null>();
     for (const [index, element] of elements.entries()) {
         const heading = headings[index];
         if (heading) {
             element.id = heading.id;
+            if (heading.aliasId !== undefined) projectedAliases.set(element, heading.aliasId);
         }
     }
 
@@ -428,8 +433,9 @@ export function postProcessMarkdownHtml(
             if (source) formula.replaceWith(document.createTextNode(source.textContent));
         }
         for (const image of semanticHeading.querySelectorAll("img, script, style")) image.remove();
-        const id = headingAnchor(semanticHeading.textContent);
-        if (occupiedIds.has(id)) continue;
+        const aliasId = projectedAliases.get(heading);
+        const id = aliasId === undefined ? headingAnchor(semanticHeading.textContent) : aliasId;
+        if (id === null || occupiedIds.has(id)) continue;
         const alias = document.createElement("span");
         alias.id = id;
         alias.dataset.formaHeadingAnchor = "";

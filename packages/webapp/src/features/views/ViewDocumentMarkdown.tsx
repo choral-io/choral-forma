@@ -5,6 +5,8 @@ import type { DashboardEntry, DashboardViewRender } from "@/data/workspace-clien
 import { MarkdownReader } from "@/features/reader/MarkdownReader";
 import { useMermaidScope } from "@/features/reader/use-mermaid-scope";
 
+const emptyHeadings: [] = [];
+
 /**
  * Renders a View's own Markdown around its projection. Both sections share one
  * Mermaid scope so the per-scope diagram budget covers the document as a whole,
@@ -25,22 +27,21 @@ export function ViewDocumentMarkdown({
     return (
         <>
             {document.beforeProjection.trim() ? (
-                <div className="[&_[data-reader=markdown]>h1:first-child]:hidden">
-                    <MarkdownReader
-                        currentPath={document.path}
-                        entries={entries}
-                        headings={[]}
-                        markdown={document.beforeProjection}
-                        mermaidScope={mermaidScope}
-                    />
-                </div>
+                <MarkdownReader
+                    currentPath={document.path}
+                    entries={entries}
+                    headings={document.headings?.beforeProjection ?? emptyHeadings}
+                    markdown={document.beforeProjection}
+                    mermaidScope={mermaidScope}
+                    omitLeadingTitle
+                />
             ) : null}
             {children}
             {document.afterProjection.trim() ? (
                 <MarkdownReader
                     currentPath={document.path}
                     entries={entries}
-                    headings={[]}
+                    headings={document.headings?.afterProjection ?? emptyHeadings}
                     markdown={document.afterProjection}
                     mermaidScope={mermaidScope}
                 />

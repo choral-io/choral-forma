@@ -52,6 +52,27 @@ describe("resolveReaderLink", () => {
         });
     });
 
+    it("resolves an encoded relative Markdown link to its sibling even when the root has the same name", () => {
+        expect(
+            resolveReaderLink("./target%2Emd?mode=reader#scope", "notes/source.md", [
+                { path: "target.md", routePath: "/target" },
+                { path: "notes/target.md", routePath: "/notes/target" },
+            ]).href,
+        ).toBe("/notes/target?mode=reader#scope");
+    });
+
+    it("resolves a View's source link to the selected language variant's public route", () => {
+        expect(
+            resolveReaderLink("/notes/target.zh-hans.md#scope", ".forma/views/catalog.md", [
+                {
+                    path: "notes/target.md",
+                    routePath: "/notes/target",
+                    variants: [{ path: "notes/target.zh-hans.md", routePath: "/notes/target.zh-hans" }],
+                },
+            ]).href,
+        ).toBe("/notes/target.zh-hans#scope");
+    });
+
     it.each([
         ["./target%2Emd", "/notes/target"],
         ["./literal%2520.md", "/notes/literal%2520"],

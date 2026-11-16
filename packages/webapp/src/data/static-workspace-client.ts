@@ -1,6 +1,6 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
 import { encodeRouteSegment } from "@/lib/workspace-routes";
-import type { CalendarProjection, GanttProjection } from "@choral-forma/shared";
+import type { CalendarProjection, GanttProjection, ViewRenderDocument } from "@choral-forma/shared";
 
 import { stringifyStaticFieldValue } from "./static-field-value";
 import type {
@@ -137,10 +137,7 @@ interface StaticViewSummary {
 
 export interface StaticViewData extends StaticViewSummary {
     sourcePath: string;
-    document?: {
-        bodySource: string;
-        mounts?: { startOffset: number; endOffset: number }[];
-    };
+    document?: ViewRenderDocument;
     projection?: unknown;
 }
 
@@ -410,11 +407,14 @@ function isDashboardHeading(heading: { id: string; level: number; text: string }
 function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRender["document"] {
     const source = data.document?.bodySource ?? "";
     const mount = data.document?.mounts?.[0];
-    if (!mount) return { beforeProjection: source, afterProjection: "", path: data.sourcePath || viewId };
+    const headings = data.document?.headings;
+    const path = data.sourcePath || viewId;
+    if (!mount) return { beforeProjection: source, afterProjection: "", headings, path };
     return {
         beforeProjection: source.slice(0, mount.startOffset),
         afterProjection: source.slice(mount.endOffset),
-        path: data.sourcePath || viewId,
+        headings,
+        path,
     };
 }
 

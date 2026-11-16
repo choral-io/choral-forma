@@ -34,6 +34,13 @@ describe("normalizeWorkspaceHref", () => {
         });
     });
 
+    it("prefers sibling entries for explicit relative links and keeps root links rooted", () => {
+        const workspaceEntries = [...entries, { path: "target.md" }];
+        expect(normalizeWorkspaceHref("./target.md", "notes/source.md", workspaceEntries).path).toBe("notes/target.md");
+        expect(normalizeWorkspaceHref("/target.md", "notes/source.md", workspaceEntries).path).toBe("target.md");
+        expect(normalizeWorkspaceHref("/target.md", "notes/source.md", entries).path).toBe("target.md");
+    });
+
     it("resolves image paths through the same workspace path rules", () => {
         expect(normalizeWorkspaceHref("../assets/markdown-hero.png", "notes/source.md", entries)).toEqual({
             hash: "",

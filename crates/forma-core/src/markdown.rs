@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use markdown::{ParseOptions, mdast, to_mdast};
 use serde::{Deserialize, Serialize};
 
@@ -162,7 +164,11 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
     let mut headings = Vec::new();
 
     match to_mdast(&body, &ParseOptions::gfm()) {
-        Ok(ast) => collect_markdown_structure(&body, &ast, &mut references, &mut headings),
+        Ok(ast) => {
+            let mut definitions = BTreeMap::new();
+            collect_markdown_definitions(&body, &ast, &mut definitions);
+            collect_markdown_structure(&body, &ast, &definitions, &mut references, &mut headings);
+        }
         Err(error) => diagnostics.push(
             Diagnostic::error(
                 "markdown.body.parseFailed",
@@ -420,9 +426,42 @@ pub fn split_frontmatter(source: &str) -> FrontmatterSplit {
     }
 }
 
+struct MarkdownDefinition<'a> {
+    url: &'a str,
+    target_span: Option<SourceSpan>,
+    fragment_span: Option<SourceSpan>,
+}
+
+fn collect_markdown_definitions<'a>(
+    body: &str,
+    node: &'a mdast::Node,
+    definitions: &mut BTreeMap<&'a str, MarkdownDefinition<'a>>,
+) {
+    if let mdast::Node::Definition(definition) = node {
+        // The AST normalizes identifiers. CommonMark uses the first definition.
+        definitions
+            .entry(&definition.identifier)
+            .or_insert_with(|| {
+                let (target_span, fragment_span) =
+                    split_target_span(body, markdown_definition_destination_span(body, definition));
+                MarkdownDefinition {
+                    url: &definition.url,
+                    target_span,
+                    fragment_span,
+                }
+            });
+    }
+    if let Some(children) = node.children() {
+        for child in children {
+            collect_markdown_definitions(body, child, definitions);
+        }
+    }
+}
+
 fn collect_markdown_structure(
     body: &str,
     node: &mdast::Node,
+    definitions: &BTreeMap<&str, MarkdownDefinition<'_>>,
     references: &mut Vec<FormaReference>,
     headings: &mut Vec<FormaHeading>,
 ) {
@@ -468,6 +507,50 @@ fn collect_markdown_structure(
         });
     }
 
+    match node {
+        mdast::Node::LinkReference(link) => {
+            if let Some(definition) = definitions.get(link.identifier.as_str()) {
+                let syntax_span = link
+                    .position
+                    .as_ref()
+                    .map(SourceSpan::from_markdown_position);
+                references.push(FormaReference {
+                    intent: FormaReferenceIntent::Link,
+                    source: FormaReferenceSource::Body,
+                    syntax: FormaReferenceSyntax::MarkdownLink,
+                    target: definition.url.to_string(),
+                    label: Some(readable_plain_text(body, &link.children)),
+                    syntax_span,
+                    span: syntax_span,
+                    target_span: definition.target_span,
+                    label_span: markdown_children_span(&link.children),
+                    fragment_span: definition.fragment_span,
+                });
+            }
+        }
+        mdast::Node::ImageReference(image) => {
+            if let Some(definition) = definitions.get(image.identifier.as_str()) {
+                let syntax_span = image
+                    .position
+                    .as_ref()
+                    .map(SourceSpan::from_markdown_position);
+                references.push(FormaReference {
+                    intent: FormaReferenceIntent::Embed,
+                    source: FormaReferenceSource::Body,
+                    syntax: FormaReferenceSyntax::MarkdownImage,
+                    target: definition.url.to_string(),
+                    label: Some(image.alt.clone()),
+                    syntax_span,
+                    span: syntax_span,
+                    target_span: definition.target_span,
+                    label_span: None,
+                    fragment_span: definition.fragment_span,
+                });
+            }
+        }
+        _ => {}
+    }
+
     if let mdast::Node::Heading(heading) = node
         && (2..=3).contains(&heading.depth)
     {
@@ -486,7 +569,7 @@ fn collect_markdown_structure(
 
     if let Some(children) = node.children() {
         for child in children {
-            collect_markdown_structure(body, child, references, headings);
+            collect_markdown_structure(body, child, definitions, references, headings);
         }
     }
 }
@@ -645,6 +728,55 @@ fn markdown_resource_span(
         return None;
     }
     Some(source_span(body, target_start, target_end))
+}
+
+fn markdown_definition_destination_span(
+    body: &str,
+    definition: &mdast::Definition,
+) -> Option<SourceSpan> {
+    let position = definition.position.as_ref()?;
+    let start = position.start.offset;
+    let end = position.end.offset;
+    let raw = body.get(start..end)?;
+    let label_end = unescaped_delimiter(raw, ']')?;
+    let mut tail = raw[label_end + 1..]
+        .strip_prefix(':')?
+        .trim_start_matches([' ', '\t']);
+    if let Some(next_line) = tail
+        .strip_prefix("\r\n")
+        .or_else(|| tail.strip_prefix(['\r', '\n']))
+    {
+        // The AST's byte offsets include block quote markers on continuation lines.
+        let prefix = body[..start].rsplit(['\r', '\n']).next()?;
+        tail = next_line;
+        for _ in prefix.bytes().filter(|byte| *byte == b'>') {
+            tail = tail.trim_start_matches([' ', '\t']).strip_prefix('>')?;
+        }
+        tail = tail.trim_start_matches([' ', '\t']);
+    }
+    let (destination, length) = if let Some(inner) = tail.strip_prefix('<') {
+        (inner, unescaped_delimiter(inner, '>')?)
+    } else {
+        (
+            tail,
+            tail.find([' ', '\t', '\r', '\n']).unwrap_or(tail.len()),
+        )
+    };
+    let destination_start = end - destination.len();
+    (length != 0).then(|| source_span(body, destination_start, destination_start + length))
+}
+
+fn unescaped_delimiter(value: &str, delimiter: char) -> Option<usize> {
+    let mut characters = value.char_indices();
+    while let Some((index, character)) = characters.next() {
+        if character == delimiter {
+            return Some(index);
+        }
+        if character == '\\' {
+            characters.next();
+        }
+    }
+    None
 }
 
 fn split_target_span(

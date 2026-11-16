@@ -14,7 +14,17 @@ export function normalizeWorkspaceHref(href: string, currentPath: string, entrie
 
 /** Resolve an already parsed path without interpreting filename characters as URI syntax. */
 export function normalizeWorkspacePath(pathPart: string, currentPath: string, entries: WorkspaceLinkEntry[]) {
-    const directPath = pathPart.replace(/^\.\//, "").replace(/^\//, "");
+    const relativePath = resolvePathSegments(pathPart, currentPath);
+    if (pathPart.startsWith("/")) return relativePath;
+    if (
+        (pathPart.startsWith("./") || pathPart.startsWith("../")) &&
+        entries.some((entry) => entry.path === relativePath)
+    ) {
+        return relativePath;
+    }
+
+    // Generated wiki links can use `./` followed by a workspace-wide source path.
+    const directPath = pathPart.replace(/^\.\//, "");
 
     if (entries.some((entry) => entry.path === directPath)) {
         return directPath;
@@ -28,6 +38,10 @@ export function normalizeWorkspacePath(pathPart: string, currentPath: string, en
         }
     }
 
+    return relativePath;
+}
+
+function resolvePathSegments(pathPart: string, currentPath: string) {
     const pathSegments = pathPart.startsWith("/") ? [] : currentPath.split("/").slice(0, -1);
 
     for (const segment of pathPart.split("/")) {

@@ -87,8 +87,9 @@ pub use render::{
     FileRenderOutput, FileRenderResult, GanttDependencies, GanttEdge, GanttEdgeStatus, GanttNode,
     GanttRow, GanttStatus, GraphRenderEdge, GraphRenderLegendItem, GraphRenderNode,
     GraphRenderNodeClassification, KanbanRenderCard, KanbanRenderColumn, RenderedFile,
-    RenderedHeading, RenderedView, ViewContentMount, ViewRenderDocument, ViewRenderItem,
-    ViewRenderOutput, ViewRenderResult, render_file, render_view,
+    RenderedHeading, RenderedView, ViewContentMount, ViewDocumentHeadings, ViewHeading,
+    ViewRenderDocument, ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_file,
+    render_view,
 };
 pub use scan::{WorkspacePatternSet, WorkspaceScanPlan};
 pub use schema::{

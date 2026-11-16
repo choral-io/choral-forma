@@ -1078,12 +1078,16 @@ fn static_reference_href(
         return Some(href);
     }
 
-    let alias = resolve_entry_route(&normalized, entry_routes_by_path).or_else(|| {
-        let workspace_style_target = path.trim_start_matches('/');
-        (workspace_style_target != normalized)
-            .then(|| resolve_entry_route(workspace_style_target, entry_routes_by_path))
-            .flatten()
-    });
+    let allow_suffix = !path.starts_with('/');
+    let alias =
+        resolve_entry_route(&normalized, entry_routes_by_path, allow_suffix).or_else(|| {
+            let workspace_style_target = path.trim_start_matches('/');
+            (workspace_style_target != normalized)
+                .then(|| {
+                    resolve_entry_route(workspace_style_target, entry_routes_by_path, allow_suffix)
+                })
+                .flatten()
+        });
     // A real resource wins a collision; a missing raw file must not steal an
     // existing extensionless sidecar alias. Keep missing-resource behavior when
     // no entry alias exists so normal resource diagnostics remain available.
@@ -1135,6 +1139,7 @@ fn normalized_static_target(source_path: &str, target: &str) -> Option<String> {
 fn resolve_entry_route<'a>(
     normalized: &str,
     entry_routes_by_path: &'a BTreeMap<String, String>,
+    allow_suffix: bool,
 ) -> Option<(&'a String, &'a String)> {
     for candidate in [
         normalized.to_string(),
@@ -1146,6 +1151,10 @@ fn resolve_entry_route<'a>(
         if let Some((path, route)) = entry_routes_by_path.get_key_value(&candidate) {
             return Some((path, route));
         }
+    }
+
+    if !allow_suffix {
+        return None;
     }
 
     let suffixes = [
@@ -2566,6 +2575,88 @@ mod tests {
             intro.markdown
         );
         assert!(intro.markdown.contains("[Wiki suffix](</preview/-/raw/assets/file.txt?name=a%2520b%2Bliteral#some%2520anchor>)"), "{}", intro.markdown);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_rewrites_reference_link_definitions() {
+        let root = copy_fixture("site-snapshot-reference-links");
+        fs::write(
+            root.join("content/guides/a b.md"),
+            "# Target\n\n## Hello world\n",
+        )
+        .unwrap();
+        fs::write(root.join("assets/ref image.svg"), "<svg/>").unwrap();
+        let source = r#"# Source
+
+[Full][guide] [Guide][] [guide] [External][web] ![Illustration][image]
+
+[guide]: <./a%20b.md#hello%2Dworld> "Guide title"
+[guide]: ./duplicate.md
+[web]: https://example.test/page
+[unused]: ./a%20b.md
+
+> [Quoted][quote]
+>
+> [quote]:
+>     ./a%20b.md
+
+[image]: ../../assets/ref%20image.svg
+"#;
+        fs::write(root.join("content/guides/intro.md"), source).unwrap();
+        let workspace = WorkspaceSnapshot::load(&root).unwrap();
+        let analysis = workspace.analyze_document("content/guides/intro.md", source);
+        let local_links = analysis
+            .references
+            .iter()
+            .filter(|reference| reference.raw_target.starts_with("./a%20b.md"))
+            .collect::<Vec<_>>();
+        assert_eq!(local_links.len(), 4);
+        for reference in local_links {
+            let resolved = workspace
+                .resolve_document_reference("content/guides/intro.md", reference)
+                .unwrap();
+            assert_eq!(resolved.target.unwrap().path, "content/guides/a b.md");
+        }
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        let expected = r#"[guide]: </preview/content/guides/a%20b#hello-world> "Guide title""#;
+        assert_eq!(
+            intro.markdown.matches(expected).count(),
+            1,
+            "{}",
+            intro.markdown
+        );
+        assert!(intro.markdown.contains("[guide]: ./duplicate.md"));
+        assert!(intro.markdown.contains("[unused]: ./a%20b.md"));
+        assert!(intro.markdown.contains("[web]: https://example.test/page"));
+        assert_eq!(
+            intro
+                .html
+                .matches(r#"href="/preview/content/guides/a%20b#hello-world""#)
+                .count(),
+            3
+        );
+        assert!(
+            intro
+                .html
+                .contains(r#"<a href="/preview/content/guides/a%20b">Quoted</a>"#)
+        );
+        assert!(
+            intro
+                .html
+                .contains(r#"src="/preview/-/raw/assets/ref%20image.svg""#)
+        );
+        assert!(
+            snapshot
+                .resources
+                .iter()
+                .any(|resource| resource.path == "assets/ref image.svg")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

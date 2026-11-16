@@ -547,6 +547,53 @@ export async function markdownBrowserScenarios(page, options) {
             assert((await current.locator('[id="hello-world"]').count()) === 1, `${host.name}: fragment target exists`);
         }
     };
+    const crossSurfaceLinks = async (current, host, noScript = false) => {
+        const base = `${host.origin}${host.root}`;
+        const source = `${base}/notes/link-contracts/`;
+        const isStatic = host.name === "static";
+        const main = current.locator(isStatic && !noScript ? "[data-enhancement-ready] main" : "main");
+
+        await current.goto(source);
+        const wiki = main.locator("a[href]").filter({ hasText: /^Wiki jump$/u });
+        await wiki.click();
+        await current.waitForURL(
+            (url) =>
+                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/link-contracts` &&
+                url.hash === "#local-heading",
+        );
+
+        await main.getByRole("link", { name: "Reference destination", exact: true }).click();
+        await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
+        assert(
+            new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`,
+            "reference link opens canonical target",
+        );
+
+        const view = isStatic ? "/-/views/link-contracts/" : "/-/views/.forma/views/link-contracts";
+        await current.goto(`${base}${view}`);
+        const repeat = main.getByRole("heading", { level: 2, name: "Repeat", exact: true });
+        await repeat.nth(1).waitFor();
+        assert(
+            (await repeat.nth(1).getAttribute("id")) === "repeat-2",
+            `${host.name}: second View heading owns the target`,
+        );
+        for (const id of ["repeat", "repeat-2", "forma-heading-repeat", "forma-heading-repeat-2"]) {
+            assert((await main.locator(`[id="${id}"]`).count()) === 1, `${host.name}: unique View anchor ${id}`);
+        }
+        await main
+            .locator("a[href]")
+            .filter({ hasText: /^Second heading$/u })
+            .click();
+        await current.waitForURL((url) => url.hash === "#repeat-2");
+        if (isStatic) {
+            await main.getByRole("link", { name: "Localized source", exact: true }).click();
+            await main.getByRole("heading", { level: 1, name: "Localized target", exact: true }).waitFor();
+            assert(
+                new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.zh-hans`,
+                "static: View link opens localized variant",
+            );
+        }
+    };
     const resourceSuffix = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/notes/link-contracts/`);
         const main = current.locator(noScript ? "main" : "[data-enhancement-ready] main");
@@ -1063,6 +1110,8 @@ export async function markdownBrowserScenarios(page, options) {
                 await routeLinks(current, host);
                 results.push("static: encoded source links and public routes retain their targets");
             }
+            await crossSurfaceLinks(current, host);
+            results.push(`${host.name}: reference links, wiki fragments and View anchors`);
             await markdownLinkContracts(current, host);
             results.push(`${host.name}: Markdown link origins and encoded heading fragments`);
             if (host.name === "static") {
@@ -1211,6 +1260,8 @@ export async function markdownBrowserScenarios(page, options) {
         results.push("static noscript: direct Health and reserved segment routes");
         await routeLinks(current, host, true);
         results.push("static noscript: encoded source links and public routes retain their targets");
+        await crossSurfaceLinks(current, host, true);
+        results.push("static noscript: reference links, wiki fragments and View anchors");
         await markdownLinkContracts(current, host, true);
         results.push("static noscript: Markdown link origins and encoded heading fragments");
         await resourceSuffix(current, host, true);

@@ -1,4 +1,4 @@
-import type { CalendarProjection, GanttProjection } from "@choral-forma/shared";
+import type { CalendarProjection, GanttProjection, ViewDocumentHeadings } from "@choral-forma/shared";
 
 export type WorkspaceHealth = "healthy" | "warning" | "failed";
 
@@ -282,6 +282,7 @@ export interface DashboardViewRender {
     document: {
         afterProjection: string;
         beforeProjection: string;
+        headings?: ViewDocumentHeadings;
         path: string;
     };
     projection: DashboardViewProjection;

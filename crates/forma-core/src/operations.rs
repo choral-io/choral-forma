@@ -3038,7 +3038,10 @@ fn resolve_reference_candidates(
     if raw_target.is_empty() {
         return vec![source_path.to_string()];
     }
-    if raw_target.contains("://") || raw_target.starts_with("mailto:") {
+    if raw_target.contains("://")
+        || raw_target.starts_with("mailto:")
+        || raw_target.starts_with("//")
+    {
         return Vec::new();
     }
 
@@ -3050,6 +3053,15 @@ fn resolve_reference_candidates(
         .iter()
         .map(|entry| entry.path.as_str())
         .collect::<BTreeSet<_>>();
+    if raw_target.starts_with('/') {
+        return normalized_relative_target(source_path, raw_target)
+            .into_iter()
+            .flat_map(|path| reference_path_variants(&path))
+            .find(|candidate| paths.contains(candidate.as_str()))
+            .into_iter()
+            .collect();
+    }
+
     let mut direct_candidates = Vec::new();
     if let Some(relative) = normalized_relative_target(source_path, raw_target) {
         direct_candidates.extend(reference_path_variants(&relative));
@@ -3106,6 +3118,11 @@ fn semantic_reference_candidates(source: &IndexEntry, raw_target: &str) -> Vec<S
 }
 
 pub(crate) fn normalized_relative_target(source_path: &str, target: &str) -> Option<String> {
+    if target.starts_with('/') {
+        return WorkspacePath::parse_config(target.trim_start_matches('/'))
+            .ok()
+            .map(|path| path.as_str().to_string());
+    }
     let mut segments = source_path
         .rsplit_once('/')
         .map(|(parent, _)| parent.split('/').collect::<Vec<_>>())
@@ -5607,7 +5624,7 @@ Exclude this reference.
             result
                 .home
                 .markdown
-                .contains("[Shared note](<./notes/shared.md>)")
+                .contains("[Shared note](<notes/shared.md>)")
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -6976,6 +6993,73 @@ conventions:
         assert_eq!(target.path, "notes/guides/target.md");
         assert_eq!(target.fragment.as_deref(), Some("Getting Started"));
         assert!(target.fragment_location.is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn root_relative_markdown_resolves_from_the_workspace_in_index_and_operations() {
+        let root = fixture_root("root-relative-markdown-reference");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::create_dir_all(root.join("notes/notes")).unwrap();
+        for path in [
+            "notes/target.md",
+            "notes/notes/target.md",
+            "notes/notes/only-nested.md",
+        ] {
+            fs::write(root.join(path), "# Target\n").unwrap();
+        }
+        let source =
+            "# Source\n\n[Root](/notes/target.md)\n\n[Missing root](/notes/only-nested.md)\n";
+        fs::write(root.join("notes/source.md"), source).unwrap();
+
+        let snapshot = WorkspaceSnapshot::load(&root).unwrap();
+        let entry = snapshot
+            .discovery()
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/source.md")
+            .unwrap();
+        assert_eq!(entry.refs.len(), 1);
+        assert_eq!(entry.refs[0].target_path, "notes/target.md");
+
+        let analysis = snapshot.analyze_document("notes/source.md", source);
+        for (reference, expected) in analysis
+            .references
+            .iter()
+            .zip([Some("notes/target.md"), None])
+        {
+            let resolved = snapshot
+                .resolve_document_reference("notes/source.md", reference)
+                .unwrap();
+            assert_eq!(
+                resolved.target.as_ref().map(|target| target.path.as_str()),
+                expected
+            );
+        }
+        let resolved = snapshot
+            .resolve_reference(
+                "notes/source.md",
+                "/notes/target.md",
+                ReferenceIntent::Link,
+                None,
+            )
+            .unwrap();
+        assert_eq!(resolved.target.unwrap().path, "notes/target.md");
+
+        let site = crate::build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let entry = site
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/source.md")
+            .unwrap();
+        assert!(entry.markdown.contains("[Root](/preview/notes/target)"));
+        assert!(
+            entry
+                .markdown
+                .contains("[Missing root](/notes/only-nested.md)")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

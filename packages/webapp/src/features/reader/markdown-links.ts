@@ -1,8 +1,12 @@
 import { isExternalHref, normalizeWorkspacePath } from "@/lib/workspace-links";
 
-interface ReaderLinkEntry {
+interface ReaderLinkTarget {
     path: string;
     routePath: string;
+}
+
+interface ReaderLinkEntry extends ReaderLinkTarget {
+    variants?: readonly ReaderLinkTarget[];
 }
 
 export type MarkdownLinkSource = "workspace" | "published";
@@ -21,7 +25,9 @@ export function resolveReaderLink(
     linkSource: MarkdownLinkSource = "workspace",
 ): ResolvedReaderLink {
     if (href.startsWith("#")) {
-        const currentEntry = entries.find((entry) => entry.path === currentPath);
+        const currentEntry = currentRoutePath
+            ? undefined
+            : linkTargets(entries).find((entry) => entry.path === currentPath);
 
         return {
             href: currentRoutePath
@@ -68,8 +74,9 @@ export function resolveReaderLink(
     } catch {
         // Preserve malformed percent escapes as authored filename characters.
     }
-    const targetPath = rawPath === "" ? currentPath : normalizeWorkspacePath(decodedPath, currentPath, entries);
-    const targetEntry = entries.find((entry) => entry.path === targetPath);
+    const targets = linkTargets(entries);
+    const targetPath = rawPath === "" ? currentPath : normalizeWorkspacePath(decodedPath, currentPath, targets);
+    const targetEntry = targets.find((entry) => entry.path === targetPath);
 
     return {
         href: targetEntry
@@ -78,6 +85,10 @@ export function resolveReaderLink(
         kind: "internal",
         opensInNewTab: false,
     };
+}
+
+function linkTargets(entries: ReaderLinkEntry[]) {
+    return entries.flatMap((entry) => (entry.variants?.length ? [entry, ...entry.variants] : entry));
 }
 
 function isExternalWebHref(href: string) {

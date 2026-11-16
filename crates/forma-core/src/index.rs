@@ -1329,6 +1329,13 @@ impl PathIndex {
     fn resolve_from(&self, target: &str, source_path: &str, space: Option<&str>) -> ResolveResult {
         // Body references have already been parsed; decoded filename characters
         // must not be interpreted as wiki markup a second time.
+        if target.starts_with('/') {
+            return crate::operations::normalized_relative_target(source_path, target)
+                .into_iter()
+                .flat_map(|path| candidate_paths(&path))
+                .find(|candidate| self.path_allowed(candidate, space))
+                .map_or(ResolveResult::Unresolved, ResolveResult::Resolved);
+        }
         if let Some(relative) = relative_reference_path(target, source_path) {
             let result = self.resolve_candidates(candidate_paths(&relative), space);
             if !matches!(result, ResolveResult::Unresolved) {
@@ -1576,7 +1583,10 @@ fn non_empty_string(value: Option<String>) -> Option<String> {
 }
 
 fn is_external_target(target: &str) -> bool {
-    target.starts_with("http://") || target.starts_with("https://") || target.starts_with("mailto:")
+    target.starts_with("http://")
+        || target.starts_with("https://")
+        || target.starts_with("mailto:")
+        || target.starts_with("//")
 }
 
 fn is_non_markdown_resource_target(path: &str) -> bool {
