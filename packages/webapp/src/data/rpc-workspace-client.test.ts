@@ -19,7 +19,7 @@ describe("RpcWorkspaceClient View rendering", () => {
     it.each([calendarFixture, ganttFixture])("preserves the Core $kind wire projection", async (fixture) => {
         const projection = fixture as ViewRenderOutput;
         stubRpc("", undefined, undefined, projection);
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
         const result = await client.getViewRender(".forma/views/release-scope", await contextFor(client));
         expect(result.projection).toMatchObject(projection);
         expect(result.projection.kind).toBe(fixture.kind);
@@ -43,7 +43,7 @@ describe("RpcWorkspaceClient View rendering", () => {
             unscheduled: [],
         };
         stubRpc("", undefined, undefined, projection);
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
         const result = await client.getViewRender(".forma/views/release-scope", await contextFor(client));
         expect(result.projection).toMatchObject(projection);
         expect(result.projection.kind).toBe("calendar");
@@ -59,7 +59,7 @@ describe("RpcWorkspaceClient View rendering", () => {
 
         stubRpc(bodySource, startOffset, marker.length);
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
 
         await expect(client.getViewRender(".forma/views/release-scope", await contextFor(client))).resolves.toEqual({
             document: {
@@ -80,7 +80,7 @@ describe("RpcWorkspaceClient View rendering", () => {
         const bodySource = "\n# Recent\n\nMost recently updated entries.\n";
         stubRpc(bodySource);
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
 
         await expect(
             client.getViewRender(".forma/views/release-scope", await contextFor(client)),
@@ -123,7 +123,7 @@ describe("RpcWorkspaceClient View rendering", () => {
             ],
         });
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
 
         await expect(client.getViewRender(".forma/views/task-board", await contextFor(client))).resolves.toMatchObject({
             projection: {
@@ -172,7 +172,7 @@ describe("RpcWorkspaceClient View rendering", () => {
             items: [],
         });
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
 
         await expect(client.getViewRender(".forma/views/table", await contextFor(client))).resolves.toMatchObject({
             projection: {
@@ -211,7 +211,7 @@ describe("RpcWorkspaceClient View rendering", () => {
                                 id: "docs/getting-started",
                                 path: "docs/getting-started.md",
                                 rawPath: "docs/getting-started.md",
-                                routePath: "/pages/docs/getting-started",
+                                routePath: "/docs/getting-started",
                                 title: "Getting Started",
                                 summary: "First guide.",
                                 status: "passed",
@@ -223,7 +223,7 @@ describe("RpcWorkspaceClient View rendering", () => {
             },
         ]);
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
         const dashboard = await client.getDashboard();
 
         expect(dashboard.spaces).toEqual([]);
@@ -269,7 +269,7 @@ describe("RpcWorkspaceClient View rendering", () => {
             ],
         );
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
         const dashboard = await client.getDashboard();
 
         expect(dashboard.views).toMatchObject([
@@ -295,7 +295,7 @@ describe("RpcWorkspaceClient View rendering", () => {
                     id: "notes/untitled",
                     path: "notes/untitled.md",
                     rawPath: "notes/untitled.md",
-                    routePath: "/pages/notes/untitled",
+                    routePath: "/notes/untitled",
                     title: "   ",
                     status: "passed",
                     renderable: true,
@@ -304,7 +304,7 @@ describe("RpcWorkspaceClient View rendering", () => {
                     id: "notes/titled",
                     path: "notes/titled.md",
                     rawPath: "notes/titled.md",
-                    routePath: "/pages/notes/titled",
+                    routePath: "/notes/titled",
                     title: "  Titled entry  ",
                     status: "passed",
                     renderable: true,
@@ -312,7 +312,7 @@ describe("RpcWorkspaceClient View rendering", () => {
             ],
         );
 
-        const client = new RpcWorkspaceClient("/rpc");
+        const client = new RpcWorkspaceClient("/-/rpc");
         const dashboard = await client.getDashboard();
 
         expect(dashboard.entries.find((entry) => entry.path === "notes/untitled.md")?.title).toBe("notes/untitled.md");

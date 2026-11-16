@@ -21,6 +21,7 @@ import {
     type SidebarSection,
 } from "@/lib/sidebar-sections-preference";
 import { cn } from "@/lib/utils";
+import { healthRoutePath } from "@/lib/workspace-routes";
 
 interface WorkspaceSidebarProps {
     collapsible?: boolean;
@@ -143,12 +144,12 @@ export function WorkspaceSidebar({
             <nav aria-label="Workspace status" className="shrink-0 border-t border-base-300">
                 <ul className="menu w-full">
                     <SidebarLink
-                        active={pathname === "/health"}
+                        active={pathname === healthRoutePath}
                         badge={healthFindingCount > 0 ? healthFindingCount : undefined}
                         icon={HeartPulse}
                         label="Health"
                         onNavigate={onNavigate}
-                        to="/health"
+                        to={healthRoutePath}
                     />
                 </ul>
             </nav>

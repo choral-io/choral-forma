@@ -398,6 +398,12 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
         }
     }
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
+    diagnostics.extend(crate::routes::route_diagnostics(
+        &index_entries,
+        &views,
+        &config.taxonomies,
+        &config.terms,
+    ));
     let references_by_target = reference_occurrence_index(occurrences_by_source);
 
     (

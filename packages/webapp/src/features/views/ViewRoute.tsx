@@ -9,6 +9,7 @@ import { EmptyPage } from "@/features/workspace/RouteContent";
 import { SourcePath } from "@/features/workspace/SourcePath";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
+import { viewsRoutePath } from "@/lib/workspace-routes";
 
 import { ProjectionLoadingState, ViewProjectionRenderer } from "./ViewProjectionRenderer";
 
@@ -17,7 +18,7 @@ const ViewDocumentMarkdown = lazy(async () => {
     return { default: module.ViewDocumentMarkdown };
 });
 
-const viewsBreadcrumb = [{ label: "Views", to: "/views" }];
+const viewsBreadcrumb = [{ label: "Views", to: viewsRoutePath }];
 
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();

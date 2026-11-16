@@ -20,6 +20,10 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand, ValueEnum};
+use forma_core::routes::{
+    BROWSE_ROUTE_PATH, HEALTH_ROUTE_PATH, RAW_ROUTE_PREFIX, RPC_ROUTE_PATH, SYSTEM_ROUTE_SEGMENT,
+    VIEWS_ROUTE_PATH,
+};
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreatePreviewRequest, CreateRequest,
     Dispatcher, DocsGetRequest, DocsListRequest, InitRequest, InspectRequest, ListRequest,
@@ -1502,14 +1506,20 @@ fn rpc_router_with_dispatcher_and_workspace(
 
     if root_path == "/" {
         Ok(Router::new()
-            .route("/rpc", post(rpc_handler).options(rpc_preflight_handler))
-            .route("/raw/{*path}", get(raw_workspace_file))
+            .route(
+                RPC_ROUTE_PATH,
+                post(rpc_handler).options(rpc_preflight_handler),
+            )
+            .route(
+                &format!("{RAW_ROUTE_PREFIX}/{{*path}}"),
+                get(raw_workspace_file),
+            )
             .route("/", get(index_handler))
             .route("/{*path}", get(asset_handler))
             .with_state(state))
     } else {
-        let rpc_route = format!("{root_path}/rpc");
-        let raw_route = format!("{root_path}/raw/{{*path}}");
+        let rpc_route = format!("{root_path}{RPC_ROUTE_PATH}");
+        let raw_route = format!("{root_path}{RAW_ROUTE_PREFIX}/{{*path}}");
         let root_route = format!("{root_path}/");
         let asset_route = format!("{root_path}/{{*path}}");
         let redirect_target = app_root_location(&root_path);
@@ -1677,7 +1687,7 @@ async fn asset_handler(
     AxumPath(path): AxumPath<String>,
     State(state): State<AppState>,
 ) -> Response {
-    if path == "rpc" {
+    if path == RPC_ROUTE_PATH.trim_start_matches('/') {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
     }
     webapp_asset_response(&path, state.webapp_dir.as_deref(), state.root_path.as_str())
@@ -1707,9 +1717,6 @@ fn webapp_asset_response(path: &str, webapp_dir: Option<&FsPath>, root_path: &st
                 root_path,
             );
         }
-        if should_redirect_to_app_root(asset_path) {
-            return Redirect::temporary(&app_root_location(root_path)).into_response();
-        }
         return StatusCode::NOT_FOUND.into_response();
     };
 
@@ -1735,12 +1742,10 @@ fn external_webapp_asset_response(
     };
     let candidate = base.join(&asset_path);
     let resolved = match candidate.canonicalize() {
-        Ok(resolved) if resolved.starts_with(&base) => resolved,
+        // A directory, such as the reserved `-` that holds the assets, is a route, not a file.
+        Ok(resolved) if resolved.starts_with(&base) && resolved.is_file() => resolved,
         _ if should_serve_spa_index(&asset_path) => {
             return external_webapp_asset_response(webapp_dir, "index.html", root_path);
-        }
-        _ if should_redirect_to_app_root(&asset_path) => {
-            return Redirect::temporary(&app_root_location(root_path)).into_response();
         }
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
@@ -1877,29 +1882,22 @@ fn app_root_location(root_path: &str) -> String {
     }
 }
 
+/// Whether a path that names no WebApp file is a reader route. Content owns every path outside
+/// the reserved `-` segment, so those always load the app, which shows its own not-found page;
+/// inside it, only the system pages do, and a missing asset stays a 404.
 fn should_serve_spa_index(path: &str) -> bool {
     let route = path.trim_matches('/');
-    let segments = route.split('/').collect::<Vec<_>>();
-    let configured_classification_route = matches!(segments.len(), 1 | 2)
-        && segments[0] != "assets"
-        && segments
-            .iter()
-            .all(|segment| !segment.is_empty() && !segment.contains('.'));
-
-    matches!(route, "pages" | "taxonomies" | "views")
-        || route.starts_with("pages/")
-        || route.starts_with("views/")
-        || configured_classification_route
-}
-
-fn should_redirect_to_app_root(path: &str) -> bool {
-    if path.starts_with("assets/") {
-        return false;
-    }
-    let extension = FsPath::new(path)
-        .extension()
-        .and_then(|extension| extension.to_str());
-    matches!(extension, None | Some("md"))
+    let Some(system) = route
+        .strip_prefix(SYSTEM_ROUTE_SEGMENT)
+        .filter(|rest| rest.is_empty() || rest.starts_with('/'))
+    else {
+        return true;
+    };
+    let system = system.trim_start_matches('/');
+    [BROWSE_ROUTE_PATH, VIEWS_ROUTE_PATH, HEALTH_ROUTE_PATH]
+        .iter()
+        .map(|route| route.trim_start_matches("/-/"))
+        .any(|page| system.is_empty() || system == page || system.starts_with(&format!("{page}/")))
 }
 
 fn content_type_for(path: &str) -> &'static str {
@@ -2053,23 +2051,36 @@ mod tests {
     }
 
     #[test]
-    fn spa_index_supports_direct_taxonomy_and_term_routes() {
-        for path in ["spaces", "spaces/tasks", "/spaces/tasks/"] {
+    fn spa_index_serves_every_content_path_and_the_system_pages() {
+        for path in [
+            "spaces",
+            "spaces/tasks/extra",
+            "/notes/topic.zh-hans/",
+            "assets/app.js",
+            "-",
+            "-/",
+            "-/browse",
+            "-/browse/areas/design",
+            "-/views/board",
+            "-/health",
+        ] {
             assert!(should_serve_spa_index(path), "expected SPA route: {path}");
         }
     }
 
     #[test]
-    fn spa_index_rejects_assets_files_and_deeper_classification_paths() {
+    fn spa_index_leaves_the_rest_of_the_reserved_segment_to_its_files() {
         for path in [
-            "assets",
-            "assets/app.js",
-            "favicon.ico",
-            "spaces/tasks/extra",
+            "-/assets",
+            "-/assets/app.js",
+            "-/forma-icon.svg",
+            "-/rpc",
+            "-/raw/notes/a.png",
+            "-/healthy",
         ] {
             assert!(
                 !should_serve_spa_index(path),
-                "expected asset route: {path}"
+                "expected reserved route: {path}"
             );
         }
     }
@@ -2673,7 +2684,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
-                    .uri("/rpc")
+                    .uri("/-/rpc")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"jsonrpc":"2.0","id":"1","method":"check","params":{}}"#,
@@ -2702,7 +2713,7 @@ mod tests {
                 .oneshot(
                     Request::builder()
                         .method(Method::POST)
-                        .uri("/rpc")
+                        .uri("/-/rpc")
                         .header("content-type", "application/json")
                         .body(Body::from(
                             r#"{"jsonrpc":"2.0","id":"1","method":"config.inspect","params":{}}"#,
@@ -2745,7 +2756,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/assets/missing.js")
+                    .uri("/-/assets/missing.js")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2756,29 +2767,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rpc_router_redirects_workspace_like_paths_to_app_root() {
-        let response = rpc_router()
-            .oneshot(
-                Request::builder()
-                    .method(Method::GET)
-                    .uri("/notes/members/workspace-note")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
-        assert_eq!(response.headers().get("location").unwrap(), "/");
-    }
-
-    #[tokio::test]
     async fn rpc_router_falls_back_spa_page_routes_to_index() {
         let response = rpc_router()
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/pages/notes/getting-started")
+                    .uri("/notes/members/workspace-note")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2824,7 +2818,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::OPTIONS)
-                    .uri("/forma/rpc")
+                    .uri("/forma/-/rpc")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2846,7 +2840,7 @@ mod tests {
         assert_eq!(root_response.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(root_response.headers().get("location").unwrap(), "/forma/");
 
-        let bad_path_response = router
+        let content_response = router
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
@@ -2856,11 +2850,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(bad_path_response.status(), StatusCode::TEMPORARY_REDIRECT);
-        assert_eq!(
-            bad_path_response.headers().get("location").unwrap(),
-            "/forma/"
-        );
+        assert_eq!(content_response.status(), StatusCode::OK);
 
         let page_response = rpc_router_with_options_and_root_path(None, Vec::new(), "/forma")
             .unwrap()
@@ -2900,7 +2890,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/assets/logo.png")
+                    .uri("/forma/-/raw/assets/logo.png")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2941,7 +2931,11 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        // Content owns this path, so it loads the reader instead of the configuration asset.
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "text/html; charset=utf-8"
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2964,7 +2958,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/../.forma.md")
+                    .uri("/forma/-/raw/../.forma.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2996,7 +2990,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma.md")
+                    .uri("/forma/-/raw/.forma.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3008,7 +3002,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma/assets/logo.svg")
+                    .uri("/forma/-/raw/.forma/assets/logo.svg")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3020,7 +3014,7 @@ mod tests {
         let invalid_config_response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma/assets/logo.svg")
+                    .uri("/forma/-/raw/.forma/assets/logo.svg")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3057,7 +3051,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma/local/secret.png")
+                    .uri("/forma/-/raw/.forma/local/secret.png")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3068,7 +3062,7 @@ mod tests {
         let config_response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma/local/profile.md")
+                    .uri("/forma/-/raw/.forma/local/profile.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3129,7 +3123,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/private/secret.png")
+                    .uri("/forma/-/raw/private/secret.png")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3163,7 +3157,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/assets/logo.png")
+                    .uri("/forma/-/raw/assets/logo.png")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3178,13 +3172,13 @@ mod tests {
     #[tokio::test]
     async fn rpc_router_can_serve_external_webapp_assets() {
         let root = fixture_root("external-webapp");
-        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::create_dir_all(root.join("-/assets")).unwrap();
         fs::write(
             root.join("index.html"),
             r#"<!doctype html><title>External Forma</title>"#,
         )
         .unwrap();
-        fs::write(root.join("assets/app.js"), "console.log('external');").unwrap();
+        fs::write(root.join("-/assets/app.js"), "console.log('external');").unwrap();
 
         let index_response = rpc_router_with_options(Some(root.clone()), Vec::new())
             .unwrap()
@@ -3208,7 +3202,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/assets/app.js")
+                    .uri("/-/assets/app.js")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3219,6 +3213,24 @@ mod tests {
             asset_response.headers().get("content-type").unwrap(),
             "text/javascript; charset=utf-8"
         );
+
+        // The reserved segment is a directory of assets, but its own path is a route.
+        let system_response = rpc_router_with_options(Some(root.clone()), Vec::new())
+            .unwrap()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/-")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(system_response.status(), StatusCode::OK);
+        let system_body = to_bytes(system_response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(String::from_utf8_lossy(&system_body).contains("External Forma"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -3256,7 +3268,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
-                    .uri("/rpc")
+                    .uri("/-/rpc")
                     .header("origin", "http://localhost:5173")
                     .header("content-type", "application/json")
                     .body(Body::from(
@@ -3284,7 +3296,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
-                    .uri("/rpc")
+                    .uri("/-/rpc")
                     .header("origin", "http://localhost:9999")
                     .header("content-type", "application/json")
                     .body(Body::from(
@@ -3311,7 +3323,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::OPTIONS)
-                    .uri("/rpc")
+                    .uri("/-/rpc")
                     .header("origin", "http://localhost:5173")
                     .header("access-control-request-method", "POST")
                     .body(Body::empty())

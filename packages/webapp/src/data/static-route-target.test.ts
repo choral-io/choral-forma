@@ -9,7 +9,7 @@ import type { WorkspaceDashboard } from "./workspace-client";
 const canonical = {
     id: "notes--one",
     path: "notes/one.md",
-    routePath: "/pages/notes/one",
+    routePath: "/notes/one",
     rawPath: "notes/one.md",
     title: "One",
     omitLeadingTitle: false,
@@ -22,7 +22,7 @@ const canonical = {
             id: "notes--one.zh-hans",
             language: "zh-Hans",
             path: "notes/one.zh-Hans.md",
-            routePath: "/pages/notes/one.zh-Hans",
+            routePath: "/notes/one.zh-Hans",
             rawPath: "notes/one.zh-Hans.md",
             title: "一",
             omitLeadingTitle: true,
@@ -41,19 +41,19 @@ describe("resolveDashboardEntryTarget", () => {
     });
 
     it("matches canonical entry routes", () => {
-        expect(resolveDashboardEntryTarget(dashboard, "/pages/notes/one")).toMatchObject({
+        expect(resolveDashboardEntryTarget(dashboard, "/notes/one")).toMatchObject({
             entryId: "notes--one",
             summary: { title: "One" },
         });
     });
 
     it("matches localized variant routes without replacing their identity", () => {
-        expect(resolveDashboardEntryTarget(dashboard, "/pages/notes/one.zh-Hans")).toMatchObject({
+        expect(resolveDashboardEntryTarget(dashboard, "/notes/one.zh-Hans")).toMatchObject({
             entryId: "notes--one.zh-hans",
             summary: {
                 id: "notes--one.zh-hans",
                 path: "notes/one.zh-Hans.md",
-                routePath: "/pages/notes/one.zh-Hans",
+                routePath: "/notes/one.zh-Hans",
                 title: "一",
                 omitLeadingTitle: true,
             },
@@ -61,16 +61,16 @@ describe("resolveDashboardEntryTarget", () => {
     });
 
     it("does not make an unknown static route look canonical", () => {
-        expect(resolveDashboardEntryTarget(dashboard, "/pages/notes/missing")).toBeUndefined();
+        expect(resolveDashboardEntryTarget(dashboard, "/notes/missing")).toBeUndefined();
     });
 
     it.each([
-        ["/preview/pages/notes/with%20space", "/pages/notes/with%20space", "notes--with-space"],
-        ["/preview/pages/notes/with%20space/", "/pages/notes/with%20space", "notes--with-space"],
-        ["/preview/pages/notes/%E4%BD%A0%E5%A5%BD", "/pages/notes/%E4%BD%A0%E5%A5%BD", "notes--unicode"],
-        ["/preview/pages/notes/%E4%BD%A0%E5%A5%BD/", "/pages/notes/%E4%BD%A0%E5%A5%BD", "notes--unicode"],
-        ["/preview/pages/notes/100%25", "/pages/notes/100%25", "notes--percent"],
-        ["/preview/pages/notes/100%25/", "/pages/notes/100%25", "notes--percent"],
+        ["/preview/notes/with%20space", "/notes/with%20space", "notes--with-space"],
+        ["/preview/notes/with%20space/", "/notes/with%20space", "notes--with-space"],
+        ["/preview/notes/%E4%BD%A0%E5%A5%BD", "/notes/%E4%BD%A0%E5%A5%BD", "notes--unicode"],
+        ["/preview/notes/%E4%BD%A0%E5%A5%BD/", "/notes/%E4%BD%A0%E5%A5%BD", "notes--unicode"],
+        ["/preview/notes/100%25", "/notes/100%25", "notes--percent"],
+        ["/preview/notes/100%25/", "/notes/100%25", "notes--percent"],
     ])("matches an encoded direct load from %s", (pathname, routePath, entryId) => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",
@@ -82,21 +82,21 @@ describe("resolveDashboardEntryTarget", () => {
                 ...canonical,
                 id: "notes--with-space",
                 path: "notes/with space.md",
-                routePath: "/pages/notes/with%20space",
+                routePath: "/notes/with%20space",
                 variants: [],
             },
             {
                 ...canonical,
                 id: "notes--unicode",
                 path: "notes/你好.md",
-                routePath: "/pages/notes/%E4%BD%A0%E5%A5%BD",
+                routePath: "/notes/%E4%BD%A0%E5%A5%BD",
                 variants: [],
             },
             {
                 ...canonical,
                 id: "notes--percent",
                 path: "notes/100%.md",
-                routePath: "/pages/notes/100%25",
+                routePath: "/notes/100%25",
                 variants: [],
             },
         ];

@@ -19,9 +19,20 @@ order: 60
 
 `forma site build` exports the configured workspace projection as a static, multi-page HTML artifact. It does not start a server, create a second content store, or change workspace sources. Serve the completed output with an ordinary static-file host; every generated route has its own HTML file, including `404.html`, `sitemap.xml`, and `robots.txt`.
 
-Pages are grouped by the directories of their source paths. `/pages` lists the workspace root, and each directory that holds an indexed page has its own page at `/pages/<directory>` listing its folders and pages, unless a page is served at that route already, such as the directory's `index.md` or a same-named page beside it.
+Content owns the root of the URL space: a page is served at its source path without the Markdown extension, so `notes/welcome.md` is `/notes/welcome`, and `notes/index.md` is `/notes`. The root page is `.forma.md` and also lists the root folders. Each other directory that holds an indexed page has its own page at its path listing its folders and pages, unless a page is served at that route already, such as the directory's `index.md` or a same-named page beside it. Everything Forma adds is under the reserved `-` segment: collections at `/-/browse/<taxonomy>/<term>`, Views at `/-/views/<view>`, and the artifact's data, assets, and resources.
 
-The initial HTML contains readable entry bodies and ordinary links. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
+The initial HTML contains readable entry bodies and ordinary links. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `-/data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
+
+### Route Conflicts
+
+`forma check` reports content that cannot be served at its route, and `site build` refuses to write an artifact while any of these remain, listing each one:
+
+- `route.reserved`: a document whose top-level name is `-`, the segment reserved for Forma.
+- `route.invalidSegment`: a taxonomy or term id that is empty, `.`, or `..`.
+- `route.collision`: two sources at one route, such as `x.md` beside `x/index.md`.
+- `route.staticOutputConflict`: routes a static artifact cannot hold apart, such as paths that differ only in case, a page named `index.html`, or a root page named after one of the artifact's root files. A local server still serves these, so `forma check` reports them as warnings; `site build` treats them as errors.
+
+Rename or exclude one of the sources to resolve a conflict.
 
 ## CLI Help
 
@@ -41,13 +52,13 @@ The root page always renders the Markdown body of `.forma.md`. Its frontmatter r
 
 The output directory is disposable and owned by Forma. A new output is written through a staging directory. An existing output can be replaced only when it contains the `.forma-site-artifact` marker, preventing accidental replacement of an unrelated directory. A successful build replaces the complete artifact tree, including stale files. If staging fails, the previous artifact remains untouched; if activation fails after the old artifact was moved aside, Forma attempts to restore it. After a successful activation, no automatic rollback copy is retained: host operators should retain the prior artifact or rebuild from a known source commit for rollback.
 
-The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `raw/`, and hosting support files. It needs no SPA fallback rule, long-running Forma process, database, or `/rpc` endpoint. Its `_headers` file supplies a restrictive response-header baseline, including a CSP that permits same-origin scripts but no executable inline script. Static hosts differ in whether they apply `_headers`; configure equivalent headers when yours does not. Building an artifact is separate from any hosting or publication operation.
+The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `-/raw/`, and hosting support files. Only `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `_headers`, and the ownership marker sit at its root beside the content directories; everything else is under `-/`. It needs no SPA fallback rule, long-running Forma process, database, or RPC endpoint. Its `_headers` file supplies a restrictive response-header baseline, including a CSP that permits same-origin scripts but no executable inline script. Static hosts differ in whether they apply `_headers`; configure equivalent headers when yours does not. Building an artifact is separate from any hosting or publication operation.
 
 ## Publication And Resource Boundary
 
 The builder exports the effective workspace projection and configured routes, not a repository copy. Every valid configured import participates regardless of directory name or `.gitignore`; neither creates privacy or publication semantics. Keep material that requires a privacy guarantee outside configured workspace inputs.
 
-Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, non-regular resource files, hidden path components, and configuration-source documents; it does not copy arbitrary workspace or repository files. Names suggesting private or local content do not exclude otherwise eligible referenced resources.
+Only resources referenced by exported content or declared workspace presentation are copied, under `-/raw/`. Forma rejects path traversal, symlinks, non-regular resource files, hidden path components, and configuration-source documents; it does not copy arbitrary workspace or repository files. Names suggesting private or local content do not exclude otherwise eligible referenced resources.
 
 ### Trusted-Author Publication Boundary
 

@@ -4,14 +4,13 @@ import { createBrowserRouter, createRoutesFromElements, Navigate, Route } from "
 import { App } from "@/app/App";
 import { RouteErrorBoundary } from "@/app/RouteErrorBoundary";
 import type * as RoutePagesModule from "@/features/route-pages";
-import { legacyWorkspaceRouteRedirect } from "@/lib/workspace-routes";
+import { systemRouteSegment } from "@/lib/workspace-routes";
 import { staticRouterBasename } from "./data/static-runtime";
 
 const DashboardRoute = lazyDashboardRoute("DashboardRoute");
 const EntryRoute = lazyDashboardRoute("EntryRoute");
 const FallbackRoute = lazyDashboardRoute("FallbackRoute");
 const HealthRoute = lazyDashboardRoute("HealthRoute");
-const PagesRoute = lazyDashboardRoute("PagesRoute");
 const TaxonomiesRoute = lazyDashboardRoute("TaxonomiesRoute");
 const TaxonomyRoute = lazyDashboardRoute("TaxonomyRoute");
 const TaxonomyTermRoute = lazyDashboardRoute("TaxonomyTermRoute");
@@ -34,22 +33,24 @@ function lazyDashboardRoute(exportName: keyof typeof RoutePagesModule) {
     });
 }
 
+/**
+ * Content owns every path outside the reserved `-` segment, so a document or directory is
+ * served at its workspace path. Forma's own pages are all below `-`, which has no page itself.
+ */
 const routeElements = (
     <Route errorElement={<RouteErrorBoundary />} path="/" Component={App}>
         <Route index Component={DashboardRoute} />
-        <Route path="pages" Component={PagesRoute} />
-        <Route path="pages/*" Component={EntryRoute} />
-        <Route path="browse" Component={TaxonomiesRoute} />
-        <Route
-            path="taxonomies"
-            element={<Navigate replace to={legacyWorkspaceRouteRedirect("/taxonomies") ?? "/browse"} />}
-        />
-        <Route path="views" Component={ViewsRoute} />
-        <Route path="views/*" Component={ViewRoute} />
-        <Route path="health" Component={HealthRoute} />
-        <Route path=":taxonomyId" Component={TaxonomyRoute} />
-        <Route path=":taxonomyId/:termId" Component={TaxonomyTermRoute} />
-        <Route path="*" Component={FallbackRoute} />
+        <Route path={systemRouteSegment}>
+            <Route index element={<Navigate replace to="/" />} />
+            <Route path="browse" Component={TaxonomiesRoute} />
+            <Route path="browse/:taxonomyId" Component={TaxonomyRoute} />
+            <Route path="browse/:taxonomyId/:termId" Component={TaxonomyTermRoute} />
+            <Route path="views" Component={ViewsRoute} />
+            <Route path="views/*" Component={ViewRoute} />
+            <Route path="health" Component={HealthRoute} />
+            <Route path="*" Component={FallbackRoute} />
+        </Route>
+        <Route path="*" Component={EntryRoute} />
     </Route>
 );
 

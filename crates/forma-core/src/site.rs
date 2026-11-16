@@ -14,7 +14,7 @@ use crate::config::DisplayOptions;
 use crate::diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
-use crate::index::{IndexEntry, IndexEntryVariant, IndexView};
+use crate::index::{IndexEntry, IndexEntryVariant};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, resolve_markdown_title};
 use crate::operations::{
     OperationError, ReferenceEdge, WorkspaceSnapshot, document_id_for_path,
@@ -26,10 +26,15 @@ use crate::render::{
     RenderedHeading, ViewRenderDocument, ViewRenderOutput, render_all_headings,
     render_indexed_view_from_loaded, render_markdown_source_html, slugify_heading,
 };
+use crate::routes::{
+    BROWSE_ROUTE_PATH, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE, VIEWS_ROUTE_PATH,
+    directory_paths, directory_route_path, entry_route_path, public_view_id, raw_route_path,
+    route_output_path, taxonomy_route_path, taxonomy_term_route_path, view_route_path,
+};
 use crate::{media_type_for_workspace_path, version};
 
 /// Serialized contract version consumed by static artifact writers.
-pub const STATIC_SITE_SNAPSHOT_SCHEMA_VERSION: u16 = 1;
+pub const STATIC_SITE_SNAPSHOT_SCHEMA_VERSION: u16 = 2;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -85,7 +90,6 @@ pub struct StaticSiteWorkspaceLogo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum StaticSiteRouteKind {
-    Pages,
     Views,
     Taxonomies,
     Entry,
@@ -295,7 +299,6 @@ fn build_static_site_snapshot_from_loaded(
     let mut diagnostics = read_operation_diagnostics(discovery.diagnostics.clone());
     let mut resources = BTreeMap::<String, StaticSiteResourceCandidate>::new();
     let mut routes = support_routes();
-    let mut route_sources = BTreeMap::<String, Option<String>>::new();
     let mut entries = Vec::new();
     let mut backlinks_by_target = collect_backlinks_by_target(&discovery.index.entries);
     let entry_routes_by_path = discovery
@@ -438,17 +441,12 @@ fn build_static_site_snapshot_from_loaded(
                 &rendered.path,
                 &rendered.route_path,
             ));
-            route_sources.insert(
-                rendered.route_path.to_ascii_lowercase(),
-                Some(rendered.path.clone()),
-            );
             variants.push(rendered);
         }
         variants.sort_by(|left, right| left.path.cmp(&right.path));
 
         let id = document_id_for_path(&entry.path);
         routes.push(route_for_entry(&id, &entry.path, &route_path));
-        route_sources.insert(route_path.to_ascii_lowercase(), Some(entry.path.clone()));
         entries.push(StaticSiteEntry {
             id,
             path: entry.path.clone(),
@@ -510,7 +508,6 @@ fn build_static_site_snapshot_from_loaded(
             path: route_path.clone(),
             output_path: route_output_path(&route_path),
         });
-        route_sources.insert(route_path.to_ascii_lowercase(), None);
         views.push(StaticSiteView {
             id,
             source_path: view.path.clone(),
@@ -530,13 +527,11 @@ fn build_static_site_snapshot_from_loaded(
     views.sort_by(|left, right| left.route_path.cmp(&right.route_path));
 
     for route in directory_routes(&entries) {
-        route_sources.insert(route.path.to_ascii_lowercase(), None);
         routes.push(route);
     }
 
     let (taxonomies, taxonomy_routes) = static_taxonomies(workspace, &discovery.index.entries);
     for route in taxonomy_routes {
-        route_sources.insert(route.path.to_ascii_lowercase(), None);
         routes.push(route);
     }
     let spaces = static_spaces(workspace, &discovery.index.entries);
@@ -556,7 +551,12 @@ fn build_static_site_snapshot_from_loaded(
             .then_with(|| left.kind.cmp(&right.kind))
             .then_with(|| left.id.cmp(&right.id))
     });
-    diagnostics.extend(route_collision_diagnostics(&routes, &route_sources));
+    // A static artifact writes every route as a file, so routes it cannot hold apart block it.
+    for diagnostic in &mut diagnostics {
+        if diagnostic.code == ROUTE_STATIC_OUTPUT_CONFLICT_CODE {
+            diagnostic.severity = DiagnosticSeverity::Error;
+        }
+    }
     diagnostics.extend(identity_collision_diagnostics(&entries, &views));
     diagnostics.sort_by_key(diagnostic_sort_key);
     diagnostics.dedup();
@@ -875,9 +875,9 @@ fn static_taxonomies(
     (taxonomies, routes)
 }
 
-/// One route per directory that holds an indexed page, at `/pages/<directory path>`, so a
-/// directory URL is a real page on a static host. A directory served by a page of its own,
-/// such as its `index` file or a same-named page beside it, keeps that page instead.
+/// One route per directory that holds an indexed page, at its workspace path, so a directory URL
+/// is a real page on a static host. A directory served by a page of its own, such as its `index`
+/// file or a same-named page beside it, keeps that page instead. The root directory is home.
 fn directory_routes(entries: &[StaticSiteEntry]) -> Vec<StaticSiteRoute> {
     let page_routes = entries
         .iter()
@@ -890,16 +890,7 @@ fn directory_routes(entries: &[StaticSiteEntry]) -> Vec<StaticSiteRoute> {
             )
         })
         .collect::<BTreeSet<_>>();
-    let directories = entries
-        .iter()
-        .flat_map(|entry| {
-            let segments = entry.path.split('/').collect::<Vec<_>>();
-            (1..segments.len())
-                .map(move |length| segments[..length].join("/"))
-                .collect::<Vec<_>>()
-        })
-        .collect::<BTreeSet<_>>();
-    directories
+    directory_paths(entries.iter().map(|entry| entry.path.as_str()))
         .into_iter()
         .filter_map(|directory| {
             let path = directory_route_path(&directory);
@@ -913,20 +904,10 @@ fn directory_routes(entries: &[StaticSiteEntry]) -> Vec<StaticSiteRoute> {
         .collect()
 }
 
-/// The route of a directory's page, encoded as page routes are; the empty path is `/pages`.
-pub fn directory_route_path(directory: &str) -> String {
-    if directory.is_empty() {
-        "/pages".to_string()
-    } else {
-        format!("/pages/{}", encode_path(directory))
-    }
-}
-
 fn support_routes() -> Vec<StaticSiteRoute> {
     [
-        (StaticSiteRouteKind::Pages, "pages", "/pages"),
-        (StaticSiteRouteKind::Views, "views", "/views"),
-        (StaticSiteRouteKind::Taxonomies, "browse", "/browse"),
+        (StaticSiteRouteKind::Views, "views", VIEWS_ROUTE_PATH),
+        (StaticSiteRouteKind::Taxonomies, "browse", BROWSE_ROUTE_PATH),
     ]
     .into_iter()
     .map(|(kind, id, path)| StaticSiteRoute {
@@ -944,100 +925,6 @@ fn route_for_entry(id: &str, _source_path: &str, route_path: &str) -> StaticSite
         id: id.to_string(),
         path: route_path.to_string(),
         output_path: route_output_path(route_path),
-    }
-}
-
-fn entry_route_path(path: &str) -> String {
-    let without_extension = path
-        .strip_suffix(".md")
-        .or_else(|| path.strip_suffix(".mdx"))
-        .unwrap_or(path);
-    let page_path = without_extension
-        .strip_suffix("/index")
-        .filter(|value| !value.is_empty())
-        .unwrap_or(without_extension);
-    format!("/pages/{}", encode_path(page_path))
-}
-
-fn public_view_id(view: &IndexView) -> String {
-    view.id
-        .rsplit('/')
-        .next()
-        .unwrap_or(view.id.as_str())
-        .to_string()
-}
-
-fn view_route_path(id: &str) -> String {
-    format!("/views/{}", percent_encode_segment(id))
-}
-
-fn taxonomy_route_path(id: &str) -> String {
-    format!("/{}", percent_encode_segment(id))
-}
-
-fn taxonomy_term_route_path(taxonomy_id: &str, term_id: &str) -> String {
-    format!(
-        "{}/{}",
-        taxonomy_route_path(taxonomy_id),
-        percent_encode_segment(term_id)
-    )
-}
-
-fn encode_path(path: &str) -> String {
-    path.split('/')
-        .map(percent_encode_segment)
-        .collect::<Vec<_>>()
-        .join("/")
-}
-
-fn percent_encode_segment(segment: &str) -> String {
-    let mut encoded = String::new();
-    for byte in segment.as_bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
-            encoded.push(char::from(*byte));
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    encoded
-}
-
-fn route_output_path(route_path: &str) -> String {
-    let path = route_path.trim_matches('/');
-    if path.is_empty() {
-        "index.html".to_string()
-    } else {
-        format!("{}/index.html", decode_public_path_once(path))
-    }
-}
-
-fn decode_public_path_once(path: &str) -> String {
-    let bytes = path.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%'
-            && let (Some(high), Some(low)) = (
-                bytes.get(index + 1).and_then(|byte| hex_value(*byte)),
-                bytes.get(index + 2).and_then(|byte| hex_value(*byte)),
-            )
-        {
-            decoded.push((high << 4) | low);
-            index += 3;
-            continue;
-        }
-        decoded.push(bytes[index]);
-        index += 1;
-    }
-    String::from_utf8(decoded).unwrap_or_else(|_| path.to_string())
-}
-
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
     }
 }
 
@@ -1079,7 +966,7 @@ fn static_markdown(
                     let prefix = if matches!(
                         reference.syntax,
                         crate::markdown::FormaReferenceSyntax::ObsidianEmbed
-                    ) && href.contains("/raw/")
+                    ) && href.contains(&format!("{RAW_ROUTE_PREFIX}/"))
                     {
                         "!"
                     } else {
@@ -1531,11 +1418,10 @@ fn resource_candidate(
     ) {
         return None;
     }
-    let encoded = encode_path(path);
     Some(StaticSiteResourceCandidate {
         path: path.to_string(),
-        public_path: public_url(root_path, &format!("/raw/{encoded}")),
-        output_path: format!("raw/{path}"),
+        public_path: public_url(root_path, &raw_route_path(path)),
+        output_path: format!("{}/{path}", RAW_ROUTE_PREFIX.trim_start_matches('/')),
         media_type: media_type.to_string(),
         referenced_by: if workspace_presentation {
             Vec::new()
@@ -1571,33 +1457,6 @@ fn resource_path_is_publishable(path: &str, config_paths: &BTreeSet<&str>) -> bo
     !blocked_roots
         .iter()
         .any(|blocked| root.eq_ignore_ascii_case(blocked))
-}
-
-fn route_collision_diagnostics(
-    routes: &[StaticSiteRoute],
-    sources: &BTreeMap<String, Option<String>>,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<String, &StaticSiteRoute>::new();
-    for route in routes {
-        let key = route.output_path.to_ascii_lowercase();
-        if let Some(existing) = seen.insert(key, route) {
-            let mut diagnostic = Diagnostic::error(
-                "site.routeCollision",
-                "Static routes resolve to the same output path.",
-            )
-            .with_actual(format!(
-                "route {} collides with route {}",
-                existing.path, route.path
-            ))
-            .with_expected("unique route output paths");
-            if let Some(Some(path)) = sources.get(&route.path.to_ascii_lowercase()) {
-                diagnostic = diagnostic.with_path(path.clone());
-            }
-            diagnostics.push(diagnostic);
-        }
-    }
-    diagnostics
 }
 
 fn identity_collision_diagnostics(
@@ -1785,7 +1644,10 @@ mod tests {
         let second_json = serde_json::to_string_pretty(&second).unwrap();
 
         assert_eq!(first_json, second_json);
-        assert_eq!(first.schema_version, 1);
+        assert_eq!(
+            first.schema_version,
+            super::STATIC_SITE_SNAPSHOT_SCHEMA_VERSION
+        );
         assert_eq!(first.status, OperationStatus::Warning);
         assert_eq!(first.workspace.home.path, ".forma.md");
         assert!(!first.workspace.home.markdown.trim().is_empty());
@@ -1810,31 +1672,30 @@ mod tests {
         );
         assert!(first.routes.iter().any(|route| {
             route.kind == StaticSiteRouteKind::Entry
-                && route.path == "/pages/content/guides/intro"
-                && route.output_path == "pages/content/guides/intro/index.html"
+                && route.path == "/content/guides/intro"
+                && route.output_path == "content/guides/intro/index.html"
         }));
         assert!(first.routes.iter().any(|route| {
             route.kind == StaticSiteRouteKind::View
-                && route.path == "/views/guide-table"
-                && route.output_path == "views/guide-table/index.html"
+                && route.path == "/-/views/guide-table"
+                && route.output_path == "-/views/guide-table/index.html"
         }));
         for (kind, path, output_path) in [
-            (StaticSiteRouteKind::Pages, "/pages", "pages/index.html"),
-            (StaticSiteRouteKind::Views, "/views", "views/index.html"),
+            (StaticSiteRouteKind::Views, "/-/views", "-/views/index.html"),
             (
                 StaticSiteRouteKind::Taxonomies,
-                "/browse",
-                "browse/index.html",
+                "/-/browse",
+                "-/browse/index.html",
             ),
             (
                 StaticSiteRouteKind::Taxonomy,
-                "/spaces",
-                "spaces/index.html",
+                "/-/browse/spaces",
+                "-/browse/spaces/index.html",
             ),
             (
                 StaticSiteRouteKind::TaxonomyTerm,
-                "/spaces/guides",
-                "spaces/guides/index.html",
+                "/-/browse/spaces/guides",
+                "-/browse/spaces/guides/index.html",
             ),
         ] {
             assert!(first.routes.iter().any(|route| {
@@ -1893,7 +1754,7 @@ mod tests {
         assert!(
             intro
                 .markdown
-                .contains("[Related](/pages/content/guides/related)")
+                .contains("[Related](/content/guides/related)")
         );
         assert!(intro.html.contains(r#"<h2 id="overview"><span id="forma-heading-overview" data-forma-heading-anchor="" tabindex="-1"></span>Overview</h2>"#));
         assert_eq!(intro.headings[1].id, "overview");
@@ -1909,8 +1770,8 @@ mod tests {
             .iter()
             .find(|resource| resource.path == "assets/diagram.svg")
             .unwrap();
-        assert_eq!(resource.public_path, "/raw/assets/diagram.svg");
-        assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
+        assert_eq!(resource.public_path, "/-/raw/assets/diagram.svg");
+        assert_eq!(resource.referenced_by, vec!["/content/guides/intro"]);
         let local_named_resource = snapshot
             .resources
             .iter()
@@ -1918,18 +1779,18 @@ mod tests {
             .unwrap();
         assert_eq!(
             local_named_resource.public_path,
-            "/raw/content/guides/local/diagram.png"
+            "/-/raw/content/guides/local/diagram.png"
         );
         assert_eq!(
             local_named_resource.referenced_by,
-            vec!["/pages/content/guides/intro"]
+            vec!["/content/guides/intro"]
         );
         assert!(!snapshot_json.contains("LOCAL_NAMED_RESOURCE_SENTINEL"));
-        assert!(snapshot_json.contains("/raw/content/guides/local/diagram.png"));
+        assert!(snapshot_json.contains("/-/raw/content/guides/local/diagram.png"));
         assert!(
             intro
                 .markdown
-                .contains("![Local named resource](/raw/content/guides/local/diagram.png)")
+                .contains("![Local named resource](/-/raw/content/guides/local/diagram.png)")
         );
         assert_eq!(
             snapshot.taxonomies[0].terms[0].entry_ids,
@@ -1962,7 +1823,7 @@ mod tests {
         assert!(snapshot.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "entryRef.unresolved"
                 && diagnostic.path.as_deref() == Some("content/guides/intro.md")
-                && diagnostic.route_path.as_deref() == Some("/pages/content/guides/intro")
+                && diagnostic.route_path.as_deref() == Some("/content/guides/intro")
                 && diagnostic.actual.as_deref() == Some("missing-guide")
         }));
         fs::remove_dir_all(root).unwrap();
@@ -2007,23 +1868,23 @@ mod tests {
         assert!(
             intro
                 .markdown
-                .contains("[Related](/preview/pages/content/guides/related#details)")
+                .contains("[Related](/preview/content/guides/related#details)")
         );
         assert!(!intro.markdown.contains("#details#Details"));
         assert!(
             intro
                 .markdown
-                .contains("[Deep](/preview/pages/content/guides/related#section)")
+                .contains("[Deep](/preview/content/guides/related#section)")
         );
         assert!(
             intro
                 .markdown
-                .contains("[Workspace-style](</preview/pages/content/guides/related#details>)")
+                .contains("[Workspace-style](</preview/content/guides/related#details>)")
         );
         assert!(
             intro
                 .markdown
-                .contains("[Bare](</preview/pages/content/guides/related>)")
+                .contains("[Bare](</preview/content/guides/related>)")
         );
         let related = snapshot
             .entries
@@ -2034,7 +1895,7 @@ mod tests {
         assert!(
             intro
                 .markdown
-                .contains("](/preview/raw/assets/diagram.svg)")
+                .contains("](/preview/-/raw/assets/diagram.svg)")
         );
         assert!(intro.markdown.contains("](https://example.test/a)"));
         assert!(intro.markdown.contains("](mailto:test@example.test)"));
@@ -2042,7 +1903,7 @@ mod tests {
         assert!(intro.markdown.contains("](missing.md)"));
         assert_eq!(
             snapshot.resources[0].public_path,
-            "/preview/raw/assets/diagram.svg"
+            "/preview/-/raw/assets/diagram.svg"
         );
         let table = snapshot
             .views
@@ -2054,7 +1915,7 @@ mod tests {
                 .html
                 .as_deref()
                 .unwrap()
-                .contains(r#"href="/preview/pages/content/guides/related#details""#)
+                .contains(r#"href="/preview/content/guides/related#details""#)
         );
         fs::remove_dir_all(root).unwrap();
     }
@@ -2068,15 +1929,15 @@ mod tests {
         let routes = BTreeMap::from([
             (
                 "content/guides/source.txt.md".into(),
-                "/pages/content/guides/source.txt".into(),
+                "/content/guides/source.txt".into(),
             ),
             (
                 "content/guides/directory.txt/index.md".into(),
-                "/pages/content/guides/directory.txt".into(),
+                "/content/guides/directory.txt".into(),
             ),
             (
                 "content/guides/page.md".into(),
-                "/pages/content/guides/page".into(),
+                "/content/guides/page".into(),
             ),
         ]);
         let config = BTreeSet::from(["content/guides/config.txt"]);
@@ -2102,9 +1963,9 @@ mod tests {
                     root_path,
                 );
                 let raw_prefix = if root_path == "/" {
-                    "/raw/"
+                    "/-/raw/"
                 } else {
-                    "/preview/raw/"
+                    "/preview/-/raw/"
                 };
                 assert_eq!(
                     href.as_deref()
@@ -2122,7 +1983,7 @@ mod tests {
                     &mut resources,
                     &config,
                     "content/guides/intro.md",
-                    "/pages/content/guides/intro",
+                    "/content/guides/intro",
                     &document,
                     root_path,
                 );
@@ -2137,7 +1998,7 @@ mod tests {
                         href.as_deref().unwrap().split(['?', '#']).next(),
                         Some(resource.public_path.as_str())
                     );
-                    assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
+                    assert_eq!(resource.referenced_by, vec!["/content/guides/intro"]);
                 }
             }
         }
@@ -2170,25 +2031,28 @@ mod tests {
         assert!(
             intro
                 .markdown
-                .contains("[Raw](/preview/raw/content/guides/foo.txt?download=1#part)")
+                .contains("[Raw](/preview/-/raw/content/guides/foo.txt?download=1#part)")
         );
         assert!(
             intro
                 .markdown
-                .contains("[Root raw](/preview/raw/content/guides/foo.txt)")
+                .contains("[Root raw](/preview/-/raw/content/guides/foo.txt)")
         );
         assert!(
             intro
                 .markdown
-                .contains("[Sidecar](/preview/pages/content/guides/foo.txt)")
+                .contains("[Sidecar](/preview/content/guides/foo.txt)")
         );
         let resource = snapshot
             .resources
             .iter()
             .find(|resource| resource.path == "content/guides/foo.txt")
             .unwrap();
-        assert_eq!(resource.public_path, "/preview/raw/content/guides/foo.txt");
-        assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
+        assert_eq!(
+            resource.public_path,
+            "/preview/-/raw/content/guides/foo.txt"
+        );
+        assert_eq!(resource.referenced_by, vec!["/content/guides/intro"]);
 
         // Without a real raw file the historical sidecar alias must still resolve.
         fs::remove_file(root.join("content/guides/foo.txt")).unwrap();
@@ -2201,7 +2065,7 @@ mod tests {
         assert!(
             intro
                 .markdown
-                .contains("[Raw](/preview/pages/content/guides/foo.txt#part)"),
+                .contains("[Raw](/preview/content/guides/foo.txt#part)"),
             "{}",
             intro.markdown
         );
@@ -2251,18 +2115,18 @@ mod tests {
         for (path, route_path, output_path) in [
             (
                 "content/guides/with space.md",
-                "/pages/content/guides/with%20space",
-                "pages/content/guides/with space/index.html",
+                "/content/guides/with%20space",
+                "content/guides/with space/index.html",
             ),
             (
                 "content/guides/你好.md",
-                "/pages/content/guides/%E4%BD%A0%E5%A5%BD",
-                "pages/content/guides/你好/index.html",
+                "/content/guides/%E4%BD%A0%E5%A5%BD",
+                "content/guides/你好/index.html",
             ),
             (
                 "content/guides/100%.md",
-                "/pages/content/guides/100%25",
-                "pages/content/guides/100%/index.html",
+                "/content/guides/100%25",
+                "content/guides/100%/index.html",
             ),
         ] {
             let entry = snapshot
@@ -2276,18 +2140,18 @@ mod tests {
         for (path, public_path, output_path) in [
             (
                 "assets/diagram space.svg",
-                "/preview/raw/assets/diagram%20space.svg",
-                "raw/assets/diagram space.svg",
+                "/preview/-/raw/assets/diagram%20space.svg",
+                "-/raw/assets/diagram space.svg",
             ),
             (
                 "assets/图.svg",
-                "/preview/raw/assets/%E5%9B%BE.svg",
-                "raw/assets/图.svg",
+                "/preview/-/raw/assets/%E5%9B%BE.svg",
+                "-/raw/assets/图.svg",
             ),
             (
                 "assets/100%.svg",
-                "/preview/raw/assets/100%25.svg",
-                "raw/assets/100%.svg",
+                "/preview/-/raw/assets/100%25.svg",
+                "-/raw/assets/100%.svg",
             ),
         ] {
             let resource = snapshot
@@ -2388,13 +2252,13 @@ mod tests {
         assert_eq!(
             directories,
             vec![
-                ("content", "/pages/content", "pages/content/index.html"),
+                ("content", "/content", "content/index.html"),
                 (
                     "content/guides",
-                    "/pages/content/guides",
-                    "pages/content/guides/index.html"
+                    "/content/guides",
+                    "content/guides/index.html"
                 ),
-                ("local", "/pages/local", "pages/local/index.html"),
+                ("local", "/local", "local/index.html"),
             ],
             "content/guides/advanced is served by advanced.md, so it gets no directory route"
         );
@@ -2461,11 +2325,11 @@ mod tests {
         assert_eq!(snapshot.status, OperationStatus::Failed);
         assert!(
             snapshot.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "site.routeCollision"
+                diagnostic.code == "route.collision"
                     && diagnostic.path.as_deref() == Some("content/guides/related/index.md")
                     && diagnostic.actual.as_deref()
                         == Some(
-                            "route /pages/content/guides/related collides with route /pages/content/guides/related",
+                            "document content/guides/related.md and document content/guides/related/index.md are both at /content/guides/related",
                         )
             }),
             "{:#?}",

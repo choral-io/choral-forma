@@ -151,11 +151,11 @@ describe("scrollReaderAnchor", () => {
         const scrollTo = vi.fn();
         main.scrollTo = scrollTo;
         const anchor = document.createElement("a");
-        anchor.href = `${window.location.origin}/pages/example#diagrams`;
+        anchor.href = `${window.location.origin}/example#diagrams`;
 
         expect(scrollReaderAnchor(anchor)).toBe(true);
         expect(scrollTo).toHaveBeenCalledWith({ behavior: "auto", top: 280 });
-        expect(window.location.pathname + window.location.hash).toBe("/pages/example#diagrams");
+        expect(window.location.pathname + window.location.hash).toBe("/example#diagrams");
     });
 
     it("leaves the target's scroll margin above it", () => {
@@ -175,7 +175,7 @@ describe("scrollReaderAnchor", () => {
         const scrollTo = vi.fn();
         main.scrollTo = scrollTo;
         const anchor = document.createElement("a");
-        anchor.href = `${window.location.origin}/pages/example#diagrams`;
+        anchor.href = `${window.location.origin}/example#diagrams`;
 
         expect(scrollReaderAnchor(anchor)).toBe(true);
         expect(scrollTo).toHaveBeenCalledWith({ behavior: "auto", top: 256 });
@@ -192,7 +192,7 @@ describe("scrollReaderAnchor", () => {
             scrollHeight: { configurable: true, value: 400 },
         });
         const anchor = document.createElement("a");
-        anchor.href = `${window.location.origin}/pages/example#diagrams`;
+        anchor.href = `${window.location.origin}/example#diagrams`;
 
         expect(scrollReaderAnchor(anchor)).toBe(false);
         expect(window.location.hash).toBe("");
@@ -214,7 +214,7 @@ describe("scrollReaderAnchor", () => {
         const scrollTo = vi.fn();
         main.scrollTo = scrollTo;
         const anchor = document.createElement("a");
-        anchor.href = `${window.location.origin}/pages/example#document-details`;
+        anchor.href = `${window.location.origin}/example#document-details`;
 
         expect(details.open).toBe(false);
         expect(scrollReaderAnchor(anchor)).toBe(true);
@@ -230,7 +230,7 @@ describe("scrollReaderAnchor", () => {
         heading.append(alias, "中文");
         reader.append(heading);
         document.body.append(reader);
-        window.history.replaceState(null, "", "/pages/example#forma-heading-%E4%B8%AD%E6%96%87");
+        window.history.replaceState(null, "", "/example#forma-heading-%E4%B8%AD%E6%96%87");
         alias.scrollIntoView = vi.fn();
         restoreReaderFragment(reader);
         expect(document.activeElement).toBe(heading);
@@ -243,7 +243,7 @@ describe("scrollReaderAnchor", () => {
         alias.dataset.formaHeadingAnchor = "";
         reader.append(alias);
         document.body.append(reader);
-        window.history.replaceState(null, "", "/pages/example#forma-heading-title");
+        window.history.replaceState(null, "", "/example#forma-heading-title");
         alias.scrollIntoView = vi.fn();
         restoreReaderFragment(reader);
         expect(document.activeElement).toBe(alias);
@@ -252,11 +252,11 @@ describe("scrollReaderAnchor", () => {
         const target = document.createElement("li");
         target.id = "note";
         document.body.append(target);
-        window.history.replaceState(null, "", "/pages/example/");
+        window.history.replaceState(null, "", "/example/");
         const anchor = document.createElement("a");
-        anchor.href = "/pages/example#note";
+        anchor.href = "/example#note";
         expect(scrollReaderAnchor(anchor)).toBe(true);
-        expect(window.location.pathname).toBe("/pages/example/");
+        expect(window.location.pathname).toBe("/example/");
         expect(window.location.hash).toBe("#note");
         expect(document.activeElement).toBe(target);
     });

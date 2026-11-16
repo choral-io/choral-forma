@@ -14,7 +14,7 @@ describe("normalizeGraphProjection", () => {
                     kind: "page",
                     classification: { key: "areas:research", label: "Research" },
                     space: "compatibility-only",
-                    routePath: "/pages/one",
+                    routePath: "/one",
                 },
             ],
             edges: [],

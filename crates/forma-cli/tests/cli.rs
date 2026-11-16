@@ -294,29 +294,47 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert_eq!(result["counts"]["copiedResources"], 5);
     assert!(root.join("dist/site/index.html").is_file());
     assert!(
-        root.join("dist/site/pages/notes/static-site/index.html")
+        root.join("dist/site/notes/static-site/index.html")
             .is_file()
     );
     assert!(
-        root.join("dist/site/pages/notes/static-site.zh-hans/index.html")
+        root.join("dist/site/notes/static-site.zh-hans/index.html")
             .is_file()
     );
-    assert!(root.join("dist/site/pages/index.html").is_file());
-    assert!(root.join("dist/site/views/index.html").is_file());
-    assert!(root.join("dist/site/views/notes/index.html").is_file());
-    assert!(root.join("dist/site/browse/index.html").is_file());
-    assert!(root.join("dist/site/spaces/notes/index.html").is_file());
+    assert!(root.join("dist/site/-/views/index.html").is_file());
+    assert!(root.join("dist/site/-/views/notes/index.html").is_file());
+    assert!(root.join("dist/site/-/browse/index.html").is_file());
+    assert!(
+        root.join("dist/site/-/browse/spaces/notes/index.html")
+            .is_file()
+    );
     assert!(root.join("dist/site/404.html").is_file());
     assert!(root.join("dist/site/sitemap.xml").is_file());
     assert!(root.join("dist/site/robots.txt").is_file());
     assert!(root.join("dist/site/_headers").is_file());
-    assert!(root.join("dist/site/raw/assets/diagram.svg").is_file());
+    // Everything the artifact adds is under `-/`, except the files hosts look for at its root.
+    for item in std::fs::read_dir(root.join("dist/site")).unwrap() {
+        let item = item.unwrap();
+        let name = item.file_name().to_string_lossy().to_string();
+        if item.file_type().unwrap().is_file() {
+            assert!(
+                forma_core::routes::STATIC_SITE_ROOT_FILES.contains(&name.as_str()),
+                "unexpected root file {name}"
+            );
+        } else {
+            assert!(
+                name == "-" || name == "notes",
+                "unexpected root directory {name}"
+            );
+        }
+    }
+    assert!(root.join("dist/site/-/raw/assets/diagram.svg").is_file());
     assert!(
-        root.join("dist/site/raw/assets/diagram space.svg")
+        root.join("dist/site/-/raw/assets/diagram space.svg")
             .is_file()
     );
-    assert!(root.join("dist/site/raw/assets/图.svg").is_file());
-    assert!(root.join("dist/site/raw/assets/100%.svg").is_file());
+    assert!(root.join("dist/site/-/raw/assets/图.svg").is_file());
+    assert!(root.join("dist/site/-/raw/assets/100%.svg").is_file());
     for path in [
         "assets/diagram space.svg",
         "assets/图.svg",
@@ -324,67 +342,64 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     ] {
         assert_eq!(
             std::fs::read(root.join(path)).unwrap(),
-            std::fs::read(root.join("dist/site/raw").join(path)).unwrap(),
+            std::fs::read(root.join("dist/site/-/raw").join(path)).unwrap(),
             "{path}"
         );
     }
+    assert!(root.join("dist/site/notes/with space/index.html").is_file());
+    assert!(root.join("dist/site/notes/你好/index.html").is_file());
+    assert!(root.join("dist/site/notes/100%/index.html").is_file());
+    assert!(root.join("dist/site/-/raw/assets/logo.svg").is_file());
+    assert!(!root.join("dist/site/-/raw/assets/decoy.svg").exists());
+    assert!(root.join("dist/site/-/data/dashboard.json").is_file());
     assert!(
-        root.join("dist/site/pages/notes/with space/index.html")
+        root.join("dist/site/-/data/entries/notes--static-site.json")
             .is_file()
     );
-    assert!(root.join("dist/site/pages/notes/你好/index.html").is_file());
-    assert!(root.join("dist/site/pages/notes/100%/index.html").is_file());
-    assert!(root.join("dist/site/raw/assets/logo.svg").is_file());
-    assert!(!root.join("dist/site/raw/assets/decoy.svg").exists());
-    assert!(root.join("dist/site/data/dashboard.json").is_file());
-    assert!(
-        root.join("dist/site/data/entries/notes--static-site.json")
-            .is_file()
-    );
-    let dashboard = std::fs::read_to_string(root.join("dist/site/data/dashboard.json")).unwrap();
+    let dashboard = std::fs::read_to_string(root.join("dist/site/-/data/dashboard.json")).unwrap();
     assert!(!dashboard.contains(root.to_string_lossy().as_ref()));
     assert!(!dashboard.contains("/rpc"));
     let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
     assert!(index.contains(r#"<script id="forma-static-workspace" type="application/json">"#));
     assert!(!index.contains("window.__FORMA_STATIC_WORKSPACE__"));
-    assert!(index.contains(r#""dataBaseUrl":"/preview/data""#));
+    assert!(index.contains(r#""dataBaseUrl":"/preview/-/data""#));
     assert!(index.contains(r#""baseUrl":"https://example.test""#));
     assert!(index.contains(r#""rootPath":"/preview""#));
     assert!(index.contains("The workspace root body is present."));
     assert!(index.contains(r#"href="https://example.test/preview/""#));
-    assert!(index.contains(r#"src="/preview/raw/assets/diagram.svg""#));
-    assert!(index.contains(r#"src="/preview/raw/assets/diagram%20space.svg""#));
-    assert!(index.contains(r#"src="/preview/raw/assets/%E5%9B%BE.svg""#));
-    assert!(index.contains(r#"src="/preview/raw/assets/100%25.svg""#));
-    assert!(index.contains(r#"href="/preview/pages/notes/with%20space""#));
-    assert!(index.contains(r#"href="/preview/pages/notes/%E4%BD%A0%E5%A5%BD""#));
-    assert!(index.contains(r#"href="/preview/pages/notes/100%25""#));
+    assert!(index.contains(r#"src="/preview/-/raw/assets/diagram.svg""#));
+    assert!(index.contains(r#"src="/preview/-/raw/assets/diagram%20space.svg""#));
+    assert!(index.contains(r#"src="/preview/-/raw/assets/%E5%9B%BE.svg""#));
+    assert!(index.contains(r#"src="/preview/-/raw/assets/100%25.svg""#));
+    assert!(index.contains(r#"href="/preview/notes/with%20space""#));
+    assert!(index.contains(r#"href="/preview/notes/%E4%BD%A0%E5%A5%BD""#));
+    assert!(index.contains(r#"href="/preview/notes/100%25""#));
     assert!(index.contains(r#"<html lang="en">"#));
     let headers = std::fs::read_to_string(root.join("dist/site/_headers")).unwrap();
     assert!(headers.contains("Content-Security-Policy: default-src 'self'"));
     assert!(headers.contains("script-src 'self'"));
     assert!(!headers.contains("script-src 'self' 'unsafe-inline'"));
     let entry_html =
-        std::fs::read_to_string(root.join("dist/site/pages/notes/static-site/index.html")).unwrap();
+        std::fs::read_to_string(root.join("dist/site/notes/static-site/index.html")).unwrap();
     assert!(entry_html.contains(r#"id="details""#));
     assert!(entry_html.contains("The neutral homepage body is present."));
     let variant_html =
-        std::fs::read_to_string(root.join("dist/site/pages/notes/static-site.zh-hans/index.html"))
+        std::fs::read_to_string(root.join("dist/site/notes/static-site.zh-hans/index.html"))
             .unwrap();
     assert!(variant_html.contains("本地化正文"));
     assert!(variant_html.contains(r#"<html lang="zh-Hans">"#));
     let table_html =
-        std::fs::read_to_string(root.join("dist/site/views/notes/index.html")).unwrap();
+        std::fs::read_to_string(root.join("dist/site/-/views/notes/index.html")).unwrap();
     assert!(table_html.contains("<table"));
     let kanban_html =
-        std::fs::read_to_string(root.join("dist/site/views/tasks/index.html")).unwrap();
+        std::fs::read_to_string(root.join("dist/site/-/views/tasks/index.html")).unwrap();
     assert!(kanban_html.contains(r#"aria-label="View projection""#));
     let graph_html =
-        std::fs::read_to_string(root.join("dist/site/views/graph/index.html")).unwrap();
+        std::fs::read_to_string(root.join("dist/site/-/views/graph/index.html")).unwrap();
     assert!(graph_html.contains(">Nodes</h2>"));
     let sitemap = std::fs::read_to_string(root.join("dist/site/sitemap.xml")).unwrap();
-    assert!(sitemap.contains("https://example.test/preview/pages/notes/static-site"));
-    assert!(sitemap.contains("https://example.test/preview/browse"));
+    assert!(sitemap.contains("https://example.test/preview/notes/static-site"));
+    assert!(sitemap.contains("https://example.test/preview/-/browse"));
     let robots = std::fs::read_to_string(root.join("dist/site/robots.txt")).unwrap();
     assert!(robots.contains("Sitemap: https://example.test/preview/sitemap.xml"));
     let not_found = std::fs::read_to_string(root.join("dist/site/404.html")).unwrap();
@@ -466,7 +481,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     );
     assert!(!root.join("dist/site/stale.txt").exists());
     assert_eq!(
-        std::fs::read_to_string(root.join("dist/site/data/dashboard.json")).unwrap(),
+        std::fs::read_to_string(root.join("dist/site/-/data/dashboard.json")).unwrap(),
         dashboard
     );
     assert_eq!(tree_digest(&root.join("dist/site")), first_digest);
@@ -517,28 +532,25 @@ fn site_build_writes_directory_pages_that_no_page_serves() {
     );
 
     let read = |path: &str| std::fs::read_to_string(root.join("dist/site").join(path)).unwrap();
-    let notes = read("pages/notes/index.html");
+    let notes = read("notes/index.html");
     assert!(notes.contains("<title>notes · "), "{notes}");
-    assert!(
-        notes.contains("href=\"/preview/pages/notes/deep\""),
-        "{notes}"
-    );
+    assert!(notes.contains("href=\"/preview/notes/deep\""), "{notes}");
     // A folder served by its own page links to that page and takes its title.
     assert!(
-        notes.contains("href=\"/preview/pages/notes/guide\">Guide Overview</a>"),
+        notes.contains("href=\"/preview/notes/guide\">Guide Overview</a>"),
         "{notes}"
     );
-    assert!(read("pages/notes/deep/index.html").contains("Inner"));
-    let guide = read("pages/notes/guide/index.html");
+    assert!(read("notes/deep/index.html").contains("Inner"));
+    let guide = read("notes/guide/index.html");
     assert!(
         guide.contains("data-static-entry-id"),
         "the guide folder keeps its index page"
     );
-    let files = read("pages/index.html");
-    assert!(files.contains("<title>Files · "), "{files}");
-    assert!(files.contains("href=\"/preview/pages/notes\""), "{files}");
+    // Home is the root directory's page, so it lists the root folders too.
+    let home = read("index.html");
+    assert!(home.contains("href=\"/preview/notes\""), "{home}");
     let sitemap = read("sitemap.xml");
-    assert!(sitemap.contains("/preview/pages/notes/deep"), "{sitemap}");
+    assert!(sitemap.contains("/preview/notes/deep"), "{sitemap}");
     std::fs::remove_dir_all(&root).unwrap();
 }
 
@@ -570,13 +582,9 @@ fn site_build_keeps_entry_aliases_out_of_resource_inventory() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let html =
-        std::fs::read_to_string(root.join("dist/site/pages/notes/intro/index.html")).unwrap();
-    assert!(
-        html.contains("/preview/pages/notes/source.txt#details"),
-        "{html}"
-    );
-    assert!(!root.join("dist/site/raw/notes/source.txt").exists());
+    let html = std::fs::read_to_string(root.join("dist/site/notes/intro/index.html")).unwrap();
+    assert!(html.contains("/preview/notes/source.txt#details"), "{html}");
+    assert!(!root.join("dist/site/-/raw/notes/source.txt").exists());
     std::fs::remove_dir_all(root).unwrap();
 }
 

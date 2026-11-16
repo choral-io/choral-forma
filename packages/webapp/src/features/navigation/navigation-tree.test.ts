@@ -12,7 +12,7 @@ import {
     type NavigationNode,
 } from "./navigation-tree";
 
-const entry = (path: string, title: string) => ({ path, routePath: `/pages/${path.replace(/\.md$/u, "")}`, title });
+const entry = (path: string, title: string) => ({ path, routePath: `/${path.replace(/\.md$/u, "")}`, title });
 
 function outline(nodes: NavigationNode[], depth = 0): string[] {
     return nodes.flatMap((node) => [
@@ -51,11 +51,11 @@ describe("buildFileTree", () => {
         expect(outline(tree)).toEqual(["directory:knowledge/workspace/member", "  entry:Member", "entry:Top"]);
         expect(tree[0]).toMatchObject({
             id: "directory:knowledge/workspace/member",
-            to: "/pages/knowledge/workspace/member",
+            to: "/knowledge/workspace/member",
             segments: [
-                { label: "knowledge", path: "knowledge", to: "/pages/knowledge" },
-                { label: "workspace", path: "knowledge/workspace", to: "/pages/knowledge/workspace" },
-                { label: "member", path: "knowledge/workspace/member", to: "/pages/knowledge/workspace/member" },
+                { label: "knowledge", path: "knowledge", to: "/knowledge" },
+                { label: "workspace", path: "knowledge/workspace", to: "/knowledge/workspace" },
+                { label: "member", path: "knowledge/workspace/member", to: "/knowledge/workspace/member" },
             ],
         });
         expect(tree[1]?.segments).toBeUndefined();
@@ -63,7 +63,7 @@ describe("buildFileTree", () => {
 
     it("lets the document served at a directory's route title that directory", () => {
         const tree = buildFileTree([
-            { path: "guide/index.md", routePath: "/pages/guide", title: "Guide" },
+            { path: "guide/index.md", routePath: "/guide", title: "Guide" },
             entry("guide/README.md", "Read me"),
             entry("notes.md", "Notes overview"),
             entry("notes/a.md", "A"),
@@ -78,15 +78,15 @@ describe("buildFileTree", () => {
             "entry:Other",
         ]);
         expect(tree.map((node) => [node.to, node.title, node.documentPath])).toEqual([
-            ["/pages/guide", "guide", "guide/index.md"],
-            ["/pages/notes", "notes", "notes.md"],
-            ["/pages/other", "other.md", "other.md"],
+            ["/guide", "guide", "guide/index.md"],
+            ["/notes", "notes", "notes.md"],
+            ["/other", "other.md", "other.md"],
         ]);
     });
 
     it("never compacts a titled directory into a chain", () => {
         const tree = buildFileTree([
-            { path: "members/tiscs/index.md", routePath: "/pages/members/tiscs", title: "Tiscs" },
+            { path: "members/tiscs/index.md", routePath: "/members/tiscs", title: "Tiscs" },
             entry("a.md", "A overview"),
             entry("a/b/c.md", "C"),
         ]);
@@ -105,7 +105,7 @@ describe("buildFileTree", () => {
             label: "Tiscs",
             name: "tiscs/",
             title: "members/tiscs",
-            to: "/pages/members/tiscs",
+            to: "/members/tiscs",
             documentPath: "members/tiscs/index.md",
         });
     });
@@ -120,7 +120,7 @@ describe("buildFileTree", () => {
 
         expect(outline(tree)).toEqual(["home:Workspace", "directory:notes", "  entry:A", "entry:Alpha", "entry:Zeta"]);
         expect(tree[0]).toEqual({ id: "home", kind: "home", label: "Workspace", title: ".forma.md", to: "/" });
-        expect(navigationSiblings(tree, "/pages/alpha")).toMatchObject({
+        expect(navigationSiblings(tree, "/alpha")).toMatchObject({
             previous: undefined,
             next: { label: "Zeta" },
         });
@@ -131,7 +131,7 @@ describe("buildFileTree", () => {
             entry("notes/overview.md", "Overview"),
             entry("notes/intro.md", "overview"),
             entry("notes/unique.md", "Unique"),
-            { path: "notes/guides/index.md", routePath: "/pages/notes/guides", title: "Overview" },
+            { path: "notes/guides/index.md", routePath: "/notes/guides", title: "Overview" },
             entry("notes/guides/setup.md", "Setup"),
             entry("other/overview.md", "Overview"),
         ]);
@@ -190,12 +190,12 @@ describe("buildCollectionTree", () => {
         expect(areas).toMatchObject({
             display: { color: "#64748B", icon: "shapes" },
             title: "Where work lives",
-            to: "/areas",
+            to: "/-/browse/areas",
         });
         expect(areas?.children?.[0]).toMatchObject({
             display: { icon: "lightbulb" },
             title: undefined,
-            to: "/areas/design",
+            to: "/-/browse/areas/design",
         });
         expect(areas?.children?.[0]?.children).toBeUndefined();
     });
@@ -240,11 +240,15 @@ describe("buildCollectionTree", () => {
                 key: "areas",
                 taxonomyTitle: "Areas",
                 terms: [
-                    { key: "design", title: "Design", to: "/areas/design" },
-                    { key: "build", title: "Build", to: "/areas/build" },
+                    { key: "design", title: "Design", to: "/-/browse/areas/design" },
+                    { key: "build", title: "Build", to: "/-/browse/areas/build" },
                 ],
             },
-            { key: "tags", taxonomyTitle: "Tags", terms: [{ key: "shared", title: "Shared", to: "/tags/shared" }] },
+            {
+                key: "tags",
+                taxonomyTitle: "Tags",
+                terms: [{ key: "shared", title: "Shared", to: "/-/browse/tags/shared" }],
+            },
         ]);
         expect(entryClassifications(several, "c.md")).toEqual([]);
     });
@@ -264,7 +268,7 @@ describe("buildViewTree", () => {
             { id: ".forma/views/board", path: "", title: "Board", description: "Work", kind: "kanban" },
         ] as Parameters<typeof buildViewTree>[0]);
 
-        expect(group).toMatchObject({ id: "views", kind: "views", label: "Views", to: "/views" });
+        expect(group).toMatchObject({ id: "views", kind: "views", label: "Views", to: "/-/views" });
         expect(group?.children).toEqual([
             {
                 id: "view:.forma/views/board",
@@ -272,7 +276,7 @@ describe("buildViewTree", () => {
                 label: "Board",
                 name: ".forma/views/board",
                 title: "Work",
-                to: "/views/.forma/views/board",
+                to: "/-/views/.forma/views/board",
                 viewKind: "kanban",
             },
         ]);
@@ -292,22 +296,22 @@ describe("navigation lookups", () => {
     ]);
 
     it("finds the branches above a route", () => {
-        expect(navigationAncestorIds(tree, "/pages/notes/b")).toEqual(["directory:notes"]);
+        expect(navigationAncestorIds(tree, "/notes/b")).toEqual(["directory:notes"]);
         const compacted = buildFileTree([entry("a/b/c/d.md", "D"), entry("top.md", "Top")]);
-        expect(navigationAncestorIds(compacted, "/pages/a/b")).toEqual([]);
-        expect(navigationAncestorIds(compacted, "/pages/a/b/c/d")).toEqual(["directory:a/b/c"]);
-        expect(navigationAncestorIds(tree, "/pages/notes")).toEqual([]);
-        expect(navigationAncestorIds(tree, "/pages/missing")).toBeUndefined();
+        expect(navigationAncestorIds(compacted, "/a/b")).toEqual([]);
+        expect(navigationAncestorIds(compacted, "/a/b/c/d")).toEqual(["directory:a/b/c"]);
+        expect(navigationAncestorIds(tree, "/notes")).toEqual([]);
+        expect(navigationAncestorIds(tree, "/missing")).toBeUndefined();
     });
 
     it("finds adjacent documents among siblings and skips branches", () => {
-        expect(navigationSiblings(tree, "/pages/notes/b")).toMatchObject({
+        expect(navigationSiblings(tree, "/notes/b")).toMatchObject({
             previous: { label: "A" },
             next: { label: "C" },
         });
-        expect(navigationSiblings(tree, "/pages/notes/a")).toMatchObject({ previous: undefined, next: { label: "B" } });
-        expect(navigationSiblings(tree, "/pages/notes/drafts/idea")).toEqual({ previous: undefined, next: undefined });
-        expect(navigationSiblings(tree, "/pages/missing")).toBeUndefined();
+        expect(navigationSiblings(tree, "/notes/a")).toMatchObject({ previous: undefined, next: { label: "B" } });
+        expect(navigationSiblings(tree, "/notes/drafts/idea")).toEqual({ previous: undefined, next: undefined });
+        expect(navigationSiblings(tree, "/missing")).toBeUndefined();
     });
 });
 
@@ -315,20 +319,17 @@ describe("navigationRevealIds", () => {
     const tree = buildFileTree([entry("notes/drafts/idea.md", "Idea"), entry("notes/a.md", "A")]);
 
     it("opens the branches above a document", () => {
-        expect(navigationRevealIds(tree, "/pages/notes/drafts/idea")).toEqual([
-            "directory:notes",
-            "directory:notes/drafts",
-        ]);
+        expect(navigationRevealIds(tree, "/notes/drafts/idea")).toEqual(["directory:notes", "directory:notes/drafts"]);
     });
 
     it("leaves a destination that is itself a branch as it was", () => {
-        expect(navigationRevealIds(tree, "/pages/notes")).toEqual([]);
-        expect(navigationRevealIds(tree, "/pages/notes/drafts")).toEqual(["directory:notes"]);
+        expect(navigationRevealIds(tree, "/notes")).toEqual([]);
+        expect(navigationRevealIds(tree, "/notes/drafts")).toEqual(["directory:notes"]);
     });
 
     it("opens nothing for a route outside the tree", () => {
-        expect(navigationRevealIds(tree, "/health")).toEqual([]);
-        expect(navigationAncestorIds(tree, "/health")).toBeUndefined();
+        expect(navigationRevealIds(tree, "/-/health")).toEqual([]);
+        expect(navigationAncestorIds(tree, "/-/health")).toBeUndefined();
     });
 });
 

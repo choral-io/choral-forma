@@ -14,6 +14,8 @@ import {
     type WorkspaceHealthResult,
 } from "@choral-forma/shared";
 
+import { rpcEndpointPath } from "@/lib/workspace-routes";
+
 import { formatRelativeDateTime } from "@/lib/date-time";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 import type {
@@ -41,7 +43,7 @@ import { latestUpdatedAt } from "./workspace-client";
 export class RpcWorkspaceClient implements WorkspaceClient {
     readonly #rpc: FormaRpcClient;
 
-    constructor(endpoint = "/rpc") {
+    constructor(endpoint = rpcEndpointPath) {
         this.#rpc = new FormaRpcClient(endpoint);
     }
 

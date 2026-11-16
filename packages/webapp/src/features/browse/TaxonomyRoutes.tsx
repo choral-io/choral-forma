@@ -5,11 +5,11 @@ import type { DashboardTaxonomy, DashboardTaxonomyTerm, WorkspaceDashboard } fro
 import { EmptyPage, EmptyState, RouteBodySection } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { taxonomyRoutePath, taxonomyTermRoutePath } from "@/lib/workspace-routes";
+import { browseRoutePath, taxonomyRoutePath, taxonomyTermRoutePath } from "@/lib/workspace-routes";
 
 import { PagesList } from "./PagesList";
 
-const collectionsBreadcrumb = [{ label: "Collections", to: "/browse" }];
+const collectionsBreadcrumb = [{ label: "Collections", to: browseRoutePath }];
 
 export function TaxonomiesRoute() {
     const dashboard = useWorkspaceDashboard();

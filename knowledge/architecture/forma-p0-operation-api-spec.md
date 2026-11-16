@@ -23,7 +23,7 @@ The P0 product surface is a single `forma` binary with CLI commands and `forma s
 
 - Define the P0 operation names and their CLI command mappings.
 - Define stable direct JSON result behavior for CLI `--json`.
-- Define the minimal strict JSON-RPC 2.0 HTTP shape for `POST /rpc`.
+- Define the minimal strict JSON-RPC 2.0 HTTP shape for `POST /-/rpc`.
 - Require `schemaVersion` on operation results.
 - Distinguish workspace diagnostics from transport or protocol errors.
 - Outline P0 operation result shapes for check, config inspection, index rebuild/check, inspect, list, create, and view rendering.
@@ -60,7 +60,7 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | ViewRender         | `view.render`         | `forma view render <view-id-or-path> [--json]`                                                                   | No           |
 | Serve              | Local server mode     | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...`                                                   | No           |
 
-`Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
+`Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /-/rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
 
 `forma docs list` and `forma docs get <id>` are local CLI documentation surfaces over embedded product docs. They are not workspace operations and do not require JSON-RPC methods in P0.
 
@@ -146,7 +146,7 @@ Future command classification:
 `forma serve` exposes a strict minimal JSON-RPC 2.0 endpoint:
 
 ```text
-POST /rpc
+POST /-/rpc
 Content-Type: application/json
 ```
 
@@ -819,16 +819,16 @@ Result outline:
 `forma serve` should bind to localhost by default, serve built WebApp static assets, and expose:
 
 ```text
-POST /rpc
+POST /-/rpc
 ```
 
 The Rust CLI package should remain buildable from a clean checkout even when ignored WebApp `dist` assets have not been generated. Development and release tasks should build the WebApp before packaging `forma serve`; a fallback static page may be embedded only to keep Rust checks usable when assets are absent.
 
 P0 supports an explicit external WebApp asset directory override, such as `forma serve --webapp-dir <dir>`, for development debugging and issue verification. When present, that directory provides static assets instead of the embedded WebApp assets. The override is serve-time only, must not be stored in workspace configuration, and must not change RPC behavior or workspace permissions. Broader custom distribution and white-label packaging remain P1 concerns.
 
-P0 also supports explicit RPC CORS origins for Vite dev server workflows, such as `forma serve --cors-origin http://localhost:5173`. CORS must be disabled by default, must reject wildcard origins, and should apply only to `/rpc`. Development WebApp builds may use `VITE_FORMA_RPC_URL` to call the configured Forma RPC URL across origins.
+P0 also supports explicit RPC CORS origins for Vite dev server workflows, such as `forma serve --cors-origin http://localhost:5173`. CORS must be disabled by default, must reject wildcard origins, and should apply only to `/-/rpc`. Development WebApp builds may use `VITE_FORMA_RPC_URL` to call the configured Forma RPC URL across origins.
 
-The WebApp should use `POST /rpc` for workspace overview, space listing, file navigation, entry inspection, file rendering data, view rendering, diagnostics, configuration inspection, and index status. P0 should avoid adding parallel REST endpoints for the same operation semantics.
+The WebApp should use `POST /-/rpc` for workspace overview, space listing, file navigation, entry inspection, file rendering data, view rendering, diagnostics, configuration inspection, and index status. P0 should avoid adding parallel REST endpoints for the same operation semantics.
 
 Future convenience endpoints for static assets, health, or development-mode frontend integration must not bypass the shared dispatcher for product operations.
 

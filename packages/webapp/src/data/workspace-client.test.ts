@@ -6,7 +6,7 @@ function entry(id: string, updatedAt?: string): DashboardEntry {
     return {
         id,
         path: `${id}.md`,
-        routePath: `/pages/${id}`,
+        routePath: `/${id}`,
         title: id,
         omitLeadingTitle: false,
         summary: "",

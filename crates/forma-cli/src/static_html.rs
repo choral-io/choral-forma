@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
 
 use forma_core::render::ViewRenderFieldValue;
+use forma_core::routes::{
+    BROWSE_ROUTE_PATH, STATIC_DATA_ROUTE_PATH, VIEWS_ROUTE_PATH, directory_route_path,
+};
 use forma_core::{
     StaticSiteEntry, StaticSiteEntryVariant, StaticSiteRoute, StaticSiteRouteKind,
     StaticSiteSnapshot, StaticSiteTaxonomy, StaticSiteTaxonomyTerm, StaticSiteView, ViewRenderItem,
-    ViewRenderOutput, directory_route_path,
+    ViewRenderOutput,
 };
 
 pub(crate) struct StaticPage {
@@ -102,19 +105,18 @@ fn home_page(
     }
 }
 
+/// Home is the workspace root's page, so the page without scripts also lists the root folder.
 fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String {
     let home = &snapshot.workspace.home;
-    if home.html.trim().is_empty() {
-        return format!(
-            "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div></article>",
-            escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
-            entry_list(snapshot.entries.iter(), root_path),
-        );
-    }
+    let reader = if home.html.trim().is_empty() {
+        String::new()
+    } else {
+        rewrite_home_fragments(&home.html, "/", root_path)
+    };
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div></article>",
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{reader}</div>{}</article>",
         escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
-        rewrite_home_fragments(&home.html, "/", root_path),
+        directory_contents(&snapshot.entries, "", root_path),
     )
 }
 
@@ -146,14 +148,6 @@ fn route_page(
                 canonical_language.to_string(),
             ))
         }
-        StaticSiteRouteKind::Pages => Ok(page(
-            route,
-            "Files".to_string(),
-            "Pages the workspace includes, grouped by the directories of their source paths."
-                .to_string(),
-            directory_body(&snapshot.entries, "", root_path),
-            canonical_language.to_string(),
-        )),
         StaticSiteRouteKind::Directory => Ok(page(
             route,
             directory_name(&route.id).to_string(),
@@ -336,10 +330,18 @@ fn directory_name(directory: &str) -> &str {
     directory.rsplit('/').next().unwrap_or(directory)
 }
 
-/// A directory's folders and then its pages, as the WebApp's directory page lists them. A page
-/// served at a folder's route, such as its `index` file, titles that folder instead of being
-/// listed on its own. The empty path is the workspace root, titled Files.
+/// A directory's page: its folders and then its pages, as the WebApp's directory page lists them.
 fn directory_body(entries: &[StaticSiteEntry], directory: &str, root_path: &str) -> String {
+    format!(
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Folder</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{}",
+        escape_html(directory_name(directory)),
+        directory_contents(entries, directory, root_path),
+    )
+}
+
+/// A directory's folders, then its pages; the empty path is the workspace root. A page served at
+/// a folder's route, such as its `index` file, titles that folder instead of being listed alone.
+fn directory_contents(entries: &[StaticSiteEntry], directory: &str, root_path: &str) -> String {
     let prefix: Vec<&str> = directory
         .split('/')
         .filter(|segment| !segment.is_empty())
@@ -412,15 +414,7 @@ fn directory_body(entries: &[StaticSiteEntry], directory: &str, root_path: &str)
     } else {
         entry_list(pages.into_iter(), root_path)
     };
-    let (label, title) = if directory.is_empty() {
-        ("Workspace", "Files")
-    } else {
-        ("Files", directory_name(directory))
-    };
-    format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">{label}</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{folders_html}{pages_html}",
-        escape_html(title),
-    )
+    format!("{folders_html}{pages_html}")
 }
 
 fn optional_list_summary(summary: Option<&str>) -> String {
@@ -744,9 +738,8 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         format!("{} · {}", options.page.title, options.workspace_name)
     };
     let root_href = public_href(options.root_path, "/");
-    let pages_href = public_href(options.root_path, "/pages");
-    let views_href = public_href(options.root_path, "/views");
-    let browse_href = public_href(options.root_path, "/browse");
+    let views_href = public_href(options.root_path, VIEWS_ROUTE_PATH);
+    let browse_href = public_href(options.root_path, BROWSE_ROUTE_PATH);
     let logo = options
         .workspace_logo
         .map_or_else(String::new, |(path, alt)| {
@@ -758,7 +751,7 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         });
     let config = serde_json::json!({
         "baseUrl": options.base_url,
-        "dataBaseUrl": public_href(options.root_path, "/data"),
+        "dataBaseUrl": public_href(options.root_path, STATIC_DATA_ROUTE_PATH),
         "rootPath": options.root_path,
     })
     .to_string()
@@ -772,7 +765,7 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         ""
     };
     format!(
-        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Collections</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Collections</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
         language = escape_attribute(&options.page.language),
         title_text = escape_html(&document_title),
         title_attribute = escape_attribute(&document_title),
@@ -1074,7 +1067,7 @@ mod tests {
         assert!(html.contains(r#"<html lang="zh-Hans">"#));
         assert!(html.contains(r#"<script id="forma-static-workspace" type="application/json">"#));
         assert!(!html.contains("window.__FORMA_STATIC_WORKSPACE__"));
-        assert!(html.contains(r#""dataBaseUrl":"/data""#));
+        assert!(html.contains(r#""dataBaseUrl":"/-/data""#));
     }
 
     #[test]

@@ -865,7 +865,7 @@ export class FormaRpcClient {
     private readonly endpoint: string;
     private readonly fetcher: RpcFetch;
 
-    constructor(endpoint = "/rpc", fetcher?: RpcFetch) {
+    constructor(endpoint = "/-/rpc", fetcher?: RpcFetch) {
         this.endpoint = endpoint;
         const globalFetch = (globalThis as unknown as { fetch?: RpcFetch }).fetch;
         if (!fetcher && !globalFetch) {

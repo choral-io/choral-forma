@@ -1,5 +1,5 @@
 import type { DashboardTaxonomy, DashboardView } from "@/data/workspace-client";
-import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
+import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath, viewsRoutePath } from "@/lib/workspace-routes";
 
 import type { NavigationNode } from "./navigation-tree";
 
@@ -40,7 +40,7 @@ export function buildViewTree(views: readonly DashboardView[]): NavigationNode[]
             id: "views",
             kind: "views",
             label: "Views",
-            to: "/views",
+            to: viewsRoutePath,
             children: views.map((view) => ({
                 id: `view:${view.id}`,
                 kind: "view",

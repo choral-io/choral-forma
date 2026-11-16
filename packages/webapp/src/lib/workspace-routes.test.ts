@@ -4,7 +4,7 @@ import {
     directoryForRoutePath,
     directoryPathFromRoutePath,
     directoryRoutePath,
-    legacyWorkspaceRouteRedirect,
+    isSystemRoutePath,
     taxonomyRoutePath,
     taxonomyTermRoutePath,
     viewRoutePath,
@@ -12,43 +12,49 @@ import {
 
 describe("workspace route paths", () => {
     it("keeps configured view path segments while encoding each segment", () => {
-        expect(viewRoutePath("planning/release scope")).toBe("/views/planning/release%20scope");
+        expect(viewRoutePath("planning/release scope")).toBe("/-/views/planning/release%20scope");
     });
 
-    it("encodes configured taxonomy and term identifiers", () => {
-        expect(taxonomyRoutePath("work areas")).toBe("/work%20areas");
-        expect(taxonomyTermRoutePath("work areas", "release/readiness")).toBe("/work%20areas/release%2Freadiness");
+    it("places taxonomies and terms below browse, encoding each identifier", () => {
+        expect(taxonomyRoutePath("work areas")).toBe("/-/browse/work%20areas");
+        expect(taxonomyTermRoutePath("work areas", "release/readiness")).toBe(
+            "/-/browse/work%20areas/release%2Freadiness",
+        );
+        // A taxonomy may share a name with a system page; it sits one segment deeper.
+        expect(taxonomyRoutePath("browse")).toBe("/-/browse/browse");
     });
 
-    it("places directories in the page namespace with Core's segment encoding", () => {
-        expect(directoryRoutePath("")).toBe("/pages");
-        expect(directoryRoutePath("/notes/drafts/")).toBe("/pages/notes/drafts");
-        expect(directoryRoutePath("a b/(old)!")).toBe("/pages/a%20b/%28old%29%21");
-        expect(directoryRoutePath("笔记")).toBe("/pages/%E7%AC%94%E8%AE%B0");
+    it("places directories at their workspace paths with Core's segment encoding", () => {
+        expect(directoryRoutePath("")).toBe("/");
+        expect(directoryRoutePath("/notes/drafts/")).toBe("/notes/drafts");
+        expect(directoryRoutePath("a b/(old)!")).toBe("/a%20b/%28old%29%21");
+        expect(directoryRoutePath("笔记")).toBe("/%E7%AC%94%E8%AE%B0");
     });
 
-    it("reads a directory path back from a page route", () => {
-        expect(directoryPathFromRoutePath("/pages")).toBe("");
-        expect(directoryPathFromRoutePath("/pages/a%20b/%28old%29")).toBe("a b/(old)");
-        expect(directoryPathFromRoutePath("/views/board")).toBeUndefined();
-        expect(directoryPathFromRoutePath("/pagesx")).toBeUndefined();
-        expect(directoryPathFromRoutePath("/pages/%E0%A4%A")).toBeUndefined();
+    it("tells system routes from content routes by the reserved segment alone", () => {
+        expect(isSystemRoutePath("/-")).toBe(true);
+        expect(isSystemRoutePath("/-/views")).toBe(true);
+        expect(isSystemRoutePath("/-notes")).toBe(false);
+        expect(isSystemRoutePath("/views")).toBe(false);
+        expect(isSystemRoutePath("/")).toBe(false);
     });
 
-    it("recognizes a page route as a directory only when it holds a document", () => {
+    it("reads a directory path back from a content route", () => {
+        expect(directoryPathFromRoutePath("/")).toBe("");
+        expect(directoryPathFromRoutePath("/a%20b/%28old%29")).toBe("a b/(old)");
+        expect(directoryPathFromRoutePath("/pages/notes")).toBe("pages/notes");
+        expect(directoryPathFromRoutePath("/-/views/board")).toBeUndefined();
+        expect(directoryPathFromRoutePath("/%E0%A4%A")).toBeUndefined();
+    });
+
+    it("recognizes a content route as a directory only when it holds a document", () => {
         const entries = [{ path: "notes/a.md" }, { path: "notes/deep/b.md" }, { path: "top.md" }];
 
-        expect(directoryForRoutePath(entries, "/pages/notes")).toBe("notes");
-        expect(directoryForRoutePath(entries, "/pages/notes/deep")).toBe("notes/deep");
-        expect(directoryForRoutePath(entries, "/pages/notes/a")).toBeUndefined();
-        expect(directoryForRoutePath(entries, "/pages/top")).toBeUndefined();
-        expect(directoryForRoutePath(entries, "/pages")).toBeUndefined();
-        expect(directoryForRoutePath(entries, "/views/notes")).toBeUndefined();
-    });
-
-    it("redirects the legacy taxonomies route to browse", () => {
-        expect(legacyWorkspaceRouteRedirect("/taxonomies")).toBe("/browse");
-        expect(legacyWorkspaceRouteRedirect("/taxonomies/")).toBe("/browse");
-        expect(legacyWorkspaceRouteRedirect("/browse")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/notes")).toBe("notes");
+        expect(directoryForRoutePath(entries, "/notes/deep")).toBe("notes/deep");
+        expect(directoryForRoutePath(entries, "/notes/a")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/top")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/-/views")).toBeUndefined();
     });
 });

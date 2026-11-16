@@ -5,7 +5,14 @@ import { Link, useNavigate } from "react-router";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { cn } from "@/lib/utils";
-import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
+import {
+    browseRoutePath,
+    healthRoutePath,
+    taxonomyRoutePath,
+    taxonomyTermRoutePath,
+    viewRoutePath,
+    viewsRoutePath,
+} from "@/lib/workspace-routes";
 
 interface QuickOpenTriggerProps {
     className?: string;
@@ -119,10 +126,9 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
     const [query, setQuery] = useState("");
     const routeItems = [
         { group: "Navigate", href: "/", label: "Home", meta: "route" },
-        { group: "Navigate", href: "/pages", label: "Files", meta: "route" },
-        { group: "Navigate", href: "/views", label: "Views", meta: "route" },
-        { group: "Navigate", href: "/browse", label: "Collections", meta: "route" },
-        { group: "Navigate", href: "/health", label: "Health", meta: "route" },
+        { group: "Navigate", href: viewsRoutePath, label: "Views", meta: "route" },
+        { group: "Navigate", href: browseRoutePath, label: "Collections", meta: "route" },
+        { group: "Navigate", href: healthRoutePath, label: "Health", meta: "route" },
     ];
     const viewItems = dashboard.views.map((view) => ({
         group: "Views",

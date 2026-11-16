@@ -5,11 +5,11 @@ import { resolveReaderLink } from "./markdown-links";
 const entries = [
     {
         path: "guidelines/content-authoring.md",
-        routePath: "/pages/guidelines/content-authoring",
+        routePath: "/guidelines/content-authoring",
     },
     {
         path: "product/atlas-notes.md",
-        routePath: "/pages/product/atlas-notes",
+        routePath: "/product/atlas-notes",
     },
 ];
 const currentPath = "guidelines/content-authoring.md";
@@ -17,7 +17,7 @@ const currentPath = "guidelines/content-authoring.md";
 describe("resolveReaderLink", () => {
     it("keeps same-document anchors on the current Entry route", () => {
         expect(resolveReaderLink("#verification", currentPath, entries)).toEqual({
-            href: "/pages/guidelines/content-authoring#verification",
+            href: "/guidelines/content-authoring#verification",
             kind: "anchor",
             opensInNewTab: false,
         });
@@ -33,7 +33,7 @@ describe("resolveReaderLink", () => {
 
     it("resolves relative workspace links to internal Entry routes", () => {
         expect(resolveReaderLink("../product/atlas-notes.md#scope", currentPath, entries)).toEqual({
-            href: "/pages/product/atlas-notes#scope",
+            href: "/product/atlas-notes#scope",
             kind: "internal",
             opensInNewTab: false,
         });

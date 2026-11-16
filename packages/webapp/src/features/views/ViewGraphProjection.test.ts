@@ -32,8 +32,8 @@ describe("WebApp graph adapter", () => {
     });
 
     it("maps the current WebApp page route to the shared active node", () => {
-        expect(activeGraphNodeId(projection(), "/pages/a")).toBe("a.md");
-        expect(activeGraphNodeId(projection(), "/views/graph")).toBeNull();
+        expect(activeGraphNodeId(projection(), "/a")).toBe("a.md");
+        expect(activeGraphNodeId(projection(), "/-/views/graph")).toBeNull();
     });
 
     it("maps field-driven colors through the shared projection", () => {
@@ -81,7 +81,7 @@ function projection(): Extract<DashboardViewProjection, { kind: "graph" }> {
                 title: "A",
                 kind: "page",
                 space: "not-a-built-in-classification",
-                routePath: "/pages/a",
+                routePath: "/a",
                 classification: {
                     key: "areas:term:research",
                     taxonomy: "areas",

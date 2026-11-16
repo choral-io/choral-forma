@@ -41,12 +41,12 @@ describe("static runtime URL helpers", () => {
         });
 
         expect(staticRouterBasename()).toBe("/preview");
-        expect(rootAwareHref("/pages/notes/one#scope")).toBe("/preview/pages/notes/one#scope");
-        expect(rootAwareHref("/preview/raw/notes/image.png")).toBe("/preview/raw/notes/image.png");
-        expect(logicalHref("/preview/pages/notes/one#scope")).toBe("/pages/notes/one#scope");
-        expect(logicalHref("/previewer/pages/notes/one")).toBe("/previewer/pages/notes/one");
-        expect(logicalPathname("/preview/views/notes/")).toBe("/views/notes");
-        expect(isStaticRawHref("/preview/raw/notes/image.png")).toBe(true);
+        expect(rootAwareHref("/notes/one#scope")).toBe("/preview/notes/one#scope");
+        expect(rootAwareHref("/preview/-/raw/notes/image.png")).toBe("/preview/-/raw/notes/image.png");
+        expect(logicalHref("/preview/notes/one#scope")).toBe("/notes/one#scope");
+        expect(logicalHref("/previewer/notes/one")).toBe("/previewer/notes/one");
+        expect(logicalPathname("/preview/-/views/notes/")).toBe("/-/views/notes");
+        expect(isStaticRawHref("/preview/-/raw/notes/image.png")).toBe(true);
     });
 
     it("does not rewrite external, protocol, fragment, or rootless targets", () => {
@@ -64,7 +64,7 @@ describe("static runtime URL helpers", () => {
 
     it("keeps RPC builds rooted at the origin", () => {
         expect(staticRouterBasename()).toBe("/");
-        expect(rootAwareHref("/pages/notes/one")).toBe("/pages/notes/one");
+        expect(rootAwareHref("/notes/one")).toBe("/notes/one");
         expect(logicalPathname("/")).toBe("/");
     });
 });

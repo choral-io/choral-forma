@@ -29,7 +29,7 @@ describe("route content focus", () => {
         claimRouteContentFocus(createHeading(), "/");
 
         const next = createHeading();
-        claimRouteContentFocus(next, "/health");
+        claimRouteContentFocus(next, "/-/health");
 
         expect(document.activeElement).toBe(next);
     });
@@ -38,19 +38,19 @@ describe("route content focus", () => {
         claimRouteContentFocus(createHeading(), "/");
 
         // The lazy route is still suspended, so no heading is mounted yet.
-        claimRouteContentFocus(null, "/health");
+        claimRouteContentFocus(null, "/-/health");
         expect(document.activeElement).toBe(document.body);
 
         const next = createHeading();
-        claimRouteContentFocus(next, "/health");
+        claimRouteContentFocus(next, "/-/health");
         expect(document.activeElement).toBe(next);
     });
 
     it("focuses a reused heading element when only the route changed", () => {
         const heading = createHeading();
-        claimRouteContentFocus(heading, "/pages/one");
+        claimRouteContentFocus(heading, "/one");
 
-        claimRouteContentFocus(heading, "/pages/two");
+        claimRouteContentFocus(heading, "/two");
 
         expect(document.activeElement).toBe(heading);
     });
@@ -58,10 +58,10 @@ describe("route content focus", () => {
     it("does not steal focus when the same route renders again", () => {
         const heading = createHeading();
         claimRouteContentFocus(heading, "/");
-        claimRouteContentFocus(heading, "/health");
+        claimRouteContentFocus(heading, "/-/health");
         heading.blur();
 
-        claimRouteContentFocus(heading, "/health");
+        claimRouteContentFocus(heading, "/-/health");
 
         expect(document.activeElement).toBe(document.body);
     });
@@ -96,16 +96,16 @@ describe("route content focus after a route without a heading", () => {
         claimRouteContentFocus(createHeading(), "/");
 
         const health = createHeading();
-        claimRouteContentFocus(health, "/health");
+        claimRouteContentFocus(health, "/-/health");
         expect(document.activeElement).toBe(health);
 
         // The next route throws, so its boundary renders and no heading claims focus.
         health.remove();
-        claimRouteContentFocus(null, "/views");
+        claimRouteContentFocus(null, "/-/views");
 
         // Returning to /health mounts a new heading for the same path.
         const restored = createHeading();
-        claimRouteContentFocus(restored, "/health");
+        claimRouteContentFocus(restored, "/-/health");
 
         expect(document.activeElement).toBe(restored);
     });

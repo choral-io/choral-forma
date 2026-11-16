@@ -31,13 +31,13 @@ export async function markdownBrowserScenarios(page, options) {
         );
     };
     const rawSource = async (current, host, noScript = false) => {
-        await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
+        await current.goto(`${host.origin}${host.root}/notes/raw-source.txt/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         // Scoped to the document: the sidebar titles that directory with the same "Directory entry" heading.
         const directory = current
             .locator('[data-reader="markdown"]')
             .getByRole("link", { name: "Directory entry", exact: true });
-        const directoryHref = `${host.root}/pages/notes/resource-directory.txt#details`;
+        const directoryHref = `${host.root}/notes/resource-directory.txt#details`;
         assert(
             (await directory.getAttribute("href")) === directoryHref,
             "static: directory alias rewritten as raw resource",
@@ -45,7 +45,7 @@ export async function markdownBrowserScenarios(page, options) {
         await directory.click();
         await current.waitForURL(
             (url) =>
-                url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/resource-directory.txt` &&
+                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/resource-directory.txt` &&
                 url.hash === "#details",
         );
         await current
@@ -56,16 +56,16 @@ export async function markdownBrowserScenarios(page, options) {
             (await current.locator('[data-reader="markdown"]').textContent()).includes("Directory alias content."),
             "static: directory alias content missing",
         );
-        await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
+        await current.goto(`${host.origin}${host.root}/notes/raw-source.txt/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const original = current
             .locator('[data-reader="markdown"]')
             .getByRole("link", { name: "Original source", exact: true });
-        const href = `${host.root}/raw/notes/raw-source.txt?download=1#part`;
+        const href = `${host.root}/-/raw/notes/raw-source.txt?download=1#part`;
         assert((await original.getAttribute("href")) === href, "static: raw source shadowed by sidecar");
         const responseReady = current.waitForResponse(
             (response) =>
-                response.request().isNavigationRequest() && response.url().includes("/raw/notes/raw-source.txt"),
+                response.request().isNavigationRequest() && response.url().includes("/-/raw/notes/raw-source.txt"),
         );
         await original.click();
         const response = await responseReady;
@@ -85,7 +85,7 @@ export async function markdownBrowserScenarios(page, options) {
         assert(options.disclosureCases?.length > 0, `${host.name}: disclosure cases missing`);
         const completed = [];
         for (const fixture of options.disclosureCases) {
-            await current.goto(`${host.origin}${host.root}/pages/notes/fold-${fixture.id}/`);
+            await current.goto(`${host.origin}${host.root}/notes/fold-${fixture.id}/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
             const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading]):not([role="alert"])');
             await reader.waitFor({ state: "attached" });
@@ -125,7 +125,7 @@ export async function markdownBrowserScenarios(page, options) {
                 assert((await reader.textContent()).includes(literal), `${host.name}: ${fixture.id} missing literal`);
             completed.push(fixture.id);
         }
-        await current.goto(`${host.origin}${host.root}/pages/notes/disclosures/`);
+        await current.goto(`${host.origin}${host.root}/notes/disclosures/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         if (noScript) {
             assert(
@@ -187,7 +187,7 @@ export async function markdownBrowserScenarios(page, options) {
                     .slice(0, 2)
                     .every((fold) => fold.open),
             );
-            await current.goto(`${host.origin}${host.root}/pages/notes/disclosures/#forma-heading-hidden-fold-heading`);
+            await current.goto(`${host.origin}${host.root}/notes/disclosures/#forma-heading-hidden-fold-heading`);
             await current.waitForFunction(() => document.activeElement?.tagName === "H2");
             await outer.evaluate((fold) => {
                 fold.open = false;
@@ -266,7 +266,7 @@ export async function markdownBrowserScenarios(page, options) {
         assert(options.readingCases?.length > 0, `${host.name}: P1 source cases missing`);
         const completed = [];
         for (const fixture of options.readingCases) {
-            await current.goto(`${host.origin}${host.root}/pages/notes/p1-${fixture.id}/`);
+            await current.goto(`${host.origin}${host.root}/notes/p1-${fixture.id}/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
             const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading]):not([role="alert"])');
             await reader.waitFor({ state: "attached" });
@@ -297,7 +297,7 @@ export async function markdownBrowserScenarios(page, options) {
             );
             completed.push(fixture.id);
         }
-        await current.goto(`${host.origin}${host.root}/pages/notes/reading-p1/`);
+        await current.goto(`${host.origin}${host.root}/notes/reading-p1/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading])');
         await reader.locator("mark").first().waitFor({ state: "attached" });
@@ -350,7 +350,7 @@ export async function markdownBrowserScenarios(page, options) {
     // is still scrollable; either lets a long title shift or clip the sidebar tree.
     const sidebarTreeFit = async (current, host) => {
         await current.setViewportSize({ width: 1280, height: 900 });
-        await current.goto(`${host.origin}${host.root}/pages/notes/sidebar/nested/long-title/`);
+        await current.goto(`${host.origin}${host.root}/notes/sidebar/nested/long-title/`);
         await current.locator("[data-enhancement-ready]").waitFor();
         const tree = current.locator('.drawer-side nav[aria-label="Files"]');
         await tree.locator('[aria-current="page"]').waitFor();
@@ -373,13 +373,13 @@ export async function markdownBrowserScenarios(page, options) {
     // A directory URL opened directly is a real page: the static export writes it, and the
     // enhanced app shows the same listing with the directory's name as its title.
     const directoryPage = async (current, host, noScript = false) => {
-        const response = await current.goto(`${host.origin}${host.root}/pages/notes/sidebar/`);
+        const response = await current.goto(`${host.origin}${host.root}/notes/sidebar/`);
         assert(response?.status() === 200, `${host.name}: directory page status ${response?.status()}`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const heading = noScript ? current.locator("main h1") : current.locator("main h1").first();
         assert((await heading.textContent())?.trim() === "sidebar", `${host.name}: directory page heading`);
         assert(
-            (await current.locator('main a[href$="/pages/notes/sidebar/nested"]').count()) > 0,
+            (await current.locator('main a[href$="/notes/sidebar/nested"]').count()) > 0,
             `${host.name}: directory page folder link`,
         );
         if (host.name === "static" && !noScript) {
@@ -398,7 +398,7 @@ export async function markdownBrowserScenarios(page, options) {
             ["callouts", ["note", "tip", "important", "warning", "caution"], 7],
             ["callout-review", ["note", "tip", "important"], 2],
         ]) {
-            await current.goto(`${host.origin}${host.root}/pages/notes/${name}/`);
+            await current.goto(`${host.origin}${host.root}/notes/${name}/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
             const reader = current.locator('[data-reader="markdown"]');
             await reader.locator("[data-callout]").first().waitFor({ state: "attached" });
@@ -411,7 +411,7 @@ export async function markdownBrowserScenarios(page, options) {
             );
             assert((await reader.locator("blockquote").count()) === quotes, `${host.name}: ${name} literal quotes`);
         }
-        await current.goto(`${host.origin}${host.root}/pages/notes/callout-boundaries/`);
+        await current.goto(`${host.origin}${host.root}/notes/callout-boundaries/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const completed = [];
         for (const fixture of options.calloutBoundaries) {
@@ -455,7 +455,7 @@ export async function markdownBrowserScenarios(page, options) {
     };
     const callouts = async (current, host, noScript = false) => {
         await current.bringToFront();
-        await current.goto(`${host.origin}${host.root}/pages/notes/callout-interaction/`);
+        await current.goto(`${host.origin}${host.root}/notes/callout-interaction/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const disclosures = current.locator("details[data-callout-fold]");
         await disclosures.first().waitFor({ state: "attached" });
@@ -533,7 +533,7 @@ export async function markdownBrowserScenarios(page, options) {
             await current.goBack();
             await state(true);
         }
-        await current.goto(`${host.origin}${host.root}/pages/notes/callout-layout/`);
+        await current.goto(`${host.origin}${host.root}/notes/callout-layout/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const layoutSummary = current.locator("details[data-callout-fold] summary").first();
         for (const [width, scheme] of [
@@ -640,7 +640,7 @@ export async function markdownBrowserScenarios(page, options) {
         await current.emulateMedia({ colorScheme: "light" });
     };
     const mermaid = async (current, host) => {
-        await current.goto(`${host.origin}${host.root}/pages/notes/mermaid/`);
+        await current.goto(`${host.origin}${host.root}/notes/mermaid/`);
         await current.waitForFunction(
             () => document.querySelectorAll(".mermaid-diagram [data-mermaid-viewer]").length === 6,
         );
@@ -804,7 +804,7 @@ export async function markdownBrowserScenarios(page, options) {
         });
         current.on("pageerror", (error) => errors.push(error.message));
         try {
-            await current.goto(`${host.origin}${host.root}/pages/notes/images/`);
+            await current.goto(`${host.origin}${host.root}/notes/images/`);
             const reader = current.locator('[data-reader="markdown"]');
             await reader.locator("img").first().waitFor();
             await current.waitForFunction(() => {
@@ -841,7 +841,7 @@ export async function markdownBrowserScenarios(page, options) {
             await reader.locator("a").click();
             await current.waitForFunction(() => location.hash === "#forma-heading-image-viewer");
             results.push(`${host.name}: ordinary images and authored fragment link`);
-            await current.goto(`${host.origin}${host.root}/pages/notes/image-links/`);
+            await current.goto(`${host.origin}${host.root}/notes/image-links/`);
             const linkedReader = current.locator(
                 '[data-enhancement-ready] [data-reader="markdown"]:not([data-reader-loading])',
             );
@@ -864,7 +864,7 @@ export async function markdownBrowserScenarios(page, options) {
             );
             await popup.close();
             await linkedReader.getByRole("link", { name: "Open image examples", exact: true }).click();
-            await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/images`);
+            await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/images`);
             await current.locator('[data-reader="markdown"] img').first().waitFor();
             results.push(`${host.name}: authored page and external image links`);
             if (host.name === "static") {
@@ -884,7 +884,7 @@ export async function markdownBrowserScenarios(page, options) {
             await callouts(current, host);
             results.push(`${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`);
 
-            await current.goto(`${host.origin}${host.root}/pages/notes/viewers/`);
+            await current.goto(`${host.origin}${host.root}/notes/viewers/`);
             const expand = current.getByRole("button", { name: "Expand Flowchart diagram", exact: true }).first();
             await expand.click();
             await current.locator("dialog[open]").waitFor();
@@ -944,7 +944,7 @@ export async function markdownBrowserScenarios(page, options) {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const current = await context.newPage();
     try {
-        await current.goto(`${host.origin}${host.root}/pages/notes/images/`);
+        await current.goto(`${host.origin}${host.root}/notes/images/`);
         assert(
             await current.evaluate(() => {
                 const script = document.createElement("script");
@@ -970,20 +970,20 @@ export async function markdownBrowserScenarios(page, options) {
         );
         await current.locator('[data-reader="markdown"] a').click();
         assert(current.url().endsWith("#forma-heading-image-viewer"), "noscript: authored fragment link broken");
-        await current.goto(`${host.origin}${host.root}/pages/notes/image-links/`);
+        await current.goto(`${host.origin}${host.root}/notes/image-links/`);
         assert(
             (await current.locator('a[href="https://example.test/image-destination"] img').count()) === 1,
             "noscript: external image link changed",
         );
         await current.getByRole("link", { name: "Open image examples", exact: true }).click();
-        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/images`);
-        await current.goto(`${host.origin}${host.root}/pages/notes/viewers/`);
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/images`);
+        await current.goto(`${host.origin}${host.root}/notes/viewers/`);
         assert((await current.locator("pre code.language-mermaid").count()) === 2, "noscript: Mermaid source missing");
         assert(
             (await current.getByRole("button", { name: /Expand/ }).count()) === 0,
             "noscript: inert viewer controls",
         );
-        await current.goto(`${host.origin}${host.root}/pages/notes/mermaid/`);
+        await current.goto(`${host.origin}${host.root}/notes/mermaid/`);
         assert(
             (await current.locator("pre code.language-mermaid").count()) === 7,
             "noscript: Mermaid kinds and empty source missing",
@@ -994,7 +994,7 @@ export async function markdownBrowserScenarios(page, options) {
         );
         await current.goto(`${host.origin}${host.root}${host.graph}`);
         await current.getByRole("link", { name: "Selected node", exact: true }).click();
-        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/graph/selected`);
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected`);
         results.push("static noscript: images, authored link, Mermaid source and Graph navigation");
         await rawSource(current, host, true);
         results.push("static noscript: raw source navigation beside sidecar");

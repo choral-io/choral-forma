@@ -250,8 +250,8 @@ try {
         readingCases,
         disclosureCases,
         hosts: [
-            { name: "webapp", origin, root: "", graph: "/views/.forma/views/graph" },
-            { name: "static", origin: staticOrigin, root: "/preview", graph: "/views/graph/" },
+            { name: "webapp", origin, root: "", graph: "/-/views/.forma/views/graph" },
+            { name: "static", origin: staticOrigin, root: "/preview", graph: "/-/views/graph/" },
         ],
     };
     abort.signal.throwIfAborted();

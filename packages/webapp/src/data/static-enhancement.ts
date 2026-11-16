@@ -1,4 +1,13 @@
-import { directoryForRoutePath, viewRoutePath } from "@/lib/workspace-routes";
+import {
+    browseRoutePath,
+    directoryForRoutePath,
+    healthRoutePath,
+    isSystemRoutePath,
+    taxonomyRoutePath,
+    taxonomyTermRoutePath,
+    viewRoutePath,
+    viewsRoutePath,
+} from "@/lib/workspace-routes";
 
 import { resolveDashboardEntryTarget } from "./static-route-target";
 import { logicalPathname } from "./static-runtime";
@@ -22,7 +31,9 @@ export async function prepareStaticEnhancement(pathname: string) {
     const routePath = logicalPathname(pathname);
     const seed: PreparedStaticEnhancement = { dashboard };
 
-    const pageTarget = routePath.startsWith("/pages/") ? resolveDashboardEntryTarget(dashboard, routePath) : undefined;
+    // Home and the system pages render from the dashboard alone; any other route is content.
+    const isContentRoute = routePath !== "/" && !isSystemRoutePath(routePath);
+    const pageTarget = isContentRoute ? resolveDashboardEntryTarget(dashboard, routePath) : undefined;
     const directory = directoryForRoutePath(dashboard.entries, routePath);
     // A document served at a route wins; a directory page lists the dashboard's own entries.
     if (pageTarget) {
@@ -30,9 +41,9 @@ export async function prepareStaticEnhancement(pathname: string) {
             detail: await workspaceClient.getEntry(pageTarget.entryId, dashboardContext),
             routePath,
         };
-    } else if (routePath.startsWith("/pages/") && !directory) {
+    } else if (isContentRoute && !directory) {
         throw new Error(`Static artifact route was not listed: ${routePath}`);
-    } else if (routePath.startsWith("/views/")) {
+    } else if (routePath.startsWith(`${viewsRoutePath}/`)) {
         const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === routePath);
         if (!view) throw new Error(`Static artifact View route was not listed: ${routePath}`);
         seed.view = {
@@ -52,12 +63,10 @@ export function readPreparedStaticEnhancement() {
 }
 
 function isDashboardOnlyRoute(dashboard: WorkspaceDashboard, routePath: string) {
-    if (["/", "/pages", "/views", "/browse", "/health"].includes(routePath)) return true;
+    if (["/", viewsRoutePath, browseRoutePath, healthRoutePath].includes(routePath)) return true;
     return dashboard.taxonomies.some(
         (taxonomy) =>
-            routePath === `/${encodeURIComponent(taxonomy.id)}` ||
-            taxonomy.terms.some(
-                (term) => routePath === `/${encodeURIComponent(taxonomy.id)}/${encodeURIComponent(term.id)}`,
-            ),
+            routePath === taxonomyRoutePath(taxonomy.id) ||
+            taxonomy.terms.some((term) => routePath === taxonomyTermRoutePath(taxonomy.id, term.id)),
     );
 }

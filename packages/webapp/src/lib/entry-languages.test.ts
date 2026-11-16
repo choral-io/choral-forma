@@ -11,13 +11,13 @@ import {
 const variant = {
     language: "zh-Hans",
     path: "notes/getting-started.zh-hans.md",
-    routePath: "/pages/notes/getting-started.zh-hans",
-    rawPath: "/raw/notes/getting-started.zh-hans.md",
+    routePath: "/notes/getting-started.zh-hans",
+    rawPath: "/-/raw/notes/getting-started.zh-hans.md",
 };
-const canonical = { path: "notes/getting-started.md", routePath: "/pages/notes/getting-started", variants: [variant] };
+const canonical = { path: "notes/getting-started.md", routePath: "/notes/getting-started", variants: [variant] };
 // The read model may also list a variant as an entry of its own.
 const variantEntry = { path: variant.path, routePath: variant.routePath, variants: [] };
-const plain = { path: "notes/other.md", routePath: "/pages/notes/other", variants: [] };
+const plain = { path: "notes/other.md", routePath: "/notes/other", variants: [] };
 const entries = [canonical, variantEntry, plain];
 
 describe("entry languages", () => {

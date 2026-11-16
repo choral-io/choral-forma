@@ -84,7 +84,7 @@ The internal operation model should be typed Rust structs and enums. The externa
 
 P0 should define operation structs and route CLI plus local HTTP behavior through the same dispatcher. Local HTTP RPC should use strict JSON-RPC 2.0 message shapes, but P0 only needs a minimal subset:
 
-- `POST /rpc`.
+- `POST /-/rpc`.
 - Single request object.
 - `jsonrpc: "2.0"`.
 - `id`.
@@ -327,7 +327,7 @@ Test layers:
 - Fixture tests over realistic miniature workspaces.
 - Golden JSON tests for stable Script, Agent, HTTP, and future MCP contracts.
 - CLI tests focused on exit codes, parseable JSON, `schemaVersion`, and the distinction between operation diagnostics and transport errors.
-- Minimal local HTTP API integration tests for `POST /rpc`.
+- Minimal local HTTP API integration tests for `POST /-/rpc`.
 - Frontend type/build tests for `packages/shared` and `packages/webapp`.
 
 Suggested fixture shape:
@@ -363,7 +363,7 @@ Build inputs:
 - `rust-toolchain.toml` to pin the Rust toolchain.
 - `mise` tasks as the project-level entrypoint for check, test, format, and build commands.
 
-Release builds should serve built WebApp static assets from the Rust binary or release package. The preferred release mode is embedded assets so `forma serve` does not require a separate frontend runtime or asset directory. Development mode may serve local `packages/webapp/dist` assets or proxy a Vite dev server. P0 exposes an explicit external asset directory override, such as `forma serve --webapp-dir <dir>`, for development debugging and issue verification. The override should affect only static asset resolution; RPC behavior, workspace permissions, and shared workspace configuration should remain unchanged. Broader custom distribution and white-label packaging remain P1 concerns. P0 also supports explicit `/rpc` CORS origins for Vite dev server workflows, such as `forma serve --cors-origin http://localhost:5173` with `VITE_FORMA_RPC_URL` pointing the WebApp to the Forma RPC endpoint. CORS should be disabled by default and should not support wildcard origins.
+Release builds should serve built WebApp static assets from the Rust binary or release package. The preferred release mode is embedded assets so `forma serve` does not require a separate frontend runtime or asset directory. Development mode may serve local `packages/webapp/dist` assets or proxy a Vite dev server. P0 exposes an explicit external asset directory override, such as `forma serve --webapp-dir <dir>`, for development debugging and issue verification. The override should affect only static asset resolution; RPC behavior, workspace permissions, and shared workspace configuration should remain unchanged. Broader custom distribution and white-label packaging remain P1 concerns. P0 also supports explicit `/-/rpc` CORS origins for Vite dev server workflows, such as `forma serve --cors-origin http://localhost:5173` with `VITE_FORMA_RPC_URL` pointing the WebApp to the Forma RPC endpoint. CORS should be disabled by default and should not support wildcard origins.
 
 P0 distribution should use:
 

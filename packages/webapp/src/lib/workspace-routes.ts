@@ -1,31 +1,43 @@
+/**
+ * The public URL layout Core defines. Content owns the root namespace: a page or a directory is
+ * served at its workspace path, and the workspace root is `/`. Everything Forma adds lives under
+ * the reserved segment `-`, so no configured name shadows a system page.
+ */
+export const systemRouteSegment = "-";
+export const browseRoutePath = "/-/browse";
+export const viewsRoutePath = "/-/views";
+export const healthRoutePath = "/-/health";
+export const rawRoutePrefix = "/-/raw";
+export const rpcEndpointPath = "/-/rpc";
+
+/** Whether a route is inside the reserved segment rather than the content namespace. */
+export function isSystemRoutePath(routePath: string) {
+    return routePath === `/${systemRouteSegment}` || routePath.startsWith(`/${systemRouteSegment}/`);
+}
+
 export function viewRoutePath(viewId: string) {
-    return `/views/${viewId
+    return `${viewsRoutePath}/${viewId
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/")}`;
 }
 
-/** The workspace root's directory page. Directories share the page namespace with the documents in them. */
-export const pagesRootRoutePath = "/pages";
-
 /**
- * A directory's page; the empty path is the workspace root. Segments are encoded the way
+ * A directory's page; the empty path is the workspace root, home. Segments are encoded the way
  * Core encodes page routes, so a directory and a document served at its route, such as its
  * `index` file, compare equal.
  */
 export function directoryRoutePath(path: string) {
     const segments = path.split("/").filter((segment) => segment.length > 0);
-    if (segments.length === 0) return pagesRootRoutePath;
-    return `${pagesRootRoutePath}/${segments.map(encodePageRouteSegment).join("/")}`;
+    return `/${segments.map(encodePageRouteSegment).join("/")}`;
 }
 
-/** The directory path a page route names, or undefined for a route outside `/pages`. */
+/** The directory path a content route names, or undefined for a system route. */
 export function directoryPathFromRoutePath(routePath: string): string | undefined {
-    if (routePath === pagesRootRoutePath) return "";
-    if (!routePath.startsWith(`${pagesRootRoutePath}/`)) return undefined;
+    if (!routePath.startsWith("/") || isSystemRoutePath(routePath)) return undefined;
     try {
         return routePath
-            .slice(pagesRootRoutePath.length + 1)
+            .slice(1)
             .split("/")
             .filter((segment) => segment.length > 0)
             .map((segment) => decodeURIComponent(segment))
@@ -36,8 +48,9 @@ export function directoryPathFromRoutePath(routePath: string): string | undefine
 }
 
 /**
- * The directory a page route names when no document is served there: a path below `/pages`
- * that holds at least one indexed document. Returns undefined for any other route.
+ * The directory a content route names when no document is served there: a path below the root
+ * that holds at least one indexed document. Returns undefined for any other route, including
+ * the root itself, whose page is home.
  */
 export function directoryForRoutePath(entries: readonly { path: string }[], routePath: string) {
     const directory = directoryPathFromRoutePath(routePath);
@@ -54,13 +67,9 @@ function encodePageRouteSegment(segment: string) {
 }
 
 export function taxonomyRoutePath(taxonomyId: string) {
-    return `/${encodeURIComponent(taxonomyId)}`;
+    return `${browseRoutePath}/${encodeURIComponent(taxonomyId)}`;
 }
 
 export function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
     return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
-}
-
-export function legacyWorkspaceRouteRedirect(pathname: string) {
-    return pathname.replace(/\/+$/u, "") === "/taxonomies" ? "/browse" : undefined;
 }

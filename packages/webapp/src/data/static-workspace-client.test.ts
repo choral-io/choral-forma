@@ -13,7 +13,7 @@ const localizedVariant = {
     id: "notes--one.zh-hans",
     language: "zh-Hans",
     path: "notes/one.zh-Hans.md",
-    routePath: "/pages/notes/one.zh-Hans",
+    routePath: "/notes/one.zh-Hans",
     title: "一",
     omitLeadingTitle: false,
     dataPath: "data/entries/notes--one.zh-hans.json",
@@ -47,7 +47,7 @@ const dashboard: StaticDashboardData = {
         {
             id: "notes--one",
             path: "notes/one.md",
-            routePath: "/pages/notes/one",
+            routePath: "/notes/one",
             space: "notes",
             title: "One",
             omitLeadingTitle: false,
@@ -59,7 +59,7 @@ const dashboard: StaticDashboardData = {
     views: [
         {
             id: "notes",
-            routePath: "/views/notes",
+            routePath: "/-/views/notes",
             mode: "list",
             title: "Notes",
             status: "passed",
@@ -121,7 +121,7 @@ describe("StaticWorkspaceClient", () => {
         const result = await client.getViewRender("notes", await contextFor(client));
         expect(result.projection).toEqual({
             ...projection,
-            routes: { "notes/one.md": "/pages/notes/one", ".forma.md": "/" },
+            routes: { "notes/one.md": "/notes/one", ".forma.md": "/" },
         });
     });
 
@@ -171,7 +171,7 @@ describe("StaticWorkspaceClient", () => {
         await expect(client.getEntry("notes--one.zh-hans", await contextFor(client))).resolves.toMatchObject({
             id: "notes--one.zh-hans",
             path: "notes/one.zh-Hans.md",
-            routePath: "/pages/notes/one.zh-Hans",
+            routePath: "/notes/one.zh-Hans",
             title: "一",
         });
         await expect(client.getViewRender("notes", await contextFor(client))).resolves.toMatchObject({

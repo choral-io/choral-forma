@@ -19,7 +19,7 @@ describe("Markdown reader contract", () => {
         const html = postProcessMarkdownHtml(await renderMarkdown(images), [], "notes/images.md", [], false);
         const body = new DOMParser().parseFromString(html, "text/html").body;
         expect(body.querySelectorAll("a[data-reader-image]")).toHaveLength(0);
-        expect(body.querySelector("img")?.getAttribute("src")).toBe("/raw/notes/image-viewer.svg");
+        expect(body.querySelector("img")?.getAttribute("src")).toBe("/-/raw/notes/image-viewer.svg");
         expect(body.querySelectorAll("a")).toHaveLength(1);
         expect(body.querySelectorAll("img")).toHaveLength(3);
         expect([...body.querySelectorAll("img")].map((image) => image.parentElement?.tagName)).toEqual(["P", "P", "A"]);

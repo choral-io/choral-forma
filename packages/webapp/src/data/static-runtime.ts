@@ -1,3 +1,5 @@
+import { rawRoutePrefix } from "@/lib/workspace-routes";
+
 export interface StaticRuntimeConfig {
     baseUrl: string;
     dataBaseUrl: string;
@@ -61,5 +63,5 @@ export function logicalPathname(pathname: string) {
 
 export function isStaticRawHref(href: string) {
     const logical = logicalHref(href);
-    return logical === "/raw" || logical.startsWith("/raw/");
+    return logical === rawRoutePrefix || logical.startsWith(`${rawRoutePrefix}/`);
 }

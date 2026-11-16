@@ -72,7 +72,7 @@ function dashboardProjection(render: GraphRenderOutput): DashboardGraphProjectio
         nodes: render.nodes.map((node) => ({
             ...node,
             title: node.title ?? node.path,
-            routePath: `/pages/${encodeURIComponent(node.path)}`,
+            routePath: `/${encodeURIComponent(node.path)}`,
         })),
         edges: render.edges.map((edge) => ({ ...edge })),
     };

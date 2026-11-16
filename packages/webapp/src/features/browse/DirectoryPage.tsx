@@ -19,13 +19,8 @@ import { directoryRoutePath } from "@/lib/workspace-routes";
 
 import { PagesList } from "./PagesList";
 
-/** `/pages`: the workspace root's directory page, titled Files like the sidebar tab that shows the same tree. */
-export function PagesRoute() {
-    return <DirectoryPage path="" />;
-}
-
 /**
- * A directory of indexed source paths: its folders, then its pages. It lists only what the
+ * A directory of indexed source paths below the root, whose page is home: its folders, then its pages. It lists only what the
  * workspace includes, so a folder stands for its indexed pages, not its full contents.
  */
 export function DirectoryPage({ path }: { path: string }) {
@@ -41,17 +36,12 @@ export function DirectoryPage({ path }: { path: string }) {
         );
     }
 
-    const isRoot = listing.path === "";
     return (
         <WorkspaceRouteFrame
-            breadcrumb={isRoot ? [] : directoryBreadcrumb(listing.path, false, directoryOwners(entries))}
+            breadcrumb={directoryBreadcrumb(listing.path, false, directoryOwners(entries))}
             contentWidth="narrow"
-            description={
-                isRoot
-                    ? "Pages the workspace includes, grouped by the directories of their source paths."
-                    : `Pages the workspace includes under ${listing.path}/.`
-            }
-            title={isRoot ? "Files" : (listing.path.split("/").at(-1) ?? listing.path)}
+            description={`Pages the workspace includes under ${listing.path}/.`}
+            title={listing.path.split("/").at(-1) ?? listing.path}
         >
             <RouteBodySection meta={listingCounts(listing)}>
                 <DirectoryContents listing={listing} />

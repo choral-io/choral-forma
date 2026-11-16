@@ -2038,7 +2038,7 @@ fn workspace_logo_summary(
     }
 
     Some(WorkspaceLogoSummary {
-        url: format!("/raw/{path}"),
+        url: entry_raw_path_for_path(path),
         alt: logo.alt.clone().unwrap_or_else(|| workspace.name.clone()),
     })
 }
@@ -3407,17 +3407,11 @@ pub(crate) fn document_id_for_path(path: &str) -> String {
 }
 
 pub(crate) fn entry_route_path_for_path(path: &str) -> String {
-    let without_extension = path.strip_suffix(".md").unwrap_or(path);
-    let page_path = without_extension
-        .strip_suffix("/index")
-        .filter(|value| !value.is_empty())
-        .unwrap_or(without_extension);
-
-    format!("/pages/{page_path}")
+    format!("/{}", crate::routes::entry_page_path(path))
 }
 
 fn entry_raw_path_for_path(path: &str) -> String {
-    format!("/raw/{path}")
+    format!("{}/{path}", crate::routes::RAW_ROUTE_PREFIX)
 }
 
 fn file_modified_at(root: &Path, path: &str) -> Option<DateTime<Utc>> {
@@ -5767,10 +5761,10 @@ imports:
             .find(|entry| entry.path == "notes/nested/index.md")
             .unwrap();
 
-        assert_eq!(topic.route_path, "/pages/notes/topic");
-        assert_eq!(topic.raw_path, "/raw/notes/topic.md");
-        assert_eq!(nested.route_path, "/pages/notes/nested");
-        assert_eq!(nested.raw_path, "/raw/notes/nested/index.md");
+        assert_eq!(topic.route_path, "/notes/topic");
+        assert_eq!(topic.raw_path, "/-/raw/notes/topic.md");
+        assert_eq!(nested.route_path, "/notes/nested");
+        assert_eq!(nested.raw_path, "/-/raw/notes/nested/index.md");
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -5816,8 +5810,8 @@ imports:
         assert_eq!(topic.variants.len(), 1);
         assert_eq!(topic.variants[0].language, "zh-Hans");
         assert_eq!(topic.variants[0].path, "notes/topic.zh-hans.md");
-        assert_eq!(topic.variants[0].route_path, "/pages/notes/topic.zh-hans");
-        assert_eq!(topic.variants[0].raw_path, "/raw/notes/topic.zh-hans.md");
+        assert_eq!(topic.variants[0].route_path, "/notes/topic.zh-hans");
+        assert_eq!(topic.variants[0].raw_path, "/-/raw/notes/topic.zh-hans.md");
         assert_eq!(topic.variants[0].title.as_deref(), Some("Topic ZH"));
         assert_eq!(
             topic.variants[0].summary.as_deref(),
@@ -5856,7 +5850,7 @@ imports:
         let result = workspace_dashboard(&root).unwrap();
         let logo = result.workspace.logo.unwrap();
 
-        assert_eq!(logo.url, "/raw/assets/logo.svg");
+        assert_eq!(logo.url, "/-/raw/assets/logo.svg");
         assert_eq!(logo.alt, "Logo Alt");
 
         fs::remove_dir_all(root).unwrap();

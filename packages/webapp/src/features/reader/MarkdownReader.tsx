@@ -8,6 +8,7 @@ import type { DashboardEntry } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
+import { rawRoutePrefix } from "@/lib/workspace-routes";
 
 import {
     createProjectionStickyBoundaryController,
@@ -462,7 +463,7 @@ export function postProcessMarkdownHtml(
         }
 
         const targetPath = normalizeWorkspaceHref(source, currentPath, entries);
-        image.setAttribute("src", rootAwareHref(`/raw/${encodeURI(targetPath.path)}`));
+        image.setAttribute("src", rootAwareHref(`${rawRoutePrefix}/${encodeURI(targetPath.path)}`));
     }
 
     for (const table of document.body.querySelectorAll("table")) {

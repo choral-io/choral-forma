@@ -42,8 +42,8 @@ const entries: DashboardEntrySummary[] = [
     {
         id: "docs--guide",
         path: "docs/guide.md",
-        routePath: "/pages/docs/guide",
-        rawPath: "/raw/docs/guide.md",
+        routePath: "/docs/guide",
+        rawPath: "/-/raw/docs/guide.md",
         title: "Guide",
         status: "passed",
         renderable: true,

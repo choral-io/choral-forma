@@ -20,7 +20,7 @@ const dashboard = {
         {
             id: "notes--home",
             path: "notes/home.md",
-            routePath: "/pages/notes/home",
+            routePath: "/notes/home",
             title: "Home",
             summary: "Home summary.",
             variants: [],
@@ -28,7 +28,7 @@ const dashboard = {
         {
             id: "notes--encoded",
             path: "notes/with space.md",
-            routePath: "/pages/notes/with%20space",
+            routePath: "/notes/with%20space",
             title: "Encoded",
             summary: "Encoded summary.",
             variants: [],
@@ -52,13 +52,13 @@ describe("static document metadata", () => {
     });
 
     it("titles a directory page by its name and leaves unknown paths not found", () => {
-        expect(resolveStaticDocumentMetadata(dashboard, "/pages/notes")).toEqual({
-            canonicalPath: "/pages/notes",
+        expect(resolveStaticDocumentMetadata(dashboard, "/notes")).toEqual({
+            canonicalPath: "/notes",
             description: "Pages the workspace includes under notes/.",
             title: "notes",
         });
-        expect(resolveStaticDocumentMetadata(dashboard, "/pages")).toMatchObject({ title: "Files" });
-        expect(resolveStaticDocumentMetadata(dashboard, "/pages/missing")).toMatchObject({ title: "Not found" });
+        expect(resolveStaticDocumentMetadata(dashboard, "/-/notes")).toMatchObject({ title: "Not found" });
+        expect(resolveStaticDocumentMetadata(dashboard, "/missing")).toMatchObject({ title: "Not found" });
     });
 
     it("resolves homepage, encoded entry, and View metadata from local dashboard data", () => {
@@ -73,13 +73,13 @@ describe("static document metadata", () => {
             description: "Markdown-backed workspace content.",
             title: "Forma",
         });
-        expect(resolveStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space/")).toEqual({
-            canonicalPath: "/pages/notes/with%20space",
+        expect(resolveStaticDocumentMetadata(dashboard, "/preview/notes/with%20space/")).toEqual({
+            canonicalPath: "/notes/with%20space",
             description: "Encoded summary.",
             title: "Encoded",
         });
-        expect(resolveStaticDocumentMetadata(dashboard, "/preview/views/notes")).toEqual({
-            canonicalPath: "/views/notes",
+        expect(resolveStaticDocumentMetadata(dashboard, "/preview/-/views/notes")).toEqual({
+            canonicalPath: "/-/views/notes",
             description: "table workspace View.",
             title: "Notes",
         });
@@ -102,12 +102,12 @@ describe("static document metadata", () => {
             rootPath: "/preview",
         });
 
-        syncStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space");
+        syncStaticDocumentMetadata(dashboard, "/preview/notes/with%20space");
 
         expect(document.title).toBe("Encoded · Forma");
         expect(document.querySelector('meta[name="description"]')?.getAttribute("content")).toBe("Encoded summary.");
         expect(document.querySelector('link[rel="canonical"]')?.getAttribute("href")).toBe(
-            "https://example.test/preview/pages/notes/with%20space",
+            "https://example.test/preview/notes/with%20space",
         );
         expect(document.querySelector('meta[property="og:title"]')?.getAttribute("content")).toBe("Encoded · Forma");
 

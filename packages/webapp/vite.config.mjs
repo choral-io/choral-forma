@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
 
     return {
         base: "./",
+        // Everything the app adds is under the reserved `-` segment; content owns the rest.
+        build: {
+            assetsDir: "-/assets",
+        },
         define: {
             __FORMA_WORKSPACE_CLIENT__: JSON.stringify(workspaceClient),
         },
@@ -32,11 +36,11 @@ export default defineConfig(({ mode }) => {
         server: formaRpcProxyTarget
             ? {
                   proxy: {
-                      "/rpc": {
+                      "/-/rpc": {
                           changeOrigin: true,
                           target: formaRpcProxyTarget,
                       },
-                      "/raw": {
+                      "/-/raw": {
                           changeOrigin: true,
                           target: formaRpcProxyTarget,
                       },

@@ -4,7 +4,7 @@ import { filterQuickOpenItems, type QuickOpenItem } from "./QuickOpenDialog";
 
 const items: QuickOpenItem[] = [
     { group: "Navigate", href: "/", label: "Dashboard", meta: "route" },
-    { group: "Pages", href: "/pages/guide", label: "Workspace Guide", meta: "knowledge/guide.md" },
+    { group: "Pages", href: "/guide", label: "Workspace Guide", meta: "knowledge/guide.md" },
     { group: "Spaces", href: "/spaces/planning", label: "Planning", meta: "1 page" },
 ];
 
@@ -24,8 +24,8 @@ describe("filterQuickOpenItems", () => {
 
     it("ranks exact and prefix label matches ahead of metadata matches", () => {
         const ranked: QuickOpenItem[] = [
-            { group: "Pages", href: "/pages/one", label: "Prepare Task Board", meta: "tasks/one.md" },
-            { group: "Views", href: "/views/task-board", label: "Task Board", meta: "kanban" },
+            { group: "Pages", href: "/one", label: "Prepare Task Board", meta: "tasks/one.md" },
+            { group: "Views", href: "/-/views/task-board", label: "Task Board", meta: "kanban" },
             { group: "Spaces", href: "/spaces/tasks", label: "Tasks", meta: "6 pages" },
         ];
 

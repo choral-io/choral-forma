@@ -6,6 +6,7 @@ use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::Uri;
+use forma_core::routes::RAW_ROUTE_PREFIX;
 use forma_core::{
     DiagnosticSeverity, OperationStatus, StaticSiteDiagnostic, StaticSiteEntry, StaticSiteSnapshot,
     StaticSiteView, build_static_site_snapshot_with_root_path,
@@ -18,6 +19,8 @@ use crate::static_html::{
 };
 
 const OPERATION: &str = "site.build";
+/// The artifact directory of the data files, `-/data`, beside the reserved routes.
+const STATIC_DATA_DIR: &str = "-/data";
 const ARTIFACT_MARKER: &str = ".forma-site-artifact";
 const CLOUDFLARE_STATIC_ASSET_HEADERS: &str = r#"/*
   Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests
@@ -85,7 +88,7 @@ pub(crate) fn build_site(
     let snapshot = build_static_site_snapshot_with_root_path(&workspace, &options.root_path)
         .map_err(|error| format!("site snapshot could not be built: {error}"))?;
     if snapshot.status == OperationStatus::Failed {
-        return Err("site snapshot contains errors and cannot be published".to_string());
+        return Err(snapshot_errors_message(&snapshot));
     }
     let base_url = normalize_base_url(&options.base_url)?;
     let output = validate_output(&workspace, &options.out, &snapshot)?;
@@ -160,18 +163,18 @@ fn write_artifact(
     let mut bytes = 0_u64;
     let mut asset_count = 0_usize;
     let data = StaticDashboardData::from_snapshot(snapshot)?;
-    bytes += write_json(staging, "data/dashboard.json", &data)?;
+    bytes += write_json(staging, &format!("{STATIC_DATA_DIR}/dashboard.json"), &data)?;
 
     for entry in &snapshot.entries {
-        let path = data_path("data/entries", &entry.id)?;
+        let path = data_path(&format!("{STATIC_DATA_DIR}/entries"), &entry.id)?;
         bytes += write_json(staging, &path, entry)?;
         for variant in &entry.variants {
-            let path = data_path("data/entries", &variant.id)?;
+            let path = data_path(&format!("{STATIC_DATA_DIR}/entries"), &variant.id)?;
             bytes += write_json(staging, &path, variant)?;
         }
     }
     for view in &snapshot.views {
-        let path = data_path("data/views", &view.id)?;
+        let path = data_path(&format!("{STATIC_DATA_DIR}/views"), &view.id)?;
         bytes += write_json(staging, &path, view)?;
     }
 
@@ -275,7 +278,7 @@ fn root_embedded_asset(contents: &[u8], path: &str, root_path: &str) -> Vec<u8> 
     let Ok(css) = std::str::from_utf8(contents) else {
         return contents.to_vec();
     };
-    css.replace("/forma-icon", &format!("{root_path}/forma-icon"))
+    css.replace("/-/forma-icon", &format!("{root_path}/-/forma-icon"))
         .into_bytes()
 }
 
@@ -362,8 +365,28 @@ fn validate_resource_source(
     Ok(())
 }
 
+/// The failure of a snapshot that has errors, naming each one so it can be fixed without
+/// running another command.
+fn snapshot_errors_message(snapshot: &StaticSiteSnapshot) -> String {
+    let mut message = "site snapshot contains errors and cannot be published:".to_string();
+    for diagnostic in snapshot
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+    {
+        message.push_str(&format!("\n- {}: {}", diagnostic.code, diagnostic.message));
+        if let Some(path) = &diagnostic.path {
+            message.push_str(&format!(" ({path})"));
+        }
+        if let Some(actual) = &diagnostic.actual {
+            message.push_str(&format!(" {actual}"));
+        }
+    }
+    message
+}
+
 fn resource_output_path(path: &str) -> String {
-    format!("raw/{path}")
+    format!("{}/{path}", RAW_ROUTE_PREFIX.trim_start_matches('/'))
 }
 
 fn write_json(value_root: &Path, relative: &str, value: &impl Serialize) -> Result<u64, String> {
@@ -914,11 +937,11 @@ impl<'a> StaticEntrySummary<'a> {
                         title: &variant.title,
                         omit_leading_title: variant.omit_leading_title,
                         summary: &variant.summary,
-                        data_path: data_path("data/entries", &variant.id)?,
+                        data_path: data_path(&format!("{STATIC_DATA_DIR}/entries"), &variant.id)?,
                     })
                 })
                 .collect::<Result<Vec<_>, String>>()?,
-            data_path: data_path("data/entries", &entry.id)?,
+            data_path: data_path(&format!("{STATIC_DATA_DIR}/entries"), &entry.id)?,
         })
     }
 }
@@ -933,7 +956,7 @@ impl<'a> StaticViewSummary<'a> {
             display: &view.display,
             space: &view.space,
             status: view.status,
-            data_path: data_path("data/views", &view.id)?,
+            data_path: data_path(&format!("{STATIC_DATA_DIR}/views"), &view.id)?,
         })
     }
 }
@@ -949,10 +972,10 @@ mod tests {
     #[test]
     fn site_data_paths_keep_stable_nested_ids() {
         assert_eq!(
-            data_path("data/entries", "notes/a").unwrap(),
-            "data/entries/notes/a.json"
+            data_path("-/data/entries", "notes/a").unwrap(),
+            "-/data/entries/notes/a.json"
         );
-        assert!(data_path("data/entries", "../a").is_err());
+        assert!(data_path("-/data/entries", "../a").is_err());
         assert!(safe_relative_path("/absolute").is_err());
     }
 

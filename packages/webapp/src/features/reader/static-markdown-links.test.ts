@@ -22,14 +22,14 @@ describe("static Markdown root paths", () => {
         const entries = [
             {
                 path: "notes/two.md",
-                routePath: "/pages/notes/two",
+                routePath: "/notes/two",
             },
         ];
         const html = postProcessMarkdownHtml(
             [
-                '<a href="/preview/pages/notes/two#scope">Two</a>',
+                '<a href="/preview/notes/two#scope">Two</a>',
                 '<a href="https://example.com">External</a>',
-                '<img alt="Existing" src="/preview/raw/notes/existing.png">',
+                '<img alt="Existing" src="/preview/-/raw/notes/existing.png">',
                 '<img alt="Relative" src="./relative.png">',
             ].join(""),
             [],
@@ -38,10 +38,10 @@ describe("static Markdown root paths", () => {
             false,
         );
 
-        expect(html).toContain('href="/preview/pages/notes/two#scope"');
+        expect(html).toContain('href="/preview/notes/two#scope"');
         expect(html).toContain('href="https://example.com"');
-        expect(html).toContain('src="/preview/raw/notes/existing.png"');
-        expect(html).toContain('src="/preview/raw/notes/relative.png"');
+        expect(html).toContain('src="/preview/-/raw/notes/existing.png"');
+        expect(html).toContain('src="/preview/-/raw/notes/relative.png"');
     });
 
     it("keeps a homepage entry fragment on the displayed homepage route", () => {
@@ -53,7 +53,7 @@ describe("static Markdown root paths", () => {
         const entries = [
             {
                 path: "notes/home.md",
-                routePath: "/pages/notes/home",
+                routePath: "/notes/home",
             },
         ];
 
@@ -67,14 +67,14 @@ describe("static Markdown root paths", () => {
         );
 
         expect(html).toContain('href="/preview/#details"');
-        expect(html).not.toContain("/pages/notes/home#details");
+        expect(html).not.toContain("/notes/home#details");
     });
 
     it("resolves entry-style links from the workspace root document", () => {
         const entries = [
             {
                 path: "notes/two.md",
-                routePath: "/pages/notes/two",
+                routePath: "/notes/two",
             },
         ];
 
@@ -87,7 +87,7 @@ describe("static Markdown root paths", () => {
             "/",
         );
 
-        expect(html).toContain('href="/pages/notes/two"');
+        expect(html).toContain('href="/notes/two"');
         expect(html).toContain('data-link-kind="internal"');
     });
 
@@ -98,16 +98,16 @@ describe("static Markdown root paths", () => {
             rootPath: "/preview",
         });
         const anchor = document.createElement("a");
-        anchor.href = "/preview/pages/notes/two?mode=reader#scope";
+        anchor.href = "/preview/notes/two?mode=reader#scope";
 
-        expect(resolveReaderLinkNavigation(anchor, "https://example.test/preview/pages/notes/one")).toEqual({
-            href: "/pages/notes/two?mode=reader#scope",
+        expect(resolveReaderLinkNavigation(anchor, "https://example.test/preview/notes/one")).toEqual({
+            href: "/notes/two?mode=reader#scope",
             samePageFragment: false,
         });
 
-        anchor.href = "/preview/pages/notes/one#details";
-        expect(resolveReaderLinkNavigation(anchor, "https://example.test/preview/pages/notes/one")).toEqual({
-            href: "/pages/notes/one#details",
+        anchor.href = "/preview/notes/one#details";
+        expect(resolveReaderLinkNavigation(anchor, "https://example.test/preview/notes/one")).toEqual({
+            href: "/notes/one#details",
             samePageFragment: true,
         });
     });
@@ -119,10 +119,10 @@ describe("static Markdown root paths", () => {
             rootPath: "/preview",
         });
         const anchor = document.createElement("a");
-        anchor.href = "/preview/raw/content/guides/source.txt?download=1#section";
+        anchor.href = "/preview/-/raw/content/guides/source.txt?download=1#section";
 
         expect(
-            resolveReaderLinkNavigation(anchor, "https://example.test/preview/pages/content/guides/intro"),
+            resolveReaderLinkNavigation(anchor, "https://example.test/preview/content/guides/intro"),
         ).toBeUndefined();
     });
 
@@ -133,28 +133,26 @@ describe("static Markdown root paths", () => {
                 anchor.dataset.linkKind = "external";
             },
             (anchor: HTMLAnchorElement) => {
-                anchor.href = "/pages/notes/two";
+                anchor.href = "/notes/two";
                 anchor.target = "_blank";
             },
             (anchor: HTMLAnchorElement) => {
-                anchor.href = "/pages/notes/two";
+                anchor.href = "/notes/two";
                 anchor.download = "two.md";
             },
             (anchor: HTMLAnchorElement) => {
-                anchor.href = "/pages/notes/two";
+                anchor.href = "/notes/two";
                 anchor.rel = "noopener external";
             },
         ]) {
             const anchor = document.createElement("a");
             configure(anchor);
-            expect(resolveReaderLinkNavigation(anchor, "https://example.test/pages/notes/one")).toBeUndefined();
+            expect(resolveReaderLinkNavigation(anchor, "https://example.test/notes/one")).toBeUndefined();
         }
     });
     it("keeps static directory URLs on the same page for fragment navigation", () => {
         const anchor = document.createElement("a");
-        anchor.href = "/pages/reader#note";
-        expect(resolveReaderLinkNavigation(anchor, `${window.location.origin}/pages/reader/`)?.samePageFragment).toBe(
-            true,
-        );
+        anchor.href = "/reader#note";
+        expect(resolveReaderLinkNavigation(anchor, `${window.location.origin}/reader/`)?.samePageFragment).toBe(true);
     });
 });

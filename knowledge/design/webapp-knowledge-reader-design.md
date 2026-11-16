@@ -44,7 +44,7 @@ The WebApp is a knowledge-base reader. Its primary jobs, in order:
 
 The WebApp stays read-only. Markdown authoring remains in editors, and repository Markdown plus explicit Forma configuration remain the source of truth. The exclusions in the review-surface specification still apply: no Markdown editing, AI Chat, write operations, saved-view customization, or hidden frontend knowledge store.
 
-The technical approach does not change. The WebApp keeps React, React Router, Tailwind CSS, DaisyUI, and the package-local workspace client, and this design introduces no new RPC, schema, or workspace contract. Its one Core addition is a static export route kind for directory pages, described under [Routes](#routes).
+The technical approach does not change. The WebApp keeps React, React Router, Tailwind CSS, DaisyUI, and the package-local workspace client, and this design introduces no new RPC method, schema, or workspace configuration. It does change one cross-surface contract, the public URL layout, which Core defines for the local server, the WebApp, and static export alike; see [Routes](#routes).
 
 ## Shell Layout
 
@@ -110,17 +110,28 @@ No section hard-codes a taxonomy name, a directory name, or an example-domain co
 
 ### Routes
 
-Existing routes keep their meaning and precedence so that static export URLs and existing links remain stable: `/pages/<entry path>`, `/browse`, `/views`, `/views/<id>`, `/health`, `/:taxonomyId`, and `/:taxonomyId/:termId`.
+Each position in a URL has exactly one owner, so no configured name can shadow a system page and no list of reserved names is needed.
 
-Directory pages share the page namespace, because directories and documents come from the same source paths:
+- **Content owns the root.** A document is served at its source path without the Markdown extension: `notes/welcome.md` is `/notes/welcome`. Core's rule that `x/index.md` is served at `/x` stays; a root `index.md` is `/index`.
+- **The root directory's page is Home**, `/`, which renders `.forma.md`. There is no separate root listing page; the `Files` tree lists the root.
+- **A directory's page** is at its path, such as `/notes`. A route resolves to a document first; when no document owns it, it resolves to the directory; otherwise it reaches the not-found page. A path that holds no indexed document is not a directory. When a document owns a directory's route, through `x/index.md` or a `x.md` beside `x/`, the document page shows the document and then the directory's listing.
+- **Forma's own pages are under the reserved segment `-`**: `/-/browse` (titled `Collections`), `/-/browse/<taxonomy>`, `/-/browse/<taxonomy>/<term>`, `/-/views`, `/-/views/<id>`, and `/-/health`. `/-` itself has no page and leads to Home. Nothing fixed is ever placed directly under `/-/browse/` or under a taxonomy, because those positions belong to taxonomy and term ids.
+- **Everything else Forma serves is under `-` too**: the local server's `/-/rpc` and `/-/raw/<path>`, the WebApp's built assets and icons, and a static artifact's `-/data` and `-/raw`. Only the files static hosts look for at an artifact's root stay there: `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `_headers`, and the ownership marker.
 
-- `/pages` is the workspace root's directory page, titled `Files` like the sidebar section that shows the same tree. It replaces the flat page index; every indexed page remains reachable from it, from the `Files` tree, and from Quick Open.
-- `/pages/<directory path>` is a directory's page. A route resolves to a document first; when no document owns it, it resolves to the directory; otherwise it reaches the not-found page.
-- When a document owns a directory's route, through Core's existing rule that `x/index.md` is served at `/pages/x` or through a `x.md` beside `x/`, the document page shows the document and then the directory's listing. The WebApp adds no filename convention of its own, and the listing stays reachable.
-- A path that holds no indexed document is not a directory.
-- Directory pages reserve no name outside `/pages`, so they cannot collide with a taxonomy.
+Earlier routes such as `/pages/<path>`, `/browse`, `/views`, `/health`, `/:taxonomyId`, and `/rpc` are not redirected; Public Preview links are not kept.
 
-`/browse` is titled `Collections` in the WebApp and in static export fallback pages. Static export generates a page for each directory that no document serves, and `/pages` as the `Files` root, so a directory URL opened directly on a static host shows its listing before enhancement and without JavaScript. Core decides which directories get pages; the WebApp, the static fallback, and Core share one directory route encoding.
+Core reports content that cannot be served as named, in workspace checks and therefore in Health, the editor, and static export alike:
+
+| Code                         | Case                                                                                                     | Check   | Static export |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- | ------- | ------------- |
+| `route.reserved`             | A document whose top-level name is `-`                                                                   | Error   | Error         |
+| `route.invalidSegment`       | A taxonomy or term id that is empty, `.`, or `..`                                                        | Error   | Error         |
+| `route.collision`            | Two sources at one route, such as `x.md` and `x/index.md`                                                | Error   | Error         |
+| `route.staticOutputConflict` | Routes an artifact cannot hold apart: case-only differences, a page named `index.html`, a root file name | Warning | Error         |
+
+A failed static build lists these diagnostics. Content is not escaped into another route to avoid a conflict, since every surface would have to share that mapping for a case that rarely occurs; renaming or excluding a source resolves it.
+
+Static export generates a page for each directory that no document serves, so a directory URL opened directly on a static host shows its listing before enhancement and without JavaScript, and its Home fallback also lists the root folders. Core decides which directories get pages; the WebApp, the static fallback, and Core share one route encoding.
 
 ## Page Layout Modes
 
@@ -133,13 +144,13 @@ Directory pages share the page namespace, because directories and documents come
 
 ### Home
 
-Home renders the workspace entry document, `.forma.md`, as an ordinary document in the reading layout. A short recently updated list follows the document body. Configured View entry rows are no longer a Home section; the `Workspace` section owns them. Health still appears on Home only when a finding requires attention.
+Home renders the workspace entry document, `.forma.md`, as an ordinary document in the reading layout. It is also the root directory's page, so the breadcrumb's workspace crumb leads to it. A short recently updated list follows the document body. Configured View entry rows are no longer a Home section; the `Workspace` section owns them. Health still appears on Home only when a finding requires attention.
 
 ## Reader
 
 A document route presents, top to bottom:
 
-1. **Breadcrumb**, in the page header: `Files` and each containing directory, each opening its directory page. It does not repeat the document title. Taxonomy and term pages show `Collections` and the taxonomy.
+1. **Breadcrumb**, in the page header: the workspace crumb, which opens Home, then each containing directory, each opening its directory page. It does not repeat the document title. Taxonomy and term pages show `Collections` and the taxonomy.
 2. **Document header**: the title as the only `h1`, the summary, and one line of metadata with the updated time, language variants, the terms that classify it, grouped under each taxonomy's name with each term linked to its term page, a status label when the entry is not healthy, and the source path followed by an icon that copies it. View pages show their source path the same way.
 3. **Body**, typeset as described under [Typography](#typography).
 4. **Related documents**, expanded by default: backlinks first, then outgoing references, as row lists. Unresolved references keep a non-color warning treatment. Diagnostics appear only when present and stay in a closed disclosure.

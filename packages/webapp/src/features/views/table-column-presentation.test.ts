@@ -58,12 +58,12 @@ describe("Table column presentation", () => {
             fields: { name: "Alpha" },
             rawFields: { name: { kind: "value" as const, value: "Alpha" } },
             path: "notes/alpha.md",
-            routePath: "/pages/alpha",
+            routePath: "/alpha",
             title: "Alpha",
         };
         const linkedColumn = { field: "fields.name", label: "Name", link: { target: "entry" } } as const;
         expect(tableColumnLinksToEntry(linkedColumn)).toBe(true);
-        expect(tableColumnEntryRoute(linkedColumn, item)).toBe("/pages/alpha");
+        expect(tableColumnEntryRoute(linkedColumn, item)).toBe("/alpha");
         expect(tableColumnLinksToEntry({ field: "fields.name", label: "Name" })).toBe(false);
         expect(tableColumnEntryRoute({ field: "fields.name", label: "Name" }, item)).toBeUndefined();
         expect(tableColumnEntryRoute(linkedColumn, { ...item, routePath: undefined })).toBeUndefined();
