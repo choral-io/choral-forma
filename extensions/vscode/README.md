@@ -19,7 +19,7 @@ After installation:
 
 ## Requirements
 
-VS Code **1.123.2 or newer** is required. Forma maintains a 90-day compatibility window, reviewed monthly and updated with Forma releases; see the [compatibility policy](https://github.com/choral-io/choral-forma/blob/main/extensions/vscode/API_COMPATIBILITY.md).
+VS Code **1.134.0 or newer** is required. Forma reviews its rolling 90-day compatibility window monthly and applies updates with Forma releases. See the [compatibility policy](https://github.com/choral-io/choral-forma/blob/main/extensions/vscode/API_COMPATIBILITY.md).
 
 Forma for VS Code expects a CLI from the same coordinated release as the extension. It first honors the machine-level `forma.path` setting, then a matching binary managed inside extension storage, and finally `forma` on the Extension Host `PATH`. The published Linux GNU binaries and managed Linux assets require glibc **2.31 or newer**; Linux musl/Alpine is not supported by the managed download path. On an older glibc host, configure `forma.path` with a host-compatible build or use a locally built CLI. A compatible running Forma language server reports a package-version difference as an advisory diagnostic on `.forma.md`; the diagnostic links to installation guidance and offers native Quick Fix actions. Structured CLI operations remain protected by their operation schema even when package versions differ.
 

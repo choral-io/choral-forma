@@ -10,11 +10,10 @@ The extension manifest's `engines.vscode` is the executable minimum-version auth
 
 ## Current baseline
 
-- Reviewed: 2026-09-05; next review: October 2026 release preparation.
-- Window cutoff: 2026-06-07 (90 days before review).
-- Selected series: 1.123, released 2026-06-03; 1.124 followed on 2026-06-10.
-- Minimum: `engines.vscode: ^1.123.2`, using the available 1.123 maintenance patches.
-- Types: `@types/vscode: ~1.120.0`; the npm registry still has no stable 1.121, 1.122 or 1.123 declarations (reverified 2026-10-25). The existing `^1.123.2` support floor is retained for this candidate; dependency refreshes do not advance it.
+- Reviewed on 2026-11-17. Review again during December 2026 release preparation.
+- The 90-day window starts on 2026-08-19. VS Code 1.134 was released that day, and 1.135 followed on 2026-08-26.
+- The minimum is `engines.vscode: ^1.134.0`. The official stable release list contains 1.134.0 as the latest patch in the series as of the review.
+- The extension uses `@types/vscode: ~1.134.0`, matching the minimum editor's API series.
 
 This is a product support decision, not a newly required extension API. The extension uses stable workspace, trust, diagnostics, language-provider, Tree View, native Markdown Preview, and theme APIs. The runtime bundle retains Node 18-compatible syntax; changing the editor floor does not require changing the bundle target.
 
@@ -31,7 +30,8 @@ Older editors cannot install the new extension release. Users must upgrade VS Co
 References:
 
 - [Weekly stable release cadence](https://code.visualstudio.com/blogs/2026/03/13/how-VS-Code-Builds-with-AI)
-- [VS Code 1.123 release and maintenance updates](https://code.visualstudio.com/updates/v1_123)
-- [VS Code 1.124 release](https://code.visualstudio.com/updates/v1_124)
+- [VS Code 1.134 release](https://code.visualstudio.com/updates/v1_134)
+- [VS Code 1.135 release](https://code.visualstudio.com/updates/v1_135)
+- [VS Code stable release list](https://update.code.visualstudio.com/api/releases/stable)
 - [Extension Manifest](https://code.visualstudio.com/api/references/extension-manifest)
 - [Testing Extensions](https://code.visualstudio.com/api/working-with-extensions/testing-extension)

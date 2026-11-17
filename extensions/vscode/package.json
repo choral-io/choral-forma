@@ -29,7 +29,7 @@
   },
   "homepage": "https://forma.choral.io",
   "engines": {
-    "vscode": "^1.123.2"
+    "vscode": "^1.134.0"
   },
   "extensionKind": [
     "workspace"
@@ -194,7 +194,7 @@
     "@types/mocha": "~10.0.10",
     "@types/node": "~26.6.6",
     "@types/react": "~19.3.0",
-    "@types/vscode": "~1.120.0",
+    "@types/vscode": "~1.134.0",
     "@vscode/test-cli": "~0.0.15",
     "@vscode/test-electron": "~3.1.0",
     "@vscode/vsce": "~4.1.1",
