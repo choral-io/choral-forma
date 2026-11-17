@@ -44,7 +44,9 @@ fn clear_starter_content(root: &Path) {
 
 fn remove_guideline_references(root: &Path) {
     let config_path = root.join(FORMA_CONFIG_PATH);
-    let config = std::fs::read_to_string(&config_path).unwrap();
+    let config = std::fs::read_to_string(&config_path)
+        .unwrap()
+        .replace("\r\n", "\n");
     std::fs::write(
         &config_path,
         config.replace(
@@ -55,7 +57,9 @@ fn remove_guideline_references(root: &Path) {
     .unwrap();
 
     let tasks_path = root.join(".forma/spaces/tasks.md");
-    let tasks = std::fs::read_to_string(&tasks_path).unwrap();
+    let tasks = std::fs::read_to_string(&tasks_path)
+        .unwrap()
+        .replace("\r\n", "\n");
     std::fs::write(
         &tasks_path,
         tasks.replace(
@@ -72,6 +76,31 @@ fn write_config(root: &Path, yaml: &str) {
         format!("---\n{}---\n\n# Forma Workspace\n", yaml),
     )
     .unwrap();
+}
+
+#[test]
+fn starter_fixture_removes_guideline_references_from_crlf_files() {
+    let root = fixture_root("starter-guidelines-crlf");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("examples/getting-started-workspace");
+    copy_dir_recursive(&source, &root);
+    for path in [FORMA_CONFIG_PATH, ".forma/spaces/tasks.md"] {
+        let file = root.join(path);
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(&file, text.replace("\r\n", "\n").replace('\n', "\r\n")).unwrap();
+    }
+
+    remove_guideline_references(&root);
+    clear_starter_content(&root);
+    let check = forma(&root).args(["check", "--json"]).output().unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+
+    assert!(
+        check.status.success(),
+        "{}",
+        String::from_utf8_lossy(&check.stdout)
+    );
 }
 
 #[test]
