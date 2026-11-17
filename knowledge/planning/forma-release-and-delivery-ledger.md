@@ -42,6 +42,7 @@ sources:
     - "releases/forma-v0.1.38"
     - "releases/forma-v0.1.39"
     - "releases/forma-v0.1.40"
+    - "releases/forma-v0.2.0"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -97,6 +98,7 @@ Each referenced release record remains the canonical source for its scope and va
 - **Temporal View delivery complete:** [[planning/temporal-view-release-plan]] records Calendar/Gantt delivery and accepted limitations. All four related Tasks are done; [[releases/forma-v0.1.37]] records completed publication and verification.
 
 - **Current released baseline:** [[releases/forma-v0.1.40]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Planned release:** [[releases/forma-v0.2.0]] records the reader route changes, URL migration, and remaining candidate gates.
 - **Previous released baseline:** [[releases/forma-v0.1.39]] records Markdown navigation/callouts, Mermaid/Graph inspection, native editor fixes and browser regressions.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.

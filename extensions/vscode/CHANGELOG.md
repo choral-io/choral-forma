@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.0
+
+- Raise the minimum supported VS Code version to 1.134.0 under the rolling 90-day support policy. Upgrade older editors to install the next Forma release.
+- Ship alongside the matching Forma CLI. The WebApp and exported sites use new public document, collection, and View URLs. See the [0.2.0 migration notes](https://github.com/choral-io/choral-forma/blob/main/knowledge/releases/forma-v0.2.0.md#url-migration).
+
 ## 0.1.40
 
 - Extend WebApp and static Markdown with one-line display math, math fences, numeric/currency boundaries, highlight syntax and safe mark/sub/sup semantics.
