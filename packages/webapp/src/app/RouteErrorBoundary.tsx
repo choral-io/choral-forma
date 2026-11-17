@@ -1,4 +1,5 @@
-import { isRouteErrorResponse, Link, useRouteError } from "react-router";
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
+import { isRouteErrorResponse, useRouteError } from "react-router";
 
 import { useRouteContentFocusTarget } from "@/lib/route-focus";
 

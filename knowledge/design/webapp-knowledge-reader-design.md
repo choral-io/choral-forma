@@ -110,28 +110,27 @@ No section hard-codes a taxonomy name, a directory name, or an example-domain co
 
 ### Routes
 
-Each position in a URL has exactly one owner, so no configured name can shadow a system page and no list of reserved names is needed.
+Each canonical route has one owner. Core projects the same paths for RPC, static HTML, and static enhancement.
 
-- **Content owns the root.** A document is served at its source path without the Markdown extension: `notes/welcome.md` is `/notes/welcome`. Core's rule that `x/index.md` is served at `/x` stays; a root `index.md` is `/index`.
-- **The root directory's page is Home**, `/`, which renders `.forma.md`. There is no separate root listing page; the `Files` tree lists the root.
-- **A directory's page** is at its path, such as `/notes`. A route resolves to a document first; when no document owns it, it resolves to the directory; otherwise it reaches the not-found page. A path that holds no indexed document is not a directory. When a document owns a directory's route, through `x/index.md` or a `x.md` beside `x/`, the document page shows the document and then the directory's listing.
-- **Forma's own pages are under the reserved segment `-`**: `/-/browse` (titled `Collections`), `/-/browse/<taxonomy>`, `/-/browse/<taxonomy>/<term>`, `/-/views`, `/-/views/<id>`, and `/-/health`. A View's `<id>` is its public id, the last segment of its path id, so the local server and a static export give a View the same address; two Views that share a last segment collide and Core reports it. `/-` itself has no page and leads to Home. Nothing fixed is ever placed directly under `/-/browse/` or under a taxonomy, because those positions belong to taxonomy and term ids.
-- **Everything else Forma serves is under `-` too**: the local server's `/-/rpc` and `/-/raw/<path>`, the WebApp's built assets and icons, and a static artifact's `-/data` and `-/raw`. Behind a deployment root, such as `forma serve --root-path /forma` or `site build --root-path /forma`, every one of these sits below that root. Only the files static hosts look for at an artifact's root stay there: `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `_headers`, and the ownership marker.
+- **Documents** use exact workspace-relative paths, including `.md`, `.mdx`, and any preceding extension. For example, `notes/welcome.md` opens at `/notes/welcome.md`.
+- **Directories** list indexed folders and pages at their own paths. A canonical-language `notes/index.md` can supply the introduction for `/notes`. The exact document and any language variants retain their own URLs. Home at `/` uses `.forma.md` and the root directory listing.
+- **Collections** are under `/~`. A taxonomy uses `/~/<taxonomy>` and a term uses `/~/<taxonomy>/<term>`. Core encodes each logical ID as one segment.
+- **Views** are under `/-/views`, with `/-/views/<public-id>` for an individual View. Core allocates the public ID from the basename and appends a stable digest to every member of a basename collision group. The full configuration ID and source path serve their own roles in rendering and source links.
+- **Service routes and artifacts** use `/-/health`, `/-/rpc`, `/-/raw/<path>`, and `/-/data/<artifactId>/…` as applicable. The deployment root prefixes the projected routes once.
 
-Earlier routes such as `/pages/<path>`, `/browse`, `/views`, `/health`, `/:taxonomyId`, and `/rpc` are not redirected; Public Preview links are not kept.
+Update extensionless entry bookmarks to their exact file paths and collection bookmarks from `/-/browse` to `/~`. An extensionless path that also names an indexed directory opens its listing. Use a projected View URL if its public ID changed.
 
-Core reports content that cannot be served as named, in workspace checks and therefore in Health, the editor, and static export alike:
+| Code                         | Case                                                                                | Workspace check | Static export |
+| ---------------------------- | ----------------------------------------------------------------------------------- | --------------- | ------------- |
+| `route.reserved`             | A document has top-level segment `-` or `~`                                         | Error           | Error         |
+| `route.invalidSegment`       | A generated document route segment, taxonomy ID, or term ID is invalid              | Error           | Error         |
+| `route.collision`            | Multiple owners claim one canonical route                                           | Error           | Error         |
+| `route.staticOutputConflict` | Static output paths collide, including case-only differences and fixed output files | Warning         | Error         |
+| `route.preflightIncomplete`  | Workspace inputs did not permit a complete route check                              | Error           | Error         |
 
-| Code                         | Case                                                                                                     | Check   | Static export |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| `route.reserved`             | A document whose top-level name is `-`                                                                   | Error   | Error         |
-| `route.invalidSegment`       | A generated document route segment, taxonomy id, or term id that is empty, `.`, or `..`                  | Error   | Error         |
-| `route.collision`            | Two sources at one route, such as `x.md` and `x/index.md`                                                | Error   | Error         |
-| `route.staticOutputConflict` | Routes an artifact cannot hold apart: case-only differences, a page named `index.html`, a root file name | Warning | Error         |
+`forma serve` runs route preflight before listening. If a changed workspace invalidates routes, content reads return a diagnostic and Health remains independently readable. A user can fix the inputs and retry without restarting. The RPC reader accepts dashboard, Health, and active detail from one route generation.
 
-A failed static build lists these diagnostics. A document inside the reserved segment cannot be opened, so the `Files` tree, Quick Open, and the recently updated list leave it out; the diagnostic is how it surfaces. Content is not escaped into another route to avoid a conflict, since every surface would have to share that mapping for a case that rarely occurs; renaming or excluding a source resolves it.
-
-Static export generates a page for each directory that no document serves and includes the child listing on each directory's landing document. These listings are available before enhancement and without JavaScript, and the Home fallback also lists the root folders. The export includes a static Health page and an HTML redirect from `/-/` to Home. Core decides which directories get pages; the WebApp, the static fallback, and Core share one route encoding.
+Static export provides readable directory introductions, child listings, and Health before enhancement. A direct load keeps that HTML if the manifest or target detail fails validation. After enhancement, a failed link navigation preserves the source page and URL. When browser history already moved to another URL, the reader shows the selected target's loading or failure state until its data is verified.
 
 ## Page Layout Modes
 

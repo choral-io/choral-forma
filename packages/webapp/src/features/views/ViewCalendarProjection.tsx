@@ -1,6 +1,7 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import type { DashboardViewProjection } from "@/data/workspace-client";
 import { ViewCalendarProjection as Projection, TemporalHostProvider } from "@choral-forma/temporal-view";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 
 export function ViewCalendarProjection({
     projection,

@@ -106,6 +106,7 @@ export interface DashboardSpace {
 
 export interface DashboardTaxonomyTerm {
     id: string;
+    routePath: string;
     title: string;
     display?: DisplayOptions;
     description: string;
@@ -116,6 +117,7 @@ export interface DashboardTaxonomyTerm {
 
 export interface DashboardTaxonomy {
     id: string;
+    routePath: string;
     title: string;
     mode: string;
     display?: DisplayOptions;
@@ -164,6 +166,10 @@ export interface DashboardHealth {
 export interface DashboardView {
     id: string;
     path: string;
+    configId: string;
+    sourcePath: string;
+    publicId: string;
+    routePath: string;
     title: string;
     display?: DisplayOptions;
     description: string;
@@ -291,6 +297,7 @@ export interface DashboardViewRender {
 
 export interface WorkspaceDashboard {
     workspaceName: string;
+    routeGeneration?: string;
     canonicalLanguage?: string;
     workspaceLogo?: {
         url: string;
@@ -301,9 +308,18 @@ export interface WorkspaceDashboard {
     taxonomies: DashboardTaxonomy[];
     spaces: DashboardSpace[];
     entries: DashboardEntry[];
+    directories: DashboardDirectory[];
     diagnostics: DashboardDiagnostic[];
     health: DashboardHealth;
     views: DashboardView[];
+}
+
+export interface DashboardDirectory {
+    path: string;
+    routePath: string;
+    introEntryPath?: string;
+    childDirectoryPaths: string[];
+    entryPaths: string[];
 }
 
 /**
@@ -353,6 +369,12 @@ export function latestUpdatedAt(entries: Iterable<DashboardEntry>): string | und
 
 export interface WorkspaceClient {
     getDashboard(): Promise<WorkspaceDashboard>;
-    getEntry(entryId: string, context: WorkspaceDashboardContext): Promise<DashboardEntry>;
-    getViewRender(viewId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender>;
+    getEntry(
+        entryPath: string,
+        context: WorkspaceDashboardContext,
+        options?: { directoryPath?: string },
+    ): Promise<DashboardEntry>;
+    getViewRender(configId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender>;
+    getHealth?(): Promise<DashboardHealth>;
+    subscribeInvalidation?(listener: (error: Error) => void): () => void;
 }

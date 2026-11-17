@@ -1,6 +1,6 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { Menu, PanelLeftOpen } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Link } from "react-router";
 
 import { mainContentId, workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
 import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";

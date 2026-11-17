@@ -38,7 +38,7 @@ export function resolveReaderLinkNavigation(
 
     const current = new URL(currentHref);
     const destination = new URL(href, current);
-    if (isStaticRawHref(destination.pathname)) {
+    if (destination.origin !== current.origin || isStaticRawHref(destination.pathname)) {
         return undefined;
     }
     const destinationPath = logicalHref(destination.pathname);

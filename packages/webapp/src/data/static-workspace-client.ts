@@ -1,8 +1,14 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
-import { encodeRouteSegment } from "@/lib/workspace-routes";
 import type { CalendarProjection, GanttProjection, ViewRenderDocument } from "@choral-forma/shared";
 
 import { stringifyStaticFieldValue } from "./static-field-value";
+import { canonicalRoutePath } from "./static-route-target";
+import {
+    requireStaticArtifact,
+    staticDataSchemaVersion,
+    type StaticRouteTarget,
+    type StaticRuntimeConfig,
+} from "./static-runtime";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -21,7 +27,7 @@ import type {
     WorkspaceDashboardContext,
     WorkspaceHealth,
 } from "./workspace-client";
-import { latestUpdatedAt } from "./workspace-client";
+import { createWorkspaceDashboardContext, latestUpdatedAt } from "./workspace-client";
 
 type StaticStatus = "passed" | "warning" | "failed";
 
@@ -29,6 +35,9 @@ type StaticDiagnostic = DashboardDiagnostic & { routePath?: string };
 
 export interface StaticDashboardData {
     schemaVersion: number;
+    artifactId: string;
+    routes: StaticRouteTarget[];
+    directories: StaticDirectorySummary[];
     generatorVersion: string;
     status: StaticStatus;
     workspace: {
@@ -50,7 +59,7 @@ export interface StaticDashboardData {
         title: string;
         display?: DashboardSpace["display"];
         description?: string;
-        entryIds: string[];
+        entryPaths: string[];
     }[];
     taxonomies: {
         id: string;
@@ -65,7 +74,7 @@ export interface StaticDashboardData {
             display?: DashboardTaxonomy["display"];
             description?: string;
             routePath: string;
-            entryIds: string[];
+            entryPaths: string[];
         }[];
     }[];
     entries: StaticEntrySummary[];
@@ -100,19 +109,18 @@ interface StaticEntryVariant {
     dataPath: string;
 }
 
-export interface StaticEntryData extends StaticEntrySummary {
+interface StaticEntryDetail {
+    path: string;
+    routePath: string;
+    status?: StaticStatus;
     markdown: string;
-    html: string;
     headings: { id: string; level: number; text: string }[];
-    outgoing: StaticReferenceEdge[];
-    backlinks: StaticReferenceEdge[];
+    outgoing?: StaticReferenceEdge[];
+    backlinks?: StaticReferenceEdge[];
     diagnostics?: StaticDiagnostic[];
-}
-
-export interface StaticEntryVariantData extends StaticEntryVariant {
-    markdown: string;
-    html: string;
-    headings: { id: string; level: number; text: string }[];
+    language?: string;
+    directoryPath?: string;
+    directoryRoutePath?: string;
 }
 
 interface StaticReferenceEdge {
@@ -124,8 +132,21 @@ interface StaticReferenceEdge {
     intent?: string;
 }
 
+interface StaticDirectorySummary {
+    path: string;
+    routePath: string;
+    outputPath: string;
+    introEntryPath?: string;
+    childDirectoryPaths: string[];
+    entryPaths: string[];
+    dataPath?: string;
+}
+
 interface StaticViewSummary {
     id: string;
+    configId: string;
+    publicId: string;
+    sourcePath: string;
     routePath: string;
     mode: string;
     title?: string;
@@ -136,7 +157,6 @@ interface StaticViewSummary {
 }
 
 export interface StaticViewData extends StaticViewSummary {
-    sourcePath: string;
     document?: ViewRenderDocument;
     projection?: unknown;
 }
@@ -146,27 +166,37 @@ type KanbanProjection = Extract<DashboardViewProjection, { kind: "kanban" }>;
 type GraphProjection = Extract<DashboardViewProjection, { kind: "graph" }>;
 
 export class StaticWorkspaceClient implements WorkspaceClient {
-    private readonly dataBaseUrl: string;
+    readonly #readConfig: () => StaticRuntimeConfig | undefined;
+    #manifest?: { data: StaticDashboardData; dashboard: WorkspaceDashboard; routes: Map<string, StaticRouteTarget> };
+    #readingDashboard?: Promise<WorkspaceDashboard>;
+    readonly #entryDetails = new Map<string, Promise<DashboardEntry>>();
+    readonly #viewDetails = new Map<string, Promise<DashboardViewRender>>();
 
-    constructor(dataBaseUrl: string) {
-        this.dataBaseUrl = dataBaseUrl;
+    constructor(config: StaticRuntimeConfig | (() => StaticRuntimeConfig | undefined)) {
+        this.#readConfig = typeof config === "function" ? config : () => config;
     }
 
     async getDashboard(): Promise<WorkspaceDashboard> {
-        const data = await this.readJson<StaticDashboardData>("dashboard.json");
+        if (this.#manifest) return this.#manifest.dashboard;
+        this.#readingDashboard ??= this.#loadDashboard();
+        try {
+            return await this.#readingDashboard;
+        } finally {
+            this.#readingDashboard = undefined;
+        }
+    }
+
+    async #loadDashboard(): Promise<WorkspaceDashboard> {
+        const data = await this.#readJson<StaticDashboardData>("dashboard.json");
+        if (!isReadableStatus(data.status)) throw new Error("Static artifact manifest failed workspace validation.");
         const entries = [
             mapWorkspaceRootEntry(data.workspace.home, data.workspace.name),
             ...data.entries.map(mapEntrySummary),
         ];
-        const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+        const entriesByPath = new Map(entries.map((entry) => [entry.path, entry]));
         const diagnostics = data.diagnostics;
-        const health: DashboardHealth = {
-            status: mapStatus(data.status),
-            diagnostics,
-            findings: [],
-        };
-
-        return {
+        const health: DashboardHealth = { status: mapStatus(data.status), diagnostics, findings: [] };
+        const dashboard: WorkspaceDashboard = {
             workspaceName: data.workspace.name,
             canonicalLanguage: data.workspace.canonicalLanguage,
             workspaceLogo: data.workspace.logo
@@ -174,109 +204,280 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 : undefined,
             tagline: "Markdown-backed workspace content.",
             status: maxHealth(mapStatus(data.status), health.status),
-            spaces: data.spaces.map((space) => mapSpace(space, entriesById)),
-            taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entriesById)),
+            spaces: data.spaces.map((space) => mapSpace(space, entriesByPath)),
+            taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entriesByPath)),
             entries,
+            directories: data.directories,
             diagnostics,
             health,
             views: data.views.map((view) => ({
-                id: view.id,
-                path: view.id,
-                title: view.title ?? view.id,
+                id: view.configId,
+                path: view.sourcePath,
+                configId: view.configId,
+                publicId: view.publicId,
+                sourcePath: view.sourcePath,
+                routePath: view.routePath,
+                title: view.title ?? view.publicId,
                 display: view.display,
                 description: "Configured workspace View.",
                 kind: mapViewKind(view.mode),
                 space: view.space,
             })),
         };
+        const records = [
+            ["entries", data.entries.flatMap((entry) => [entry, ...entry.variants])],
+            ["directories", data.directories.filter((directory) => directory.introEntryPath !== undefined)],
+            ["views", data.views],
+        ] as const;
+        const dataPaths = new Set<string>();
+        for (const [kind, details] of records) {
+            for (const record of details) {
+                const path = record.dataPath;
+                if (
+                    typeof path !== "string" ||
+                    !path.startsWith(`${kind}/`) ||
+                    !isDetailDataPath(path) ||
+                    dataPaths.has(path)
+                ) {
+                    throw new Error(`Static artifact has competing or invalid data paths: ${String(path)}`);
+                }
+                dataPaths.add(path);
+            }
+        }
+        const routes = new Map<string, StaticRouteTarget>();
+        for (const target of data.routes) {
+            const path = canonicalRoutePath(target.path);
+            if (path !== target.path || routes.has(path) || typeof target.id !== "string") {
+                throw new Error(`Static artifact has competing or invalid routes: ${target.path}`);
+            }
+            routes.set(path, target);
+        }
+        this.#manifest = { data, dashboard, routes };
+        return dashboard;
     }
 
-    async getEntry(entryId: string, context: WorkspaceDashboardContext): Promise<DashboardEntry> {
-        const { dashboard, entriesById, entriesByPath } = context;
-        const summary = entriesById.get(entryId);
-        if (summary?.id === "workspace-root") return summary;
-        if (summary) {
-            const data = await this.readJson<StaticEntryData>(`entries/${entryId}.json`);
-            return {
-                ...mapEntrySummary(data),
+    async verifyStaticBootstrap(pathname: string): Promise<void> {
+        const config = requireStaticArtifact(this.#readConfig());
+        await this.getDashboard();
+        const target = this.#manifest?.routes.get(canonicalRoutePath(pathname));
+        const initial = config.pageTarget;
+        if (!target || !initial || target.path !== config.pageRoutePath || !sameStaticTarget(initial, target)) {
+            throw new Error(`Static artifact HTML did not match the manifest route: ${pathname}`);
+        }
+    }
+
+    hasStaticRoute(pathname: string): boolean {
+        return this.#manifest?.routes.has(canonicalRoutePath(pathname)) ?? false;
+    }
+
+    async prepareStaticRoute(pathname: string): Promise<void> {
+        const dashboard = await this.getDashboard();
+        const target = this.#manifest?.routes.get(canonicalRoutePath(pathname));
+        if (!target) throw new Error(`Static artifact route was not listed: ${pathname}`);
+        const context = createWorkspaceDashboardContext(dashboard);
+        switch (target.kind) {
+            case "entry": {
+                const entry = await this.getEntry(target.sourcePath ?? target.id, context);
+                if (entry.routePath !== target.path)
+                    throw new Error(`Static artifact entry route did not match: ${pathname}`);
+                return;
+            }
+            case "directory": {
+                const directory = this.#manifest?.data.directories.find((directory) => directory.path === target.id);
+                if (directory?.routePath !== target.path || directory.outputPath !== target.outputPath) {
+                    throw new Error(`Static artifact directory route did not match: ${pathname}`);
+                }
+                if (directory.introEntryPath) {
+                    await this.getEntry(directory.introEntryPath, context, { directoryPath: directory.path });
+                }
+                return;
+            }
+            case "view": {
+                const view = dashboard.views.find(
+                    (view) => view.configId === target.id && view.routePath === target.path,
+                );
+                if (!view) throw new Error(`Static artifact View route did not match: ${pathname}`);
+                await this.getViewRender(target.id, context);
+                return;
+            }
+            case "taxonomy":
+            case "taxonomyTerm": {
+                const matched = dashboard.taxonomies.some((taxonomy) =>
+                    target.kind === "taxonomy"
+                        ? taxonomy.id === target.id && taxonomy.routePath === target.path
+                        : taxonomy.id === target.taxonomyId &&
+                          taxonomy.terms.some((term) => term.id === target.id && term.routePath === target.path),
+                );
+                if (!matched) throw new Error(`Static artifact classification did not match: ${pathname}`);
+                return;
+            }
+            case "home":
+            case "taxonomies":
+            case "views":
+            case "health":
+                return;
+            default:
+                throw new Error(`Static artifact has an unsupported target kind: ${pathname}`);
+        }
+    }
+
+    async getEntry(
+        entryPath: string,
+        context: WorkspaceDashboardContext,
+        options?: { directoryPath?: string },
+    ): Promise<DashboardEntry> {
+        const { entriesByPath } = context;
+        await this.getDashboard();
+        const manifest = this.#manifest?.data;
+        if (!manifest) throw new Error("Static artifact manifest is unavailable.");
+        const registered = manifest.entries.find(
+            (entry) => entry.path === entryPath || entry.variants.some((variant) => variant.path === entryPath),
+        );
+        if (!registered && entryPath === manifest.workspace.home.path)
+            return mapWorkspaceRootEntry(manifest.workspace.home, manifest.workspace.name);
+        if (!registered) throw new Error(`Static artifact entry was not listed: ${entryPath}`);
+        const variant = registered.variants.find((variant) => variant.path === entryPath);
+        const directory =
+            options?.directoryPath === undefined
+                ? undefined
+                : manifest.directories.find(
+                      (candidate) => candidate.path === options.directoryPath && candidate.introEntryPath === entryPath,
+                  );
+        const expected = variant ?? registered;
+        const dataPath = options?.directoryPath === undefined ? expected.dataPath : directory?.dataPath;
+        if (!dataPath) throw new Error(`Static artifact data path was not listed: ${entryPath}`);
+        return this.#getOrRead(this.#entryDetails, dataPath, async () => {
+            const detail = await this.#readJson<StaticEntryDetail>(dataPath);
+            if (
+                detail.path !== expected.path ||
+                detail.routePath !== expected.routePath ||
+                (variant && detail.language !== variant.language) ||
+                (directory &&
+                    (detail.directoryPath !== directory.path || detail.directoryRoutePath !== directory.routePath)) ||
+                (!directory && detail.directoryPath !== undefined)
+            ) {
+                throw new Error(`Static artifact entry identity did not match: ${entryPath}`);
+            }
+            if (
+                typeof detail.markdown !== "string" ||
+                !Array.isArray(detail.headings) ||
+                (!variant && !isReadableStatus(detail.status))
+            ) {
+                throw new Error(`Static artifact entry payload is invalid: ${entryPath}`);
+            }
+            const summary = mapEntrySummary(registered);
+            const title = expected.title?.trim() ?? "";
+            const rendered = {
+                ...summary,
+                id: expected.id,
+                kind: expected.kind,
+                path: expected.path,
+                rawPath: expected.path,
+                routePath: expected.routePath,
+                title: title.length === 0 ? expected.path : title,
+                omitLeadingTitle: expected.omitLeadingTitle,
+                summary: expected.summary ?? summary.summary,
                 body: [
                     {
-                        type: "markdown",
-                        markdown: data.markdown,
-                        anchors: data.headings,
-                        outline: data.headings.filter(isDashboardHeading),
+                        type: "markdown" as const,
+                        markdown: detail.markdown,
+                        anchors: detail.headings,
+                        outline: detail.headings.filter(isDashboardHeading),
                     },
                 ],
-                diagnostics: data.diagnostics ?? [],
+                diagnostics: detail.diagnostics ?? [],
                 relations: {
-                    outgoing: data.outgoing.map((edge) => mapReference(edge, entriesByPath)),
-                    backlinks: data.backlinks.map((edge) => mapReference(edge, entriesByPath)),
+                    outgoing: (detail.outgoing ?? []).map((edge) => mapReference(edge, entriesByPath)),
+                    backlinks: (detail.backlinks ?? []).map((edge) => mapReference(edge, entriesByPath)),
                 },
             };
-        }
-        const canonical = dashboard.entries.find((entry) => entry.variants.some((variant) => variant.id === entryId));
-        const variant = canonical?.variants.find((variant) => variant.id === entryId);
-        if (!canonical || !variant) {
-            throw new Error(`Static artifact entry was not listed: ${entryId}`);
-        }
-        const data = await this.readJson<StaticEntryVariantData>(`entries/${entryId}.json`);
-        const title = data.title?.trim();
-        return {
-            ...canonical,
-            id: data.id,
-            kind: data.kind,
-            path: data.path,
-            routePath: data.routePath,
-            rawPath: data.path,
-            title: title === undefined || title === "" ? data.path : title,
-            omitLeadingTitle: data.omitLeadingTitle,
-            summary: data.summary ?? canonical.summary,
-            body: [
-                {
-                    type: "markdown",
-                    markdown: data.markdown,
-                    anchors: data.headings,
-                    outline: data.headings.filter(isDashboardHeading),
-                },
-            ],
-            diagnostics: [],
-            relations: { outgoing: [], backlinks: [] },
-        };
+            return rendered;
+        });
     }
 
     async getViewRender(viewId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender> {
         const { dashboard, entriesByPath } = context;
-        const summary = dashboard.views.find((view) => view.id === viewId);
-        if (!summary) {
-            throw new Error(`Static artifact View was not listed: ${viewId}`);
-        }
-        const data = await this.readJson<StaticViewData>(`views/${viewId}.json`);
-        const projection = mapViewProjection(data.projection, entriesByPath);
-        if (projection.kind === "gantt") projection.canonicalLanguage = dashboard.canonicalLanguage;
-        return {
-            document: mapViewDocument(data, viewId),
-            projection,
-        };
+        await this.getDashboard();
+        const summary = this.#manifest?.data.views.find((view) => view.configId === viewId);
+        if (!summary) throw new Error(`Static artifact View was not listed: ${viewId}`);
+        return this.#getOrRead(this.#viewDetails, summary.dataPath, async () => {
+            const data = await this.#readJson<StaticViewData>(summary.dataPath);
+            if (
+                data.configId !== summary.configId ||
+                data.sourcePath !== summary.sourcePath ||
+                data.publicId !== summary.publicId ||
+                data.routePath !== summary.routePath
+            ) {
+                throw new Error(`Static artifact View identity did not match: ${viewId}`);
+            }
+            if (!isReadableStatus(data.status)) throw new Error(`Static artifact View payload is invalid: ${viewId}`);
+            const projection = mapViewProjection(data.projection, entriesByPath);
+            if (projection.kind === "gantt") projection.canonicalLanguage = dashboard.canonicalLanguage;
+            return { document: mapViewDocument(data, viewId), projection };
+        });
     }
 
-    private async readJson<T>(relativePath: string): Promise<T> {
-        const encodedPath = relativePath.split("/").map(encodeRouteSegment).join("/");
-        const path = `${this.dataBaseUrl.replace(/\/$/, "")}/${encodedPath}`;
+    #getOrRead<T>(cache: Map<string, Promise<T>>, key: string, read: () => Promise<T>): Promise<T> {
+        const cached = cache.get(key);
+        if (cached) return cached;
+        const pending = read().catch((reason: unknown) => {
+            cache.delete(key);
+            throw reason;
+        });
+        cache.set(key, pending);
+        return pending;
+    }
+
+    async #readJson<T>(relativePath: string): Promise<T> {
+        const config = requireStaticArtifact(this.#readConfig());
+        if (relativePath !== "dashboard.json" && !isDetailDataPath(relativePath)) {
+            throw new Error(`Static artifact data path is invalid: ${relativePath}`);
+        }
+        const path = `${config.dataBaseUrl}/${relativePath}`;
         let response: Response;
         try {
             response = await fetch(path);
         } catch (reason) {
             throw new Error(`Static artifact data missing: ${path}`, { cause: reason });
         }
-        if (!response.ok) {
-            throw new Error(`Static artifact data missing: ${path} (HTTP ${String(response.status)})`);
-        }
+        if (!response.ok) throw new Error(`Static artifact data missing: ${path} (HTTP ${String(response.status)})`);
+        let data: unknown;
         try {
-            return (await response.json()) as T;
+            data = await response.json();
         } catch (reason) {
             throw new Error(`Static artifact data is invalid: ${path}`, { cause: reason });
         }
+        if (
+            !data ||
+            typeof data !== "object" ||
+            !("schemaVersion" in data) ||
+            data.schemaVersion !== staticDataSchemaVersion ||
+            !("artifactId" in data) ||
+            data.artifactId !== config.artifactId
+        ) {
+            throw new Error(`Static artifact data did not match the build: ${path}`);
+        }
+        return data as T;
     }
+}
+
+function isDetailDataPath(path: string) {
+    return /^(?:entries|directories|views)\/[0-9a-f]{64}\.json$/u.test(path);
+}
+
+function isReadableStatus(status: StaticStatus | undefined) {
+    return status === "passed" || status === "warning";
+}
+
+function sameStaticTarget(left: StaticRouteTarget, right: StaticRouteTarget): boolean {
+    return (
+        left.id === right.id &&
+        left.kind === right.kind &&
+        left.path === right.path &&
+        left.outputPath === right.outputPath &&
+        left.sourcePath === right.sourcePath &&
+        left.taxonomyId === right.taxonomyId
+    );
 }
 
 function mapWorkspaceRootEntry(home: StaticDashboardData["workspace"]["home"], workspaceName: string): DashboardEntry {
@@ -342,10 +543,10 @@ function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {
 
 function mapSpace(
     space: StaticDashboardData["spaces"][number],
-    entriesById: ReadonlyMap<string, DashboardEntry>,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardSpace {
-    const matchingEntries = space.entryIds
-        .map((entryId) => entriesById.get(entryId))
+    const matchingEntries = space.entryPaths
+        .map((path) => entriesByPath.get(path))
         .filter((entry): entry is DashboardEntry => Boolean(entry));
     const updatedAt = latestUpdatedAt(matchingEntries);
     return {
@@ -353,7 +554,7 @@ function mapSpace(
         title: space.title,
         display: space.display,
         description: space.description ?? "Configured workspace space.",
-        entryCount: space.entryIds.length,
+        entryCount: space.entryPaths.length,
         path: space.id,
         status: "healthy",
         updatedAt,
@@ -363,22 +564,24 @@ function mapSpace(
 
 function mapTaxonomy(
     taxonomy: StaticDashboardData["taxonomies"][number],
-    entriesById: ReadonlyMap<string, DashboardEntry>,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardTaxonomy {
     return {
         id: taxonomy.id,
         title: taxonomy.title,
         mode: taxonomy.mode,
+        routePath: taxonomy.routePath,
         display: taxonomy.display,
         description: taxonomy.description ?? "Configured workspace classification.",
         terms: taxonomy.terms.map((term) => ({
             id: term.id,
             title: term.title,
+            routePath: term.routePath,
             display: term.display,
             description: term.description ?? "Configured classification term.",
-            entryCount: term.entryIds.length,
-            entries: term.entryIds
-                .map((entryId) => entriesById.get(entryId))
+            entryCount: term.entryPaths.length,
+            entries: term.entryPaths
+                .map((path) => entriesByPath.get(path))
                 .filter((entry): entry is DashboardEntry => Boolean(entry)),
             status: "healthy",
         })),

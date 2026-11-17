@@ -30,6 +30,8 @@ pub struct FormaWorkspace {
     pub guideline_sources: Vec<GuidelineSource>,
     pub diagnostics: Vec<Diagnostic>,
     pub model: Arc<ResolvedWorkspaceModel>,
+    pub(crate) config_text: Arc<BTreeMap<String, String>>,
+    pub(crate) config_candidates: Arc<Vec<PathBuf>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -343,7 +345,9 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     let root = root.as_ref();
     let config_path = resolve_config_file(root, FORMA_CONFIG_PATH)?;
 
-    let mut config_value = read_markdown_frontmatter_value(&config_path, FORMA_CONFIG_PATH)?;
+    let root_text = read_config_text(&config_path, FORMA_CONFIG_PATH)?;
+    let mut config_value = markdown_frontmatter_value(&root_text, FORMA_CONFIG_PATH)?;
+    let mut config_text = BTreeMap::from([(FORMA_CONFIG_PATH.to_string(), root_text)]);
     let mut diagnostics = Vec::new();
     let mut types = BTreeMap::new();
     let mut type_sources = BTreeMap::new();
@@ -367,10 +371,16 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     let bootstrap_scan_plan =
         WorkspaceScanPlan::from_imports(root, &base_config_file.imports, &mut diagnostics);
     let config_source_patterns = bootstrap_scan_plan.config_patterns().patterns().to_vec();
-    let imported_config_paths = included_markdown_config_paths(root, &bootstrap_scan_plan);
+    let config_candidates = bootstrap_scan_plan
+        .config_patterns()
+        .route_markdown_files(&mut diagnostics);
+    let imported_config_paths =
+        included_markdown_config_paths(root, &config_candidates, &mut diagnostics);
     for public_path in &imported_config_paths {
         let imported_path = resolve_config_file(root, public_path)?;
-        let mut local_value = read_markdown_frontmatter_value(&imported_path, public_path)?;
+        let source = read_config_text(&imported_path, public_path)?;
+        let mut local_value = markdown_frontmatter_value(&source, public_path)?;
+        config_text.insert(public_path.clone(), source);
         // An imported file without mapping frontmatter carries no configuration. Merging
         // it would replace the effective configuration with a non-mapping value.
         if !local_value.is_mapping() {
@@ -436,8 +446,12 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         &mut guideline_sources,
         &mut diagnostics,
     );
-    let (taxonomies, terms, config_graph, node_diagnostics) =
-        load_config_nodes(root, &imported_config_paths, &mut types, &mut type_sources)?;
+    let (taxonomies, terms, config_graph, node_diagnostics) = load_config_nodes(
+        &config_text,
+        &imported_config_paths,
+        &mut types,
+        &mut type_sources,
+    )?;
     diagnostics.extend(node_diagnostics);
 
     let mut config = WorkspaceConfig {
@@ -489,6 +503,8 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         guideline_sources,
         diagnostics,
         model,
+        config_text: Arc::new(config_text),
+        config_candidates: Arc::new(config_candidates),
     })
 }
 
@@ -509,7 +525,7 @@ type LoadedConfigNodes = (
 );
 
 fn load_config_nodes(
-    root: &Path,
+    config_text: &BTreeMap<String, String>,
     imported_config_paths: &[String],
     types: &mut BTreeMap<String, SemanticType>,
     type_sources: &mut BTreeMap<String, ConfigProvenance>,
@@ -522,14 +538,7 @@ fn load_config_nodes(
     let mut parsed_nodes = Vec::new();
 
     for public_path in imported_config_paths {
-        let source =
-            fs::read_to_string(resolve_config_file(root, public_path)?).map_err(|source| {
-                ConfigError::Read {
-                    path: public_path.clone(),
-                    source,
-                }
-            })?;
-        let document = crate::markdown::FormaMarkdownDocument::parse(&source);
+        let document = FormaMarkdownDocument::parse(&config_text[public_path]);
         let Some(frontmatter) = document.frontmatter.value else {
             continue;
         };
@@ -784,8 +793,20 @@ pub fn config_source_paths(root: impl AsRef<Path>) -> Result<Vec<ConfigSourcePat
         present: true,
     }];
     let config_file: ConfigFile = read_markdown_frontmatter(&config_path, FORMA_CONFIG_PATH)?;
-    let plan = WorkspaceScanPlan::from_imports(root, &config_file.imports, &mut Vec::new());
-    for path in included_markdown_config_paths(root, &plan) {
+    reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
+    let mut diagnostics = Vec::new();
+    let plan = WorkspaceScanPlan::from_imports(root, &config_file.imports, &mut diagnostics);
+    let candidates = plan
+        .config_patterns()
+        .route_markdown_files(&mut diagnostics);
+    let paths = included_markdown_config_paths(root, &candidates, &mut diagnostics);
+    if !diagnostics.is_empty() {
+        return Err(config_boundary_read_error(
+            FORMA_CONFIG_PATH,
+            "Configured imports could not be fully enumerated.".to_string(),
+        ));
+    }
+    for path in paths {
         sources.push(ConfigSourcePath {
             present: true,
             path,
@@ -861,17 +882,33 @@ fn starter_term_schema(_space_id: &str) -> Value {
     serde_yml::from_str(schema).expect("built-in starter term schema is valid YAML")
 }
 
-fn included_markdown_config_paths(root: &Path, plan: &WorkspaceScanPlan) -> Vec<String> {
-    plan.config_patterns()
-        .matching_files_with_extensions(&["md", "mdx"])
-        .unwrap_or_default()
-        .into_iter()
+fn included_markdown_config_paths(
+    root: &Path,
+    candidates: &[PathBuf],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<String> {
+    let mut unrepresentable = BTreeSet::new();
+    let paths = candidates
+        .iter()
         .filter_map(|path| {
-            path.strip_prefix(root)
-                .ok()
-                .map(|path| path.to_string_lossy().replace('\\', "/"))
+            let path = path.strip_prefix(root).unwrap_or(path);
+            if let Some(path) = path.to_str() {
+                let relative = path.replace(std::path::MAIN_SEPARATOR, "/");
+                if let Ok(relative) = WorkspacePath::parse_config(relative) {
+                    return Some(relative.as_str().to_string());
+                }
+            }
+            unrepresentable.insert(path.to_string_lossy().into_owned());
+            None
         })
-        .collect()
+        .collect();
+    if !unrepresentable.is_empty() {
+        diagnostics.push(crate::routes::route_preflight_incomplete(format!(
+            "could not establish precise configuration paths for {}",
+            unrepresentable.into_iter().collect::<Vec<_>>().join(", ")
+        )));
+    }
+    paths
 }
 
 fn resolve_config_file(root: &Path, public_path: &str) -> Result<PathBuf, ConfigError> {
@@ -919,11 +956,18 @@ fn runtime_provider_field_error(
 }
 
 fn read_markdown_frontmatter_value(path: &Path, public_path: &str) -> Result<Value, ConfigError> {
-    let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
+    markdown_frontmatter_value(&read_config_text(path, public_path)?, public_path)
+}
+
+fn read_config_text(path: &Path, public_path: &str) -> Result<String, ConfigError> {
+    fs::read_to_string(path).map_err(|source| ConfigError::Read {
         path: public_path.to_string(),
         source,
-    })?;
-    let document = FormaMarkdownDocument::parse(&contents);
+    })
+}
+
+fn markdown_frontmatter_value(contents: &str, public_path: &str) -> Result<Value, ConfigError> {
+    let document = FormaMarkdownDocument::parse(contents);
     match document.frontmatter.value {
         Some(value) => Ok(value),
         // Frontmatter is present but did not parse. Re-parse it so the failure is

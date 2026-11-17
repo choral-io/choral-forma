@@ -171,7 +171,7 @@ The WebApp consumes shared Forma operations through its package-local workspace 
 
 - Do not hard-code `Spaces`, `Tasks`, `Members`, `Projects`, `Status`, `Priority`, or other example-domain concepts as WebApp structure.
 - A configured taxonomy may happen to be titled `Spaces`; that does not make it a reserved product concept in the navigation layer.
-- Configured classification routes are `/-/browse/<taxonomy>` and `/-/browse/<taxonomy>/<term>`. The URL layout, in which content owns the root and Forma's own pages sit under the reserved `-` segment, is defined in [[design/webapp-knowledge-reader-design#Routes]]; it replaces the earlier top-level taxonomy routes and reserved product roots.
+- Collections are at `/~`. Configured classification routes are `/~/<taxonomy>` and `/~/<taxonomy>/<term>`. Content owns the root, with the `~` segment reserved for collections and `-` for Forma's service routes and artifacts. See [[design/webapp-knowledge-reader-design#Routes]].
 
 ### Table
 

@@ -1,16 +1,14 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense } from "react";
 import { useLocation } from "react-router";
 
-import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
 import { canonicalRoutePath } from "@/data/static-route-target";
 import type { DashboardViewProjection, DashboardViewRender, WorkspaceDashboard } from "@/data/workspace-client";
-import { createWorkspaceDashboardContext } from "@/data/workspace-client";
-import { workspaceClient } from "@/data/workspace-client-source";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { SourcePath } from "@/features/workspace/SourcePath";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
+import { useWorkspacePage } from "@/features/workspace/use-workspace-page";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { viewRoutePath, viewsRoutePath } from "@/lib/workspace-routes";
+import { viewsRoutePath } from "@/lib/workspace-routes";
 
 import { ProjectionLoadingState, ViewProjectionRenderer } from "./ViewProjectionRenderer";
 
@@ -23,60 +21,10 @@ const viewsBreadcrumb = [{ label: "Views", to: viewsRoutePath }];
 
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();
-    const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
     const { pathname } = useLocation();
     const routePath = canonicalRoutePath(pathname);
-    const view = dashboard.views.find((item) => viewRoutePath(item.id) === routePath);
-    const viewId = view?.id;
-    const [renderRequestVersion, setRenderRequestVersion] = useState(0);
-    const preparedView = readPreparedStaticEnhancement()?.view;
-    const [renderState, setRenderState] = useState<
-        | {
-              render: DashboardViewRender;
-              status: "ready";
-              viewId: string;
-          }
-        | {
-              message: string;
-              status: "error";
-              viewId: string;
-          }
-        | undefined
-    >(() =>
-        preparedView && preparedView.viewId === viewId
-            ? { render: preparedView.render, status: "ready", viewId: preparedView.viewId }
-            : undefined,
-    );
-    const hasPreparedRender = renderState?.status === "ready" && renderState.viewId === viewId;
-
-    useEffect(() => {
-        if (!viewId || hasPreparedRender) {
-            return;
-        }
-
-        let cancelled = false;
-        workspaceClient
-            .getViewRender(viewId, dashboardContext)
-            .then((render) => {
-                if (!cancelled) {
-                    setRenderState({ render, status: "ready", viewId });
-                }
-            })
-            .catch((error: unknown) => {
-                console.warn("View projection failed to load.", error);
-                if (!cancelled) {
-                    setRenderState({
-                        message: error instanceof Error ? error.message : "The workspace backend returned an error.",
-                        status: "error",
-                        viewId,
-                    });
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [dashboardContext, hasPreparedRender, renderRequestVersion, viewId]);
+    const view = dashboard.views.find((item) => item.routePath === routePath);
+    const { view: render } = useWorkspacePage();
 
     if (!view) {
         return (
@@ -86,10 +34,6 @@ export function ViewRoute() {
         );
     }
 
-    const currentRenderState = renderState?.viewId === viewId ? renderState : undefined;
-    const render = currentRenderState?.status === "ready" ? currentRenderState.render : undefined;
-    const renderError = currentRenderState?.status === "error" ? currentRenderState.message : undefined;
-
     return (
         <WorkspaceRouteFrame
             contentWidth={view.kind === "list" ? "readable" : "fluid"}
@@ -97,32 +41,18 @@ export function ViewRoute() {
             breadcrumb={viewsBreadcrumb}
             title={view.title}
         >
-            <ViewPage
-                dashboard={dashboard}
-                key={viewId}
-                onRetry={() => {
-                    setRenderState(undefined);
-                    setRenderRequestVersion((version) => version + 1);
-                }}
-                render={render}
-                renderError={renderError}
-                view={view}
-            />
+            <ViewPage dashboard={dashboard} key={view.configId} render={render} view={view} />
         </WorkspaceRouteFrame>
     );
 }
 
 function ViewPage({
     dashboard,
-    onRetry,
     render,
-    renderError,
     view,
 }: {
     dashboard: WorkspaceDashboard;
-    onRetry: () => void;
     render?: DashboardViewRender;
-    renderError?: string;
     view: WorkspaceDashboard["views"][number];
 }) {
     const projection = render?.projection;
@@ -131,7 +61,7 @@ function ViewPage({
     const hasDocumentMarkdown = Boolean(
         render && (render.document.beforeProjection.trim() || render.document.afterProjection.trim()),
     );
-    const projectionElement = <ViewProjectionRenderer error={renderError} onRetry={onRetry} projection={projection} />;
+    const projectionElement = <ViewProjectionRenderer projection={projection} />;
 
     return (
         <div className="flex min-w-0 flex-col gap-6">
@@ -139,7 +69,7 @@ function ViewPage({
                 <span className="badge badge-outline badge-sm">{view.kind}</span>
                 <span>{view.space ?? "workspace"}</span>
                 <span>{itemCount} items</span>
-                <SourcePath path={view.path} />
+                <SourcePath path={view.sourcePath} />
             </div>
             {hasDocumentMarkdown && render ? (
                 <Suspense fallback={<ProjectionLoadingState />}>

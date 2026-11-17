@@ -4,6 +4,38 @@ export interface StaticRuntimeConfig {
     baseUrl: string;
     dataBaseUrl: string;
     rootPath: string;
+    runtimeVersion?: number;
+    dataSchemaVersion?: number;
+    artifactId?: string;
+    pageRoutePath?: string;
+    pageTarget?: StaticRouteTarget | null;
+}
+
+export interface StaticRouteTarget {
+    kind: "home" | "entry" | "directory" | "view" | "views" | "taxonomy" | "taxonomies" | "taxonomyTerm" | "health";
+    id: string;
+    path: string;
+    outputPath: string;
+    sourcePath?: string;
+    taxonomyId?: string;
+}
+
+export const staticDataSchemaVersion = 3;
+
+export function requireStaticArtifact(config: StaticRuntimeConfig | undefined) {
+    const artifactId = config?.artifactId;
+    if (
+        config?.runtimeVersion !== 1 ||
+        config.dataSchemaVersion !== staticDataSchemaVersion ||
+        typeof artifactId !== "string" ||
+        !/^[0-9a-f]{64}$/u.test(artifactId) ||
+        !/^\/(?:[A-Za-z0-9_~.-]+(?:\/[A-Za-z0-9_~.-]+)*)?$/u.test(config.rootPath) ||
+        config.rootPath.split("/").some((segment) => segment === "." || segment === "..") ||
+        config.dataBaseUrl !== `${config.rootPath === "/" ? "" : config.rootPath}/-/data/${artifactId}`
+    ) {
+        throw new Error("Static artifact configuration has an unsupported format or data location.");
+    }
+    return { ...config, artifactId };
 }
 
 export const staticRuntimeConfigSelector = 'script[type="application/json"][data-forma-static-workspace]';

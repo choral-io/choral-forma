@@ -1,6 +1,6 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { lazy, Suspense, useRef, type MouseEvent, type ReactNode, type RefObject } from "react";
-import { Link } from "react-router";
 
 import type { DashboardDiagnostic, DashboardEntry, WorkspaceHealth } from "@/data/workspace-client";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
@@ -137,7 +137,13 @@ export function EntryPage({
                             {entry.status !== "healthy" ? (
                                 <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
                             ) : null}
-                            <SourcePath path={entry.path} />
+                            {entry.routePath !== routePath ? (
+                                <Link className="link truncate text-xs link-hover" to={entry.routePath}>
+                                    {entry.path}
+                                </Link>
+                            ) : (
+                                <SourcePath path={entry.path} />
+                            )}
                         </div>
                     </header>
 

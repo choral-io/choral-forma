@@ -4,7 +4,7 @@ import { createBrowserRouter, createRoutesFromElements, Navigate, Route } from "
 import { App } from "@/app/App";
 import { RouteErrorBoundary } from "@/app/RouteErrorBoundary";
 import type * as RoutePagesModule from "@/features/route-pages";
-import { systemRouteSegment } from "@/lib/workspace-routes";
+import { systemRouteSegment, taxonomyRouteSegment } from "@/lib/workspace-routes";
 import { staticRouterBasename } from "./data/static-runtime";
 
 const DashboardRoute = lazyDashboardRoute("DashboardRoute");
@@ -34,20 +34,23 @@ function lazyDashboardRoute(exportName: keyof typeof RoutePagesModule) {
 }
 
 /**
- * Content owns every path outside the reserved `-` segment, so a document or directory is
- * served at its workspace path. Forma's own pages are all below `-`, which has no page itself.
+ * File and directory routes are selected from the workspace projection. Logical collections and
+ * application capabilities have separate first segments.
  */
 const routeElements = (
     <Route errorElement={<RouteErrorBoundary />} path="/" Component={App}>
         <Route index Component={DashboardRoute} />
         <Route path={systemRouteSegment}>
             <Route index element={<Navigate replace to="/" />} />
-            <Route path="browse" Component={TaxonomiesRoute} />
-            <Route path="browse/:taxonomyId" Component={TaxonomyRoute} />
-            <Route path="browse/:taxonomyId/:termId" Component={TaxonomyTermRoute} />
             <Route path="views" Component={ViewsRoute} />
             <Route path="views/*" Component={ViewRoute} />
             <Route path="health" Component={HealthRoute} />
+            <Route path="*" Component={FallbackRoute} />
+        </Route>
+        <Route path={taxonomyRouteSegment}>
+            <Route index Component={TaxonomiesRoute} />
+            <Route path=":taxonomyId" Component={TaxonomyRoute} />
+            <Route path=":taxonomyId/:termId" Component={TaxonomyTermRoute} />
             <Route path="*" Component={FallbackRoute} />
         </Route>
         <Route path="*" Component={EntryRoute} />

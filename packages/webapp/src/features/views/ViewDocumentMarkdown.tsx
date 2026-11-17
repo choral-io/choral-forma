@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { useLocation } from "react-router";
 
 import type { DashboardEntry, DashboardViewRender } from "@/data/workspace-client";
+import { isStaticWorkspaceClient } from "@/data/workspace-client-source";
 
 import { markdownAroundProjection } from "@/features/reader/markdown-renderer";
 import { MarkdownReader } from "@/features/reader/MarkdownReader";
@@ -37,6 +38,7 @@ export function ViewDocumentMarkdown({
             currentRoutePath={pathname}
             entries={entries}
             headings={headings}
+            linkSource={isStaticWorkspaceClient ? "published" : "workspace"}
             markdown={source.markdown}
             mermaidScope={mermaidScope}
             omitLeadingTitle

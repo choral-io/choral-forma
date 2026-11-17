@@ -1,13 +1,11 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use forma_core::render::ViewRenderFieldValue;
-use forma_core::routes::{
-    BROWSE_ROUTE_PATH, STATIC_DATA_ROUTE_PATH, VIEWS_ROUTE_PATH, directory_route_path,
-};
+use forma_core::routes::{BROWSE_ROUTE_PATH, STATIC_DATA_ROUTE_PATH, VIEWS_ROUTE_PATH};
 use forma_core::{
-    OperationStatus, StaticSiteEntry, StaticSiteEntryVariant, StaticSiteRoute, StaticSiteRouteKind,
-    StaticSiteSnapshot, StaticSiteTaxonomy, StaticSiteTaxonomyTerm, StaticSiteView, ViewRenderItem,
-    ViewRenderOutput,
+    OperationStatus, StaticSiteDirectory, StaticSiteEntry, StaticSiteEntryVariant, StaticSiteRoute,
+    StaticSiteRouteKind, StaticSiteSnapshot, StaticSiteTaxonomy, StaticSiteTaxonomyTerm,
+    StaticSiteView, ViewRenderItem, ViewRenderOutput,
 };
 
 pub(crate) struct StaticPage {
@@ -24,30 +22,18 @@ pub(crate) fn render_pages(
     root_path: &str,
 ) -> Result<Vec<StaticPage>, String> {
     let canonical_language = validated_language_tag(&snapshot.workspace.canonical_language)?;
-    let entries_by_id = snapshot
+    let entries_by_path = snapshot
         .entries
         .iter()
-        .map(|entry| (entry.id.as_str(), entry))
+        .map(|entry| (entry.path.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
-    let entry_directories = snapshot
-        .entries
-        .iter()
-        .flat_map(|entry| {
-            entry
-                .path
-                .match_indices('/')
-                .map(|(offset, _)| &entry.path[..offset])
-        })
-        .collect::<BTreeSet<_>>();
-    let mut pages = Vec::with_capacity(snapshot.routes.len() + 1);
-    pages.push(home_page(snapshot, root_path, &canonical_language));
+    let mut pages = Vec::with_capacity(snapshot.routes.len());
 
     for route in &snapshot.routes {
         pages.push(route_page(
             snapshot,
             route,
-            &entries_by_id,
-            &entry_directories,
+            &entries_by_path,
             root_path,
             &canonical_language,
         )?);
@@ -116,7 +102,7 @@ fn home_page(
     }
 }
 
-/// Home is the workspace root's page, so the page without scripts also lists the root folder.
+/// The initial HTML also lists the workspace's top-level folders and entries.
 fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String {
     let home = &snapshot.workspace.home;
     let entry_top = entry_top_id(&home.html);
@@ -128,27 +114,22 @@ fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String
     format!(
         "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"{entry_top}\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{reader}</div>{}</article>",
         escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
-        directory_contents(&snapshot.entries, "", root_path, None),
+        directory_contents(snapshot, None, root_path),
     )
 }
 
 fn route_page(
     snapshot: &StaticSiteSnapshot,
     route: &StaticSiteRoute,
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
-    entry_directories: &BTreeSet<&str>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
     canonical_language: &str,
 ) -> Result<StaticPage, String> {
     match route.kind {
+        StaticSiteRouteKind::Home => Ok(home_page(snapshot, root_path, canonical_language)),
         StaticSiteRouteKind::Entry => {
-            // Core gives us the decoded directory represented by this URL.
-            let directory = route
-                .output_path
-                .strip_suffix("/index.html")
-                .filter(|path| entry_directories.contains(path));
             let (title, description, body, language) =
-                entry_route_content(snapshot, route, directory, root_path, canonical_language)?
+                entry_route_content(snapshot, route, root_path, canonical_language)?
                     .ok_or_else(|| format!("static entry route has no entry: {}", route.path))?;
             Ok(page(route, title, description, body, language))
         }
@@ -156,23 +137,37 @@ fn route_page(
             let view = snapshot
                 .views
                 .iter()
-                .find(|view| view.id == route.id)
+                .find(|view| view.config_id == route.id)
                 .ok_or_else(|| format!("static View route has no View: {}", route.path))?;
             Ok(page(
                 route,
                 view.title.clone().unwrap_or_else(|| view.id.clone()),
                 format!("{} workspace View.", view.mode),
-                view_body(view, entries_by_id, root_path),
+                view_body(view, entries_by_path, root_path),
                 canonical_language.to_string(),
             ))
         }
-        StaticSiteRouteKind::Directory => Ok(page(
-            route,
-            directory_name(&route.id).to_string(),
-            format!("Pages the workspace includes under {}/.", route.id),
-            directory_body(&snapshot.entries, &route.id, root_path),
-            canonical_language.to_string(),
-        )),
+        StaticSiteRouteKind::Directory => {
+            let directory = snapshot
+                .directories
+                .iter()
+                .find(|directory| directory.directory.path == route.id)
+                .ok_or_else(|| format!("missing static directory: {}", route.id))?;
+            let intro = directory
+                .directory
+                .intro_entry_path
+                .as_deref()
+                .and_then(|path| entries_by_path.get(path).copied());
+            Ok(page(
+                route,
+                intro
+                    .and_then(|entry| entry.title.clone())
+                    .unwrap_or_else(|| directory_name(&route.id).to_string()),
+                format!("Pages the workspace includes under {}/.", route.id),
+                directory_body(snapshot, directory, intro, root_path),
+                canonical_language.to_string(),
+            ))
+        }
         StaticSiteRouteKind::Views => Ok(page(
             route,
             "Views".to_string(),
@@ -212,10 +207,11 @@ fn route_page(
             ))
         }
         StaticSiteRouteKind::TaxonomyTerm => {
-            let (taxonomy_id, term_id) = route
-                .id
-                .split_once('/')
+            let taxonomy_id = route
+                .taxonomy_id
+                .as_deref()
                 .ok_or_else(|| format!("invalid taxonomy term identity: {}", route.id))?;
+            let term_id = &route.id;
             let taxonomy = snapshot
                 .taxonomies
                 .iter()
@@ -224,7 +220,7 @@ fn route_page(
             let term = taxonomy
                 .terms
                 .iter()
-                .find(|term| term.id == term_id)
+                .find(|term| &term.id == term_id)
                 .ok_or_else(|| format!("static term route has no term: {}", route.path))?;
             Ok(page(
                 route,
@@ -232,7 +228,7 @@ fn route_page(
                 term.description
                     .clone()
                     .unwrap_or_else(|| format!("Entries classified as {}.", term.title)),
-                term_body(term, entries_by_id, root_path),
+                term_body(term, entries_by_path, root_path),
                 canonical_language.to_string(),
             ))
         }
@@ -259,28 +255,26 @@ fn page(
 fn entry_route_content(
     snapshot: &StaticSiteSnapshot,
     route: &StaticSiteRoute,
-    directory: Option<&str>,
     root_path: &str,
     canonical_language: &str,
 ) -> Result<Option<(String, String, String, String)>, String> {
-    let directory_listing = |source_path| {
-        directory.map_or_else(String::new, |directory| {
-            directory_contents(&snapshot.entries, directory, root_path, Some(source_path))
-        })
-    };
     for entry in &snapshot.entries {
-        if entry.id == route.id {
+        if entry.path == route.id {
             return Ok(Some((
                 entry.title.clone().unwrap_or_else(|| entry.path.clone()),
                 entry
                     .summary
                     .clone()
                     .unwrap_or_else(|| "Published workspace entry.".to_string()),
-                entry_body(entry, root_path, &directory_listing(&entry.path)),
+                entry_body(entry, root_path, ""),
                 canonical_language.to_string(),
             )));
         }
-        if let Some(variant) = entry.variants.iter().find(|variant| variant.id == route.id) {
+        if let Some(variant) = entry
+            .variants
+            .iter()
+            .find(|variant| variant.path == route.id)
+        {
             let language = validated_language_tag(&variant.language)?;
             return Ok(Some((
                 variant
@@ -292,7 +286,7 @@ fn entry_route_content(
                     .clone()
                     .or_else(|| entry.summary.clone())
                     .unwrap_or_else(|| "Published localized workspace entry.".to_string()),
-                variant_body(entry, variant, &directory_listing(&variant.path)),
+                variant_body(entry, variant, ""),
                 language,
             )));
         }
@@ -376,99 +370,99 @@ fn directory_name(directory: &str) -> &str {
     directory.rsplit('/').next().unwrap_or(directory)
 }
 
-/// A directory's page: its folders and then its pages, as the WebApp's directory page lists them.
-fn directory_body(entries: &[StaticSiteEntry], directory: &str, root_path: &str) -> String {
+fn parent_directory(path: &str) -> &str {
+    path.rsplit_once('/').map_or("", |(parent, _)| parent)
+}
+
+/// A directory keeps its identity and children even when it has an introductory entry.
+fn directory_body(
+    snapshot: &StaticSiteSnapshot,
+    directory: &StaticSiteDirectory,
+    intro: Option<&StaticSiteEntry>,
+    root_path: &str,
+) -> String {
+    let title = intro
+        .and_then(|entry| entry.title.as_deref())
+        .unwrap_or_else(|| directory_name(&directory.directory.path));
+    let intro = intro.map_or_else(String::new, |entry| format!(
+        "<article class=\"my-6 flex flex-col gap-4\"><a class=\"link\" href=\"{}\">{}</a><div data-reader=\"markdown\">{}</div></article>",
+        escape_attribute(&public_href(root_path, &entry.route_path)),
+        escape_html(&entry.path),
+        directory.intro_html.as_deref().unwrap_or_default(),
+    ));
     format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Folder</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{}",
-        escape_html(directory_name(directory)),
-        directory_contents(entries, directory, root_path, None),
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Folder</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{intro}{}",
+        escape_html(title),
+        directory_contents(snapshot, Some(directory), root_path),
     )
 }
 
-/// A directory's folders, then its pages; the empty path is the workspace root. A page served at
-/// a folder's route, such as its `index` file, titles that folder instead of being listed alone.
 fn directory_contents(
-    entries: &[StaticSiteEntry],
-    directory: &str,
+    snapshot: &StaticSiteSnapshot,
+    directory: Option<&StaticSiteDirectory>,
     root_path: &str,
-    current_entry_path: Option<&str>,
 ) -> String {
-    let prefix: Vec<&str> = directory
-        .split('/')
-        .filter(|segment| !segment.is_empty())
-        .collect();
-    let owners = entries
-        .iter()
-        .map(|entry| (entry.route_path.as_str(), entry))
-        .collect::<BTreeMap<_, _>>();
-    let mut folders = BTreeMap::<String, usize>::new();
-    let mut pages = Vec::new();
-    for entry in entries {
-        if current_entry_path == Some(entry.path.as_str()) {
-            continue;
-        }
-        let segments: Vec<&str> = entry.path.split('/').collect();
-        if segments.len() <= prefix.len() || segments[..prefix.len()] != prefix[..] {
-            continue;
-        }
-        let rest = &segments[prefix.len()..];
-        if rest.len() > 1 {
-            *folders.entry(rest[0].to_string()).or_default() += 1;
-        } else {
-            pages.push(entry);
-        }
-    }
-
-    let folder_path = |name: &str| {
-        if prefix.is_empty() {
-            name.to_string()
-        } else {
-            format!("{}/{name}", prefix.join("/"))
-        }
-    };
-    let folder_routes = folders
-        .keys()
-        .map(|name| directory_route_path(&folder_path(name)))
-        .collect::<Vec<_>>();
-    pages.retain(|entry| !folder_routes.contains(&entry.route_path));
-    pages.sort_by_key(|entry| entry.title.as_deref().unwrap_or(&entry.path).to_lowercase());
-
-    let mut folder_rows = folders
-        .iter()
-        .map(|(name, count)| {
-            let route = directory_route_path(&folder_path(name));
-            let label = owners
-                .get(route.as_str())
-                .and_then(|owner| owner.title.as_deref())
-                .unwrap_or(name);
-            (label.to_lowercase(), format!(
-                "<li class=\"list-row\"><div class=\"list-col-grow\"><a class=\"link font-medium\" href=\"{}\">{}</a><p class=\"text-base-content/60 text-sm\">{}/</p></div><span class=\"text-base-content/60 text-sm\">{} {}</span></li>",
-                escape_attribute(&public_href(root_path, &route)),
-                escape_html(label),
-                escape_html(name),
-                count,
-                if *count == 1 { "page" } else { "pages" },
-            ))
-        })
-        .collect::<Vec<_>>();
-    folder_rows.sort_by(|left, right| left.0.cmp(&right.0));
-    let folders_html = if folder_rows.is_empty() {
-        String::new()
-    } else {
+    let row = |path: &str, route: &str, title: &str| {
         format!(
-            "<section class=\"mt-8\"><h2 class=\"text-xl font-semibold\">Folders</h2><ul class=\"list mt-4\">{}</ul></section>",
-            folder_rows
-                .into_iter()
-                .map(|(_, row)| row)
-                .collect::<String>()
+            "<li class=\"list-row\"><div class=\"list-col-grow\"><a class=\"link font-medium\" href=\"{}\">{}</a><p class=\"text-base-content/60 text-sm\">{}</p></div></li>",
+            escape_attribute(&public_href(root_path, route)),
+            escape_html(title),
+            escape_html(path),
         )
     };
-    let pages_html = if pages.is_empty() {
-        String::new()
-    } else {
-        entry_list(pages.into_iter(), root_path)
-    };
-    format!("{folders_html}{pages_html}")
+    let directory = directory.map(|directory| &directory.directory);
+    let folders = snapshot
+        .directories
+        .iter()
+        .filter(|child| {
+            directory.map_or_else(
+                || parent_directory(&child.directory.path).is_empty(),
+                |directory| {
+                    directory
+                        .child_directory_paths
+                        .binary_search(&child.directory.path)
+                        .is_ok()
+                },
+            )
+        })
+        .map(|child| {
+            let path = &child.directory.path;
+            let title = child
+                .directory
+                .intro_entry_path
+                .as_ref()
+                .and_then(|intro| snapshot.entries.iter().find(|entry| entry.path == *intro))
+                .and_then(|entry| entry.title.as_deref())
+                .unwrap_or_else(|| directory_name(path));
+            row(&format!("{path}/"), &child.directory.route_path, title)
+        })
+        .collect::<String>();
+    let entries = snapshot
+        .entries
+        .iter()
+        .flat_map(|entry| {
+            std::iter::once((&entry.path, &entry.route_path, &entry.title)).chain(
+                entry
+                    .variants
+                    .iter()
+                    .map(|variant| (&variant.path, &variant.route_path, &variant.title)),
+            )
+        })
+        .filter(|(path, _, _)| {
+            directory.map_or_else(
+                || parent_directory(path).is_empty(),
+                |directory| directory.entry_paths.binary_search(path).is_ok(),
+            )
+        })
+        .map(|(path, route, title)| row(path, route, title.as_deref().unwrap_or(path)))
+        .collect::<String>();
+    [("Folders", folders), ("Entries", entries)]
+        .into_iter()
+        .filter(|(_, rows)| !rows.is_empty())
+        .map(|(title, rows)| format!(
+            "<section class=\"mt-8\"><h2 class=\"text-xl font-semibold\">{title}</h2><ul class=\"list mt-4\">{rows}</ul></section>"
+        ))
+        .collect()
 }
 
 fn health_body(snapshot: &StaticSiteSnapshot) -> String {
@@ -538,7 +532,7 @@ fn taxonomy_body(taxonomy: &StaticSiteTaxonomy, root_path: &str) -> String {
                 escape_attribute(&public_href(root_path, &term.route_path)),
                 escape_html(&term.title),
                 optional_list_summary(term.description.as_deref()),
-                term.entry_ids.len(),
+                term.entry_paths.len(),
             )
         })
         .collect::<String>();
@@ -551,13 +545,13 @@ fn taxonomy_body(taxonomy: &StaticSiteTaxonomy, root_path: &str) -> String {
 
 fn term_body(
     term: &StaticSiteTaxonomyTerm,
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
     let entries = term
-        .entry_ids
+        .entry_paths
         .iter()
-        .filter_map(|id| entries_by_id.get(id.as_str()).copied());
+        .filter_map(|id| entries_by_path.get(id.as_str()).copied());
     format!(
         "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Collections</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header>{}",
         escape_html(&term.title),
@@ -568,7 +562,7 @@ fn term_body(
 
 fn view_body(
     view: &StaticSiteView,
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
     let (before, after) = view.prose_around_projection();
@@ -585,7 +579,7 @@ fn view_body(
         .projection
         .as_ref()
         .map_or_else(String::new, |projection| {
-            projection_html(projection, entries_by_id, root_path)
+            projection_html(projection, entries_by_path, root_path)
         });
     format!(
         "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Views · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{}<section class=\"mt-8\" aria-label=\"View projection\">{}</section>{}",
@@ -599,12 +593,11 @@ fn view_body(
 
 fn projection_html(
     projection: &ViewRenderOutput,
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
     match projection {
         ViewRenderOutput::Gantt { time_zone, nodes, rows, counts, .. } => {
-            let entries_by_path: BTreeMap<&str, &StaticSiteEntry> = entries_by_id.values().map(|entry| (entry.path.as_str(), *entry)).collect();
             let by_path: BTreeMap<_, _> = nodes.iter().map(|node| (node.path.as_str(), node)).collect();
             let rows_by_path: BTreeMap<_, _> = rows.iter().map(|row| (row.path.as_str(), row)).collect();
             let link = |path: &str, title: &str| entries_by_path.get(path).map_or_else(|| escape_html(title), |entry| format!("<a class=\"link\" href=\"{}\">{}</a>", escape_attribute(&public_href(root_path, &entry.route_path)), escape_html(title)));
@@ -619,7 +612,6 @@ fn projection_html(
         }
         ViewRenderOutput::Calendar { time_zone, events, unscheduled, counts, .. } => {
             let mut groups = BTreeMap::<&str, String>::new();
-            let entries_by_path: BTreeMap<&str, &StaticSiteEntry> = entries_by_id.values().map(|entry| (entry.path.as_str(), *entry)).collect();
             let link = |path: &str, title: &str| entries_by_path.get(path).map_or_else(
                 || escape_html(title),
                 |entry| format!("<a class=\"link\" href=\"{}\">{}</a>", escape_attribute(&public_href(root_path, &entry.route_path)), escape_html(title)));
@@ -636,7 +628,7 @@ fn projection_html(
         }
         ViewRenderOutput::List { items } => format!(
             "<ul class=\"list\">{}</ul>",
-            projection_items(items, entries_by_id, root_path)
+            projection_items(items, entries_by_path, root_path)
         ),
         ViewRenderOutput::Table { columns, items } => {
             let headings = columns
@@ -651,7 +643,7 @@ fn projection_html(
                         .map(|column| {
                             format!(
                                 "<td>{}</td>",
-                                field_html(item.fields.get(&column.field), entries_by_id, root_path)
+                                field_html(item.fields.get(&column.field), entries_by_path, root_path)
                             )
                         })
                         .collect::<String>();
@@ -668,7 +660,7 @@ fn projection_html(
                 format!(
                     "<section class=\"card border-base-300 border\"><div class=\"card-body\"><h2 class=\"card-title\">{}</h2><ul class=\"list\">{}</ul></div></section>",
                     escape_html(&column.label),
-                    projection_items(&column.items, entries_by_id, root_path),
+                    projection_items(&column.items, entries_by_path, root_path),
                 )
             })
             .collect::<String>(),
@@ -676,7 +668,7 @@ fn projection_html(
             let nodes = nodes
                 .iter()
                 .map(|node| {
-                    let href = entries_by_id
+                    let href = entries_by_path
                         .values()
                         .find(|entry| entry.path == node.path)
                         .map(|entry| public_href(root_path, &entry.route_path));
@@ -712,13 +704,15 @@ fn projection_html(
 
 fn projection_items(
     items: &[ViewRenderItem],
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
     items
         .iter()
         .map(|item| {
-            let entry = entries_by_id.values().find(|entry| entry.path == item.path);
+            let entry = entries_by_path
+                .values()
+                .find(|entry| entry.path == item.path);
             let title = item.title.as_deref().unwrap_or(&item.path);
             let content = entry.map_or_else(
                 || escape_html(title),
@@ -737,18 +731,26 @@ fn projection_items(
 
 fn field_html(
     value: Option<&ViewRenderFieldValue>,
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
     match value {
         Some(ViewRenderFieldValue::Value { value }) => escape_html(&display_value(value)),
-        Some(ViewRenderFieldValue::Reference { reference }) => {
-            reference_html(&reference.path, &reference.title, entries_by_id, root_path)
-        }
+        Some(ViewRenderFieldValue::Reference { reference }) => reference_html(
+            &reference.path,
+            &reference.title,
+            entries_by_path,
+            root_path,
+        ),
         Some(ViewRenderFieldValue::ReferenceList { references }) => references
             .iter()
             .map(|reference| {
-                reference_html(&reference.path, &reference.title, entries_by_id, root_path)
+                reference_html(
+                    &reference.path,
+                    &reference.title,
+                    entries_by_path,
+                    root_path,
+                )
             })
             .collect::<Vec<_>>()
             .join(", "),
@@ -775,10 +777,10 @@ fn display_value(value: &serde_yml::Value) -> String {
 fn reference_html(
     path: &str,
     title: &str,
-    entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
+    entries_by_path: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
-    entries_by_id
+    entries_by_path
         .values()
         .find(|entry| entry.path == path)
         .map_or_else(
@@ -794,6 +796,8 @@ fn reference_html(
 }
 
 pub(crate) struct PageShellOptions<'a> {
+    pub artifact_id: &'a str,
+    pub route: Option<&'a StaticSiteRoute>,
     pub base_url: &'a str,
     pub embedded_index: &'a str,
     pub noindex: bool,
@@ -827,9 +831,14 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
             )
         });
     let config = serde_json::json!({
+        "runtimeVersion": 1,
+        "dataSchemaVersion": crate::site::STATIC_DATA_SCHEMA_VERSION,
+        "artifactId": options.artifact_id,
         "baseUrl": options.base_url,
-        "dataBaseUrl": public_href(options.root_path, STATIC_DATA_ROUTE_PATH),
+        "dataBaseUrl": public_href(options.root_path, &format!("{STATIC_DATA_ROUTE_PATH}/{}", options.artifact_id)),
         "rootPath": options.root_path,
+        "pageRoutePath": options.page.canonical_route,
+        "pageTarget": options.route,
     })
     .to_string()
     .replace('<', "\\u003c")
@@ -1141,6 +1150,8 @@ mod tests {
             body: "<p>trusted body</p>".to_string(),
         };
         let html = page_shell(PageShellOptions {
+            artifact_id: "fixture",
+            route: None,
             base_url: "https://example.test",
             embedded_index: "",
             noindex: false,
@@ -1155,7 +1166,7 @@ mod tests {
         assert!(html.contains(r#"<html lang="zh-Hans">"#));
         assert!(html.contains(r#"<script data-forma-static-workspace type="application/json">"#));
         assert!(!html.contains("window.__FORMA_STATIC_WORKSPACE__"));
-        assert!(html.contains(r#""dataBaseUrl":"/-/data""#));
+        assert!(html.contains(r#""dataBaseUrl":"/-/data/fixture""#));
     }
 
     #[test]

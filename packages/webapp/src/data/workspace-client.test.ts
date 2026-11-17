@@ -55,6 +55,7 @@ describe("createWorkspaceDashboardContext", () => {
             taxonomies: [],
             spaces: [],
             entries,
+            directories: [],
             diagnostics: [],
             health: { status: "healthy", diagnostics: [], findings: [] },
             views: [],

@@ -6,6 +6,7 @@ export async function markdownBrowserScenarios(page, options) {
     const results = [];
     const sourceCases = {};
     const browser = page.context().browser();
+    const isWebKit = browser.browserType().name() === "webkit";
     const failure = async (current, name, error, diagnostics = {}) => {
         let screenshotError;
         try {
@@ -32,6 +33,83 @@ export async function markdownBrowserScenarios(page, options) {
     };
     const footnoteBackref = (current, id) =>
         current.locator(`a[data-footnote-backref][href$="#${encodeURIComponent(id)}"]`);
+    if (options.mode === "route-matrix") {
+        const source = "/notes/query-fragment-navigation.md";
+        const target = "/notes/contract-target.md";
+        const suffix = "?value=a%2Fb&tag=one&tag=two#hello-world";
+        for (const host of options.hosts) {
+            for (const surface of host.name === "static" ? ["initial", "enhanced"] : ["rpc"]) {
+                const label = `${surface} ${host.root || "/"}: exact routes and query/fragment`;
+                const context = await browser.newContext({ javaScriptEnabled: surface !== "initial" });
+                const current = await context.newPage();
+                const base = host.origin + host.root;
+                let dashboardReads = 0;
+                let mixed = false;
+                try {
+                    if (surface === "rpc") {
+                        await current.route(base + "/-/rpc", async (route) => {
+                            const { method, params } = route.request().postDataJSON();
+                            if (method === "workspace.dashboard") dashboardReads++;
+                            if (!mixed && method === "file.references" && params.path === source.slice(1)) {
+                                const response = await route.fetch();
+                                const body = await response.json();
+                                assert(
+                                    body.result.routeGeneration === params.expectedRouteGeneration,
+                                    "live reader binds references",
+                                );
+                                mixed = true;
+                                body.result.routeGeneration += "-injected-mismatch";
+                                return route.fulfill({ response, json: body });
+                            }
+                            return route.continue();
+                        });
+                    }
+                    const response = await current.goto(base + source);
+                    assert(response?.ok(), label + " source response");
+                    const main = current.locator(surface === "initial" ? "main" : "[data-enhancement-ready] main");
+                    const link = main.getByRole("link", { name: "Exact entry query", exact: true });
+                    await link.waitFor();
+                    if (surface === "rpc") assert(mixed && dashboardReads === 2, label + " single full group retry");
+                    const destination = new URL(await link.getAttribute("href"), current.url());
+                    assert(destination.href === base + target + suffix, label + " canonical entry, query and fragment");
+                    await link.click();
+                    await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
+                    await current.waitForURL((url) => url.href === base + target + suffix);
+                    if (surface === "initial") await current.locator("#hello-world:target").waitFor();
+                    else await current.waitForFunction(() => document.activeElement?.id === "hello-world");
+                    results.push(label);
+                    const shortPathSource = base + "/notes/sub/short-path-source.md";
+                    for (const [name, target, query, title] of [
+                        ["Suffix link", "guides/short-target.md", "?x=a%2Fb&x=2", "Unique short-path target"],
+                        ["Nearby link", "sub/guides/nearby.md", "?x=1", "Nearby target"],
+                        ["Exact link", "guides/nearby.md", "?x=1", "Exact root target"],
+                    ]) {
+                        assert((await current.goto(shortPathSource))?.ok(), `${label}: short path source response`);
+                        const unresolved = main.getByRole("link", { name: "Ambiguous link", exact: true });
+                        assert(
+                            (await unresolved.getAttribute("href")) === "guides/ambiguous.md?x=1#section",
+                            `${label}: ambiguous source path must remain unresolved`,
+                        );
+                        const link = main.getByRole("link", { name, exact: true });
+                        const expected = base + "/notes/" + target + query + "#section";
+                        const href = await link.getAttribute("href");
+                        assert(new URL(href, current.url()).href === expected, `${label}: ${name} href ${href}`);
+                        await link.click();
+                        await main.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
+                        await current.waitForURL((url) => url.href === expected);
+                        if (surface === "initial") await current.locator("#section:target").waitFor();
+                        else await current.waitForFunction(() => document.activeElement?.id === "section");
+                    }
+                    results.push(`${surface} ${host.root || "/"}: authored Markdown short-path resolution`);
+                } catch (error) {
+                    await failure(current, `route-matrix-${surface}-${host.root ? "preview" : "root"}`, error);
+                } finally {
+                    await context.close();
+                }
+            }
+        }
+        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+    }
     const expectFootnoteLanding = async (current, label, { id, fragment = id, search = "", foldCount }) => {
         try {
             await current.locator("[data-enhancement-ready]").waitFor();
@@ -89,21 +167,21 @@ export async function markdownBrowserScenarios(page, options) {
         }
     };
     const rawSource = async (current, host, noScript = false) => {
-        await current.goto(`${host.origin}${host.root}/notes/raw-source.txt/`);
+        await current.goto(`${host.origin}${host.root}/notes/raw-source.txt.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         // Scoped to the document: the sidebar titles that directory with the same "Directory entry" heading.
         const directory = current
             .locator('[data-reader="markdown"]')
             .getByRole("link", { name: "Directory entry", exact: true });
-        const directoryHref = `${host.root}/notes/resource-directory.txt#details`;
+        const directoryHref = `${host.root}/notes/resource-directory.txt/index.md#details`;
         assert(
             (await directory.getAttribute("href")) === directoryHref,
-            "static: directory alias rewritten as raw resource",
+            `${host.name}: directory source alias opens the exact index document`,
         );
         await directory.click();
         await current.waitForURL(
             (url) =>
-                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/resource-directory.txt` &&
+                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/resource-directory.txt/index.md` &&
                 url.hash === "#details",
         );
         await current
@@ -114,7 +192,7 @@ export async function markdownBrowserScenarios(page, options) {
             (await current.locator('[data-reader="markdown"]').textContent()).includes("Directory alias content."),
             "static: directory alias content missing",
         );
-        await current.goto(`${host.origin}${host.root}/notes/raw-source.txt/`);
+        await current.goto(`${host.origin}${host.root}/notes/raw-source.txt.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const original = current
             .locator('[data-reader="markdown"]')
@@ -143,7 +221,7 @@ export async function markdownBrowserScenarios(page, options) {
         assert(options.disclosureCases?.length > 0, `${host.name}: disclosure cases missing`);
         const completed = [];
         for (const fixture of options.disclosureCases) {
-            await current.goto(`${host.origin}${host.root}/notes/fold-${fixture.id}/`);
+            await current.goto(`${host.origin}${host.root}/notes/fold-${fixture.id}.md/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
             const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading]):not([role="alert"])');
             await reader.waitFor({ state: "attached" });
@@ -183,7 +261,7 @@ export async function markdownBrowserScenarios(page, options) {
                 assert((await reader.textContent()).includes(literal), `${host.name}: ${fixture.id} missing literal`);
             completed.push(fixture.id);
         }
-        const pageUrl = `${host.origin}${host.root}/notes/disclosures/`;
+        const pageUrl = `${host.origin}${host.root}/notes/disclosures.md/`;
         await current.goto(pageUrl);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         if (noScript) {
@@ -327,7 +405,7 @@ export async function markdownBrowserScenarios(page, options) {
         assert(options.readingCases?.length > 0, `${host.name}: P1 source cases missing`);
         const completed = [];
         for (const fixture of options.readingCases) {
-            await current.goto(`${host.origin}${host.root}/notes/p1-${fixture.id}/`);
+            await current.goto(`${host.origin}${host.root}/notes/p1-${fixture.id}.md/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
             const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading]):not([role="alert"])');
             await reader.waitFor({ state: "attached" });
@@ -358,7 +436,7 @@ export async function markdownBrowserScenarios(page, options) {
             );
             completed.push(fixture.id);
         }
-        await current.goto(`${host.origin}${host.root}/notes/reading-p1/`);
+        await current.goto(`${host.origin}${host.root}/notes/reading-p1.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading])');
         await reader.locator("mark").first().waitFor({ state: "attached" });
@@ -411,7 +489,7 @@ export async function markdownBrowserScenarios(page, options) {
     // is still scrollable; either lets a long title shift or clip the sidebar tree.
     const sidebarTreeFit = async (current, host) => {
         await current.setViewportSize({ width: 1280, height: 900 });
-        await current.goto(`${host.origin}${host.root}/notes/sidebar/nested/long-title/`);
+        await current.goto(`${host.origin}${host.root}/notes/sidebar/nested/long-title.md/`);
         await current.locator("[data-enhancement-ready]").waitFor();
         const tree = current.locator('.drawer-side nav[aria-label="Files"]');
         await tree.locator('[aria-current="page"]').waitFor();
@@ -451,7 +529,7 @@ export async function markdownBrowserScenarios(page, options) {
         }
     };
     const mountedDocument = async (current, host) => {
-        const path = `${host.root}/preview/same`;
+        const path = `${host.root}/preview/same.md`;
         await current.goto(`${host.origin}${path}/`);
         const enhanced = current.locator("[data-enhancement-ready]");
         await enhanced.locator("main").getByRole("heading", { level: 1, name: "Mounted document" }).waitFor();
@@ -489,7 +567,7 @@ export async function markdownBrowserScenarios(page, options) {
             ["wow%21", "Punctuation term"],
             ["literal%252F", "Literal slash term"],
         ]) {
-            const path = `${host.root}/-/browse/spaces/${encoded}`;
+            const path = `${host.root}/~/spaces/${encoded}`;
             const canonical = `${host.origin}${path}`;
             const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
             assert(
@@ -544,7 +622,7 @@ export async function markdownBrowserScenarios(page, options) {
                     .getByRole("link", { name: "Open source entry Selected node", exact: true })
                     .click();
                 await current.waitForURL(
-                    (destination) => destination.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected`,
+                    (destination) => destination.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected.md`,
                 );
                 await current
                     .locator("[data-enhancement-ready] main")
@@ -570,12 +648,12 @@ export async function markdownBrowserScenarios(page, options) {
     const routeLinks = async (current, host, noScript = false) => {
         const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
         for (const [label, path, title] of [
-            ["Encoded space", "/notes/route%20space", "Encoded space target"],
-            ["Literal escape", "/notes/literal%2520", "Literal escape target"],
-            ["Punctuation", "/notes/hash%20%23%E4%B8%AD%E6%96%87%21", "Punctuation target"],
-            ["Double extension", "/notes/target.md", "Double extension"],
+            ["Encoded space", "/notes/route%20space.md", "Encoded space target"],
+            ["Literal escape", "/notes/literal%2520.md", "Literal escape target"],
+            ["Punctuation", "/notes/hash%20%23%E4%B8%AD%E6%96%87%21.md", "Punctuation target"],
+            ["Double extension", "/notes/target.md.md", "Double extension"],
         ]) {
-            await current.goto(`${host.origin}${host.root}/notes/route-links/`);
+            await current.goto(`${host.origin}${host.root}/notes/route-links.md/`);
             const link = main.getByRole("link", { name: label, exact: true });
             await link.waitFor();
             assert(
@@ -590,7 +668,7 @@ export async function markdownBrowserScenarios(page, options) {
     const markdownLinkContracts = async (current, host, noScript = false) => {
         const viewPath = host.name === "static" ? "/-/views/link-contracts/" : "/-/views/link-contracts";
         for (const [sourcePath, label] of [
-            ["/notes/link-contracts/", "Encoded entry"],
+            ["/notes/link-contracts.md/", "Encoded entry"],
             [viewPath, "Root source"],
             [viewPath, "Encoded source"],
         ]) {
@@ -601,11 +679,14 @@ export async function markdownBrowserScenarios(page, options) {
             const link = main.getByRole("link", { name: label, exact: true });
             await link.waitFor();
             const destination = new URL(await link.getAttribute("href"), current.url());
-            assert(destination.pathname === `${host.root}/notes/contract-target`, `${host.name}: source link target`);
+            assert(
+                destination.pathname === `${host.root}/notes/contract-target.md`,
+                `${host.name}: source link target`,
+            );
             assert(decodeURIComponent(destination.hash) === "#hello-world", `${host.name}: encoded source fragment`);
             await link.click();
             await current.waitForURL(
-                (url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`,
+                (url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.md`,
             );
             await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
             await main.getByRole("heading", { level: 2, name: "Hello world", exact: true }).waitFor();
@@ -635,7 +716,7 @@ export async function markdownBrowserScenarios(page, options) {
                 ["classification-figure-layout", "Lifecycle Owner" + "\u2007".repeat(52)],
             ]) {
                 await current.setViewportSize({ width: 320, height: 720 });
-                await current.goto(`${host.origin}${host.root}/${route}/`);
+                await current.goto(`${host.origin}${host.root}/${route}.md/`);
                 const groups = current.locator(selector).getByRole("list", { name: "Classifications" });
                 const term = groups.getByRole("link", { name: title.trim(), exact: true });
                 await term.waitFor();
@@ -695,8 +776,7 @@ export async function markdownBrowserScenarios(page, options) {
                     await term.press("Enter");
                     await current.waitForURL(
                         (url) =>
-                            url.pathname.replace(/\/$/u, "") ===
-                            `${host.root}/-/browse/spaces/classification-long-layout`,
+                            url.pathname.replace(/\/$/u, "") === `${host.root}/~/spaces/classification-long-layout`,
                     );
                 }
             }
@@ -709,20 +789,20 @@ export async function markdownBrowserScenarios(page, options) {
         const base = `${host.origin}${host.root}`;
         const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
         const cases = [
-            ["/notes/published-heading-links/", "Uppercase omitted title", "#forma-heading-hello-world"],
-            ["/notes/published-heading-links/", "Underscore omitted title", "#forma-heading-hello-world"],
-            ["/notes/published-heading-links/", "Named double collision", "#forma-omitted-title"],
-            ["/notes/published-heading-links/", "Body alias after collision", "h2#foo"],
-            ["/notes/shell-heading-links/", "Root title link", "h2#root"],
-            ["/notes/shell-heading-links/", "Entry top title link", "h2#entry-top"],
-            ["/notes/shell-heading-links/", "Config title link", "h2#forma-static-workspace"],
-            ["/notes/shell-heading-links/", "Main title link", "h2#main-content"],
-            ["/notes/shell-heading-links/", "Navigation title link", "h2#workspace-navigation"],
-            ["/notes/shell-heading-links/", "Sidebar title link", "h2#workspace-sidebar"],
-            ["/notes/shell-heading-links/", "Related title link", "h2#related-documents"],
-            ["/notes/shell-heading-links/", "Theme heading", "h2#workspace-theme-menu"],
-            ["/notes/shell-heading-links/", "Quick open heading", "h2#workspace-quick-open"],
-            ["/notes/shell-heading-links/", "Reader label heading", "h2#reader-heading-label-1"],
+            ["/notes/published-heading-links.md/", "Uppercase omitted title", "#forma-heading-hello-world"],
+            ["/notes/published-heading-links.md/", "Underscore omitted title", "#forma-heading-hello-world"],
+            ["/notes/published-heading-links.md/", "Named double collision", "#forma-omitted-title"],
+            ["/notes/published-heading-links.md/", "Body alias after collision", "h2#foo"],
+            ["/notes/shell-heading-links.md/", "Root title link", "h2#root"],
+            ["/notes/shell-heading-links.md/", "Entry top title link", "h2#entry-top"],
+            ["/notes/shell-heading-links.md/", "Config title link", "h2#forma-static-workspace"],
+            ["/notes/shell-heading-links.md/", "Main title link", "h2#main-content"],
+            ["/notes/shell-heading-links.md/", "Navigation title link", "h2#workspace-navigation"],
+            ["/notes/shell-heading-links.md/", "Sidebar title link", "h2#workspace-sidebar"],
+            ["/notes/shell-heading-links.md/", "Related title link", "h2#related-documents"],
+            ["/notes/shell-heading-links.md/", "Theme heading", "h2#workspace-theme-menu"],
+            ["/notes/shell-heading-links.md/", "Quick open heading", "h2#workspace-quick-open"],
+            ["/notes/shell-heading-links.md/", "Reader label heading", "h2#reader-heading-label-1"],
             ["/-/views/view-heading-intro/", "Setup", "h2#setup"],
             ["/-/views/view-heading-intro/", "Deploy", "h2#deploy"],
         ];
@@ -737,7 +817,7 @@ export async function markdownBrowserScenarios(page, options) {
                 },
                 { target: selector, native: noScript },
             );
-            if (source === "/notes/shell-heading-links/") {
+            if (source === "/notes/shell-heading-links.md/") {
                 const id = selector.slice("h2#".length);
                 assert((await current.locator(`[id="${id}"]`).count()) === 1, `${host.name}: ${label} has a unique ID`);
                 assert(
@@ -747,7 +827,7 @@ export async function markdownBrowserScenarios(page, options) {
             }
         }
         if (!noScript) {
-            await current.goto(base + "/notes/shell-heading-links/");
+            await current.goto(base + "/notes/shell-heading-links.md/");
             const footerLink = main.getByRole("navigation", { name: "Page outline footer" }).getByRole("link", {
                 name: /Related documents/u,
             });
@@ -772,7 +852,7 @@ export async function markdownBrowserScenarios(page, options) {
 
     const crossSurfaceLinks = async (current, host, noScript = false) => {
         const base = `${host.origin}${host.root}`;
-        const source = `${base}/notes/link-contracts/`;
+        const source = `${base}/notes/link-contracts.md/`;
         const isStatic = host.name === "static";
         const main = current.locator(isStatic && !noScript ? "[data-enhancement-ready] main" : "main");
 
@@ -781,7 +861,7 @@ export async function markdownBrowserScenarios(page, options) {
         await wiki.click();
         await current.waitForURL(
             (url) =>
-                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/link-contracts` &&
+                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/link-contracts.md` &&
                 url.hash === (isStatic ? "#local-heading" : "#Local%20heading"),
         );
         if (!noScript) {
@@ -800,7 +880,7 @@ export async function markdownBrowserScenarios(page, options) {
         await main.getByRole("link", { name: "Reference destination", exact: true }).click();
         await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
         assert(
-            new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`,
+            new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.md`,
             "reference link opens canonical target",
         );
 
@@ -810,7 +890,7 @@ export async function markdownBrowserScenarios(page, options) {
         const missingUrl = new URL(await missing.getAttribute("href"), current.url());
         assert(decodeURIComponent(missingUrl.hash) === "#不存在", `${host.name}: unknown heading keeps its fragment`);
         await main.getByRole("link", { name: "Second named section", exact: true }).click();
-        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`);
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.md`);
         const named = main.getByRole("heading", { level: 2, name: "第二节", exact: true });
         await named.waitFor();
         assert((await named.getAttribute("id")) === "section-2", `${host.name}: second non-ASCII heading owns its id`);
@@ -906,16 +986,16 @@ export async function markdownBrowserScenarios(page, options) {
             await main.getByRole("link", { name: "Localized source", exact: true }).click();
             await main.getByRole("heading", { level: 1, name: "Localized target", exact: true }).waitFor();
             assert(
-                new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.zh-hans`,
+                new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target.zh-hans.md`,
                 "static: View link opens localized variant",
             );
         }
     };
     const headingNavigation = async (current, host, noScript = false) => {
         const base = `${host.origin}${host.root}`;
-        const aliases = "/notes/navigation-anchors";
-        const source = "/notes/navigation-source";
-        const mdx = "/guides/navigation-target";
+        const aliases = "/notes/navigation-anchors.md";
+        const source = "/notes/navigation-source.md";
+        const mdx = "/guides/navigation-target.mdx";
         const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
         const cases = [
             [aliases, "Local wiki alias", aliases, "前缀", 2],
@@ -929,19 +1009,19 @@ export async function markdownBrowserScenarios(page, options) {
             [source, "Ordinary MDX link", mdx, "第二节", 2],
             ["", "Home MDX wiki", mdx, "第二节", 2],
             ["/-/views/view-navigation-split", "View MDX wiki", mdx, "第二节", 2],
-            ["", "Home deep MDX", "/guides/nested/deeper/deep-basename", "Deep section", 2],
-            ["", "Home dotted MDX", "/guides/nested/deeper/dotted.v2", "Dotted section", 2],
+            ["", "Home deep MDX", "/guides/nested/deeper/deep-basename.mdx", "Deep section", 2],
+            ["", "Home dotted MDX", "/guides/nested/deeper/dotted.v2.mdx", "Dotted section", 2],
             [
                 "/-/views/view-navigation-split",
                 "View deep MDX",
-                "/guides/nested/deeper/deep-basename",
+                "/guides/nested/deeper/deep-basename.mdx",
                 "Deep section",
                 2,
             ],
             [
                 "/-/views/view-navigation-split",
                 "View dotted MDX",
-                "/guides/nested/deeper/dotted.v2",
+                "/guides/nested/deeper/dotted.v2.mdx",
                 "Dotted section",
                 2,
             ],
@@ -1002,7 +1082,7 @@ export async function markdownBrowserScenarios(page, options) {
             await waitForTarget('a[id="' + refId + '"]');
         };
         await expectFootnote("user-content-fn-body", "user-content-fnref-body");
-        await current.goto(base + "/notes/footnote-heading-links/");
+        await current.goto(base + "/notes/footnote-heading-links.md/");
         await main
             .locator("a[href]")
             .filter({ hasText: /^Authored heading$/u })
@@ -1022,7 +1102,7 @@ export async function markdownBrowserScenarios(page, options) {
             assert((await main.locator('[id="' + id + '"]').count()) === 1, host.name + ": preserves " + id);
             await waitForTarget("h" + level + "#" + id);
         }
-        const projectionLink = main.locator('a[href="' + host.root + '/graph/selected"]').first();
+        const projectionLink = main.locator('a[href="' + host.root + '/graph/selected.md"]').first();
         await projectionLink.waitFor();
         assert(
             await projectionLink.evaluate((link) =>
@@ -1058,7 +1138,7 @@ export async function markdownBrowserScenarios(page, options) {
         }
     };
     const queryAndFootnoteNavigation = async (current, host, noScript) => {
-        const pathname = `${host.root}/notes/query-fragment-navigation`;
+        const pathname = `${host.root}/notes/query-fragment-navigation.md`;
         const pageUrl = `${host.origin}${pathname}/`;
         const initialSearch = "?mode=source&value=a%2Fb&tag=one&tag=two";
         const id = "user-content-fnref-review";
@@ -1101,10 +1181,10 @@ export async function markdownBrowserScenarios(page, options) {
 
         const entrySearch = "?value=a%2Fb&tag=one&tag=two";
         for (const [label, route, id] of [
-            ["Exact entry query", "/notes/contract-target", "hello-world"],
-            ["Alias entry query", "/notes/contract-target", "hello-world"],
-            ["Index entry query", "/notes/resource-directory.txt", "details"],
-            ["Sidecar entry query", "/guides/query-sidecar.txt", "details"],
+            ["Exact entry query", "/notes/contract-target.md", "hello-world"],
+            ["Alias entry query", "/notes/contract-target.md", "hello-world"],
+            ["Index entry query", "/notes/resource-directory.txt/index.md", "details"],
+            ["Sidecar entry query", "/guides/query-sidecar.txt.mdx", "details"],
             ["Change View query", "/-/views/view-navigation-split", "footnote-detail"],
         ]) {
             const view = label === "Change View query";
@@ -1130,7 +1210,7 @@ export async function markdownBrowserScenarios(page, options) {
         const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
         for (const [route, label] of [
             ["/", "Home resource"],
-            ["/notes/link-contracts/", "Encoded resource"],
+            ["/notes/link-contracts.md/", "Encoded resource"],
             ["/-/views/view-navigation-split/", "View resource"],
         ]) {
             await current.goto(base + route);
@@ -1153,7 +1233,7 @@ export async function markdownBrowserScenarios(page, options) {
         }
     };
     const resourceSuffix = async (current, host, noScript = false) => {
-        await current.goto(`${host.origin}${host.root}/notes/link-contracts/`);
+        await current.goto(`${host.origin}${host.root}/notes/link-contracts.md/`);
         const main = current.locator(noScript ? "main" : "[data-enhancement-ready] main");
         const link = main.getByRole("link", { name: "Encoded resource", exact: true });
         await link.waitFor();
@@ -1179,7 +1259,7 @@ export async function markdownBrowserScenarios(page, options) {
             ["callouts", ["note", "tip", "important", "warning", "caution"], 7],
             ["callout-review", ["note", "tip", "important"], 2],
         ]) {
-            await current.goto(`${host.origin}${host.root}/notes/${name}/`);
+            await current.goto(`${host.origin}${host.root}/notes/${name}.md/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
             const reader = current.locator('[data-reader="markdown"]');
             await reader.locator("[data-callout]").first().waitFor({ state: "attached" });
@@ -1192,7 +1272,7 @@ export async function markdownBrowserScenarios(page, options) {
             );
             assert((await reader.locator("blockquote").count()) === quotes, `${host.name}: ${name} literal quotes`);
         }
-        await current.goto(`${host.origin}${host.root}/notes/callout-boundaries/`);
+        await current.goto(`${host.origin}${host.root}/notes/callout-boundaries.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const completed = [];
         for (const fixture of options.calloutBoundaries) {
@@ -1236,7 +1316,7 @@ export async function markdownBrowserScenarios(page, options) {
     };
     const callouts = async (current, host, noScript = false) => {
         await current.bringToFront();
-        const pageUrl = `${host.origin}${host.root}/notes/callout-interaction/`;
+        const pageUrl = `${host.origin}${host.root}/notes/callout-interaction.md/`;
         await current.goto(pageUrl);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const disclosures = current.locator("details[data-callout-fold]");
@@ -1314,7 +1394,7 @@ export async function markdownBrowserScenarios(page, options) {
             await current.goto(`${pageUrl}#${encodeURIComponent(returnId)}`);
             await expectFootnoteLanding(current, `${host.name}: callout footnote direct`, landing);
 
-            const longPage = `${host.origin}${host.root}/notes/folded-footnote-navigation/`;
+            const longPage = `${host.origin}${host.root}/notes/folded-footnote-navigation.md/`;
             const longId = "user-content-fnref-tail";
             const longLanding = { id: longId, foldCount: 1 };
             for (const [width, search] of [
@@ -1342,10 +1422,11 @@ export async function markdownBrowserScenarios(page, options) {
                 .locator('[data-reader="markdown"] a[href]')
                 .filter({ hasText: /^Before the footnote$/u })
                 .focus();
-            await current.keyboard.press("Tab");
+            const webKitOnMac = isWebKit && (await current.evaluate(() => navigator.platform.startsWith("Mac")));
+            await current.keyboard.press(webKitOnMac ? "Alt+Tab" : "Tab");
             await expectFootnoteLanding(current, `${host.name}: footnote retains its Tab stop`, longLanding);
         }
-        await current.goto(`${host.origin}${host.root}/notes/callout-layout/`);
+        await current.goto(`${host.origin}${host.root}/notes/callout-layout.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const layoutSummary = current.locator("details[data-callout-fold] summary").first();
         for (const [width, scheme] of [
@@ -1452,7 +1533,7 @@ export async function markdownBrowserScenarios(page, options) {
         await current.emulateMedia({ colorScheme: "light" });
     };
     const mermaid = async (current, host) => {
-        await current.goto(`${host.origin}${host.root}/notes/mermaid/`);
+        await current.goto(`${host.origin}${host.root}/notes/mermaid.md/`);
         await current.waitForFunction(
             () => document.querySelectorAll(".mermaid-diagram [data-mermaid-viewer]").length === 6,
         );
@@ -1616,13 +1697,14 @@ export async function markdownBrowserScenarios(page, options) {
         current.on("requestfailed", (request) => {
             const error = request.failure()?.errorText;
             const url = request.url();
+            const cancelled = error?.includes("ABORTED") || (isWebKit && error === "cancelled");
             // Chromium blocks the site's module preloads in a JavaScript-disabled context.
             const blockedModule =
                 options.noScript &&
                 error === "csp" &&
                 url.startsWith(`${host.origin}${host.root}/-/assets/`) &&
                 url.endsWith(".js");
-            if (!error?.includes("ABORTED") && !blockedModule) failedRequests.push({ url, error });
+            if (!cancelled && !blockedModule) failedRequests.push({ url, error });
         });
         current.on("pageerror", (error) => errors.push(error.message));
         const assertCleanPage = () => {
@@ -1657,7 +1739,7 @@ export async function markdownBrowserScenarios(page, options) {
                 );
                 continue;
             }
-            await current.goto(`${host.origin}${host.root}/notes/images/`);
+            await current.goto(`${host.origin}${host.root}/notes/images.md/`);
             const reader = current.locator('[data-reader="markdown"]');
             await reader.locator("img").first().waitFor();
             await current.waitForFunction(() => {
@@ -1694,7 +1776,7 @@ export async function markdownBrowserScenarios(page, options) {
             await reader.locator("a").click();
             await current.waitForFunction(() => location.hash === "#forma-heading-image-viewer");
             results.push(`${host.name}: ordinary images and authored fragment link`);
-            await current.goto(`${host.origin}${host.root}/notes/image-links/`);
+            await current.goto(`${host.origin}${host.root}/notes/image-links.md/`);
             const linkedReader = current.locator(
                 '[data-enhancement-ready] [data-reader="markdown"]:not([data-reader-loading])',
             );
@@ -1717,7 +1799,7 @@ export async function markdownBrowserScenarios(page, options) {
             );
             await popup.close();
             await linkedReader.getByRole("link", { name: "Open image examples", exact: true }).click();
-            await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/images`);
+            await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/images.md`);
             await current.locator('[data-reader="markdown"] img').first().waitFor();
             results.push(`${host.name}: authored page and external image links`);
             if (host.name === "static") {
@@ -1755,9 +1837,10 @@ export async function markdownBrowserScenarios(page, options) {
                 `${host.name}: formatted callout samples and ${sourceCases.callouts.length} exact source cases`,
             );
             await callouts(current, host);
+            assertCleanPage();
             results.push(`${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`);
 
-            await current.goto(`${host.origin}${host.root}/notes/viewers/`);
+            await current.goto(`${host.origin}${host.root}/notes/viewers.md/`);
             const expand = current.getByRole("button", { name: "Expand Flowchart diagram", exact: true }).first();
             await expand.click();
             await current.locator("dialog[open]").waitFor();
@@ -1817,7 +1900,7 @@ export async function markdownBrowserScenarios(page, options) {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const current = await context.newPage();
     try {
-        await current.goto(`${host.origin}${host.root}/notes/images/`);
+        await current.goto(`${host.origin}${host.root}/notes/images.md/`);
         assert(
             await current.evaluate(() => {
                 const script = document.createElement("script");
@@ -1843,20 +1926,20 @@ export async function markdownBrowserScenarios(page, options) {
         );
         await current.locator('[data-reader="markdown"] a').click();
         assert(current.url().endsWith("#forma-heading-image-viewer"), "noscript: authored fragment link broken");
-        await current.goto(`${host.origin}${host.root}/notes/image-links/`);
+        await current.goto(`${host.origin}${host.root}/notes/image-links.md/`);
         assert(
             (await current.locator('a[href="https://example.test/image-destination"] img').count()) === 1,
             "noscript: external image link changed",
         );
         await current.getByRole("link", { name: "Open image examples", exact: true }).click();
-        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/images`);
-        await current.goto(`${host.origin}${host.root}/notes/viewers/`);
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/images.md`);
+        await current.goto(`${host.origin}${host.root}/notes/viewers.md/`);
         assert((await current.locator("pre code.language-mermaid").count()) === 2, "noscript: Mermaid source missing");
         assert(
             (await current.getByRole("button", { name: /Expand/ }).count()) === 0,
             "noscript: inert viewer controls",
         );
-        await current.goto(`${host.origin}${host.root}/notes/mermaid/`);
+        await current.goto(`${host.origin}${host.root}/notes/mermaid.md/`);
         assert(
             (await current.locator("pre code.language-mermaid").count()) === 7,
             "noscript: Mermaid kinds and empty source missing",
@@ -1867,7 +1950,7 @@ export async function markdownBrowserScenarios(page, options) {
         );
         await current.goto(`${host.origin}${host.root}${host.graph}`);
         await current.getByRole("link", { name: "Selected node", exact: true }).click();
-        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected`);
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected.md`);
         results.push("static noscript: images, authored link, Mermaid source and Graph navigation");
         await rawSource(current, host, true);
         results.push("static noscript: raw source navigation beside sidecar");

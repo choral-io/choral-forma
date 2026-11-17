@@ -66,6 +66,7 @@ export type BaseOperationResult = {
     workspace?: WorkspaceSummary;
     summary?: DiagnosticSummary;
     diagnostics?: Diagnostic[];
+    routeGeneration?: string;
 };
 
 export type EmbeddedDocSkill = {
@@ -625,6 +626,7 @@ export type DashboardEntrySummary = {
 
 export type DashboardTaxonomyTerm = {
     id: string;
+    routePath?: string;
     title: string;
     display?: DisplayOptions;
     description?: string;
@@ -635,6 +637,7 @@ export type DashboardTaxonomyTerm = {
 
 export type DashboardTaxonomy = {
     id: string;
+    routePath?: string;
     title: string;
     mode: string;
     display?: DisplayOptions;
@@ -656,17 +659,33 @@ export type DashboardEntryVariant = {
 export type DashboardViewSummary = {
     id: string;
     path: string;
+    configId?: string;
+    sourcePath?: string;
+    publicId?: string;
+    routePath?: string;
     kind: string;
     title?: string;
     display?: DisplayOptions;
     space?: string;
 };
 
+export type DashboardDirectory = {
+    path: string;
+    routePath: string;
+    introEntryPath?: string;
+    childDirectoryPaths: string[];
+    entryPaths: string[];
+};
+
 export type WorkspaceDashboardResult = BaseOperationResult & {
     operation: "workspace.dashboard";
     workspace: WorkspaceSummary;
+    routeProjectionVersion?: number;
+    canonicalLanguage?: string;
+    directories?: DashboardDirectory[];
     home: {
         path: string;
+        routePath?: string;
         title?: string;
         omitLeadingTitle: boolean;
         updatedAt?: string;
@@ -984,12 +1003,12 @@ export class FormaRpcClient {
         return this.call<InspectResult>("inspect", { path });
     }
 
-    renderFile(path: string, format: "markdown" | "html" | "source" = "markdown") {
-        return this.call<FileRenderResult>("file.render", { path, format });
+    renderFile(path: string, format: "markdown" | "html" | "source" = "markdown", expectedRouteGeneration?: string) {
+        return this.call<FileRenderResult>("file.render", { path, format, expectedRouteGeneration });
     }
 
-    listFileReferences(path: string) {
-        return this.call<FileReferencesResult>("file.references", { path });
+    listFileReferences(path: string, expectedRouteGeneration?: string) {
+        return this.call<FileReferencesResult>("file.references", { path, expectedRouteGeneration });
     }
 
     resolveReference(
@@ -1006,8 +1025,8 @@ export class FormaRpcClient {
         });
     }
 
-    workspaceHealth() {
-        return this.call<WorkspaceHealthResult>("workspace.health");
+    workspaceHealth(expectedRouteGeneration?: string) {
+        return this.call<WorkspaceHealthResult>("workspace.health", { expectedRouteGeneration });
     }
 
     toolsList() {
@@ -1026,7 +1045,7 @@ export class FormaRpcClient {
         });
     }
 
-    renderView(view: string) {
-        return this.call<ViewRenderResult>("view.render", { view });
+    renderView(view: string, expectedRouteGeneration?: string) {
+        return this.call<ViewRenderResult>("view.render", { view, expectedRouteGeneration });
     }
 }

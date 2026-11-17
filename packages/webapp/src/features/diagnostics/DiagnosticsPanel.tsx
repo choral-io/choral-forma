@@ -1,5 +1,5 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { AlertTriangle, Info } from "lucide-react";
-import { Link } from "react-router";
 
 import type { DashboardDiagnostic, DashboardHealth, DashboardHealthCategory } from "@/data/workspace-client";
 

@@ -1,15 +1,7 @@
-import {
-    browseRoutePath,
-    directoryForRoutePath,
-    healthRoutePath,
-    taxonomyRoutePath,
-    taxonomyTermRoutePath,
-    viewRoutePath,
-    viewsRoutePath,
-} from "@/lib/workspace-routes";
+import { browseRoutePath, healthRoutePath, viewsRoutePath } from "@/lib/workspace-routes";
 
 import { canonicalRoutePath, resolveDashboardEntryTarget } from "./static-route-target";
-import { readStaticRuntimeConfig, rootAwareHref, trimRoutePathname } from "./static-runtime";
+import { readStaticRuntimeConfig, rootAwareHref } from "./static-runtime";
 import type { WorkspaceDashboard } from "./workspace-client";
 
 export interface StaticDocumentMetadata {
@@ -19,9 +11,8 @@ export interface StaticDocumentMetadata {
 }
 
 export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pathname: string): StaticDocumentMetadata {
-    const canonicalPath = trimRoutePathname(pathname);
-    const normalizedPath = canonicalRoutePath(pathname);
-    const entry = resolveDashboardEntryTarget(dashboard, normalizedPath)?.summary;
+    const canonicalPath = canonicalRoutePath(pathname);
+    const entry = resolveDashboardEntryTarget(dashboard, canonicalPath)?.summary;
     if (entry) {
         return {
             canonicalPath,
@@ -30,12 +21,12 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
         };
     }
 
-    const directory = directoryForRoutePath(dashboard.entries, canonicalPath);
+    const directory = dashboard.directories.find((candidate) => candidate.routePath === canonicalPath);
     if (directory) {
         return {
             canonicalPath,
-            description: `Pages the workspace includes under ${directory}/.`,
-            title: directory.split("/").at(-1) ?? directory,
+            description: `Pages the workspace includes under ${directory.path}/.`,
+            title: directory.path.split("/").at(-1) ?? directory.path,
         };
     }
     if (canonicalPath === healthRoutePath) {
@@ -52,29 +43,27 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
         };
     }
 
-    const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === normalizedPath);
+    const view = dashboard.views.find((candidate) => candidate.routePath === canonicalPath);
     if (view) {
         return {
-            canonicalPath: normalizedPath,
+            canonicalPath,
             description: `${view.kind} workspace View.`,
-            title: view.title || view.id,
+            title: view.title || view.publicId,
         };
     }
 
     for (const taxonomy of dashboard.taxonomies) {
-        if (taxonomyRoutePath(taxonomy.id) === normalizedPath) {
+        if (taxonomy.routePath === canonicalPath) {
             return {
-                canonicalPath: normalizedPath,
+                canonicalPath,
                 description: taxonomy.description || "Configured workspace taxonomy.",
                 title: taxonomy.title,
             };
         }
-        const term = taxonomy.terms.find(
-            (candidate) => taxonomyTermRoutePath(taxonomy.id, candidate.id) === normalizedPath,
-        );
+        const term = taxonomy.terms.find((candidate) => candidate.routePath === canonicalPath);
         if (term) {
             return {
-                canonicalPath: normalizedPath,
+                canonicalPath,
                 description: term.description || `Entries classified as ${term.title}.`,
                 title: term.title,
             };

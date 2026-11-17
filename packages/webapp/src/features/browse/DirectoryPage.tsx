@@ -1,21 +1,20 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ChevronRight, Folder } from "lucide-react";
-import { Link } from "react-router";
 
-import type { DashboardEntry } from "@/data/workspace-client";
+import type { DashboardDirectory, DashboardEntry } from "@/data/workspace-client";
 import {
-    directoryListing,
     listingCounts,
     pluralCount,
+    projectedDirectoryListing,
     type DirectoryListing,
     type DirectoryListingFolder,
 } from "@/features/navigation/directory-listing";
 import { directoryOwners } from "@/features/navigation/directory-owners";
 import { directoryBreadcrumb } from "@/features/reader/entry-breadcrumb";
-import { EmptyPage, RouteBodySection } from "@/features/workspace/RouteContent";
+import { RouteBodySection } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { canonicalEntries } from "@/lib/entry-languages";
-import { directoryRoutePath } from "@/lib/workspace-routes";
 
 import { PagesList } from "./PagesList";
 
@@ -23,22 +22,19 @@ import { PagesList } from "./PagesList";
  * A directory of indexed source paths below the root, whose page is home: its folders, then its pages. It lists only what the
  * workspace includes, so a folder stands for its indexed pages, not its full contents.
  */
-export function DirectoryPage({ path }: { path: string }) {
+export function DirectoryPage({ directory }: { directory: DashboardDirectory }) {
     const dashboard = useWorkspaceDashboard();
     const entries = canonicalEntries(dashboard.entries);
-    const listing = directoryListing(entries, path);
-
-    if (!listing) {
-        return (
-            <WorkspaceRouteFrame breadcrumb={directoryBreadcrumb("", false)} contentWidth="narrow" title="Not found">
-                <EmptyPage />
-            </WorkspaceRouteFrame>
-        );
-    }
+    const listing = projectedDirectoryListing(dashboard, directory);
 
     return (
         <WorkspaceRouteFrame
-            breadcrumb={directoryBreadcrumb(listing.path, false, directoryOwners(entries))}
+            breadcrumb={directoryBreadcrumb(
+                listing.path,
+                false,
+                dashboard.directories,
+                directoryOwners(entries, dashboard.directories),
+            )}
             contentWidth="narrow"
             description={`Pages the workspace includes under ${listing.path}/.`}
             title={listing.path.split("/").at(-1) ?? listing.path}
@@ -68,7 +64,7 @@ function FolderList({ folders }: { folders: DirectoryListingFolder[] }) {
                 <li key={folder.path}>
                     <Link
                         className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50"
-                        to={directoryRoutePath(folder.path)}
+                        to={folder.routePath}
                     >
                         <Folder aria-hidden="true" className="size-5 text-base-content/60" />
                         <span className="flex min-w-0 flex-col" title={folder.path}>

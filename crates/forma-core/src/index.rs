@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::Path;
-#[cfg(test)]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
@@ -185,16 +183,15 @@ pub struct Discovery {
 pub(crate) struct DiscoveryRuntime {
     pub(crate) references_by_target: BTreeMap<String, Vec<ReferenceOccurrence>>,
     pub(crate) fragment_projections: BTreeMap<String, MarkdownFragmentProjection>,
+    pub(crate) entry_sources: std::sync::Arc<BTreeMap<String, String>>,
+    pub(crate) content_candidates: std::sync::Arc<Vec<PathBuf>>,
+    pub(crate) variant_references: BTreeMap<String, Vec<IndexReference>>,
     path_index: PathIndex,
 }
 
 impl DiscoveryRuntime {
-    pub(crate) fn has_entry_route_alias(&self, path: &str) -> bool {
-        [".md", ".mdx"].into_iter().any(|extension| {
-            self.path_index
-                .all_paths
-                .contains(&format!("{path}{extension}"))
-        })
+    pub(crate) fn resolve_author_document(&self, target: &str, source_path: &str) -> ResolveResult {
+        self.path_index.resolve_author_document(target, source_path)
     }
 
     pub(crate) fn has_entries_beneath(&self, path: &str) -> bool {
@@ -207,7 +204,7 @@ impl DiscoveryRuntime {
     }
 
     pub(crate) fn resolve_wikilink_mdx(&self, source_path: &str, target: &str) -> Option<String> {
-        let target = split_reference_target(target, source_path, false);
+        let target = split_reference_target(target, false)?;
         match self
             .path_index
             .resolve_from(&target.path, source_path, None)
@@ -245,6 +242,7 @@ struct LanguageSuffix {
 #[derive(Debug, Clone)]
 struct PathIndex {
     all_paths: BTreeSet<String>,
+    author_paths: BTreeSet<String>,
     by_suffix: BTreeMap<String, Vec<String>>,
     by_basename: BTreeMap<String, Vec<String>>,
     by_space: BTreeMap<String, BTreeSet<String>>,
@@ -262,11 +260,39 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
 pub(crate) fn discover_loaded_workspace_with_runtime(
     workspace: &FormaWorkspace,
 ) -> (Discovery, DiscoveryRuntime) {
-    let root = &workspace.root;
     let config = &workspace.config;
     let mut diagnostics = workspace.diagnostics.clone();
 
-    let mut entries = discover_entries(workspace, &mut diagnostics);
+    let invalid_route_globs = diagnostics
+        .iter()
+        .filter_map(|diagnostic| {
+            if diagnostic.code == "config.globInvalid"
+                && let Some(DiagnosticLocation::Config { field }) = diagnostic.location.as_ref()
+                && (field.starts_with("imports[")
+                    || field.starts_with("include[")
+                    || field.contains(".include["))
+            {
+                return diagnostic.actual.as_deref();
+            }
+            None
+        })
+        .collect::<BTreeSet<_>>();
+    if !invalid_route_globs.is_empty() {
+        diagnostics.push(crate::routes::route_preflight_incomplete(format!(
+            "could not scan configured patterns: {}",
+            invalid_route_globs
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
+
+    let content_candidates = workspace
+        .model
+        .scan_plan()
+        .content_patterns()
+        .route_files(&mut diagnostics);
+    let mut entries = discover_entries(workspace, &content_candidates, &mut diagnostics);
     let mut fragment_projections = BTreeMap::new();
     for entry in &entries {
         fragment_projections.insert(
@@ -282,6 +308,7 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
     }
     let path_index = PathIndex::from_entries(&entries);
     let mut index_entries = Vec::new();
+    let mut variant_references = BTreeMap::new();
     let mut occurrences_by_source = BTreeMap::<String, Vec<ReferenceOccurrence>>::new();
 
     for entry in &mut entries {
@@ -335,6 +362,7 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
                 let mut variant_occurrences = Vec::new();
                 let mut ignored_diagnostics = Vec::new();
                 let frontmatter_value = variant.document.frontmatter.value.as_ref();
+                let mut references = Vec::new();
                 if let Ok(schema) = parse_space_schema(space) {
                     let ref_fields =
                         collect_semantic_reference_fields(config, &workspace.model, &schema);
@@ -343,7 +371,7 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
                         &variant.document,
                         &ref_fields,
                     );
-                    let _ = resolve_frontmatter_refs(
+                    references.extend(resolve_frontmatter_refs(
                         &variant.path,
                         frontmatter_value.unwrap_or(&Value::Null),
                         &ref_fields,
@@ -351,16 +379,17 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
                         &path_index,
                         &mut ignored_diagnostics,
                         &mut variant_occurrences,
-                    );
+                    ));
                 }
-                let _ = resolve_body_refs(
+                references.extend(resolve_body_refs(
                     &variant.path,
                     &variant.source,
                     &variant.document,
                     &path_index,
                     &mut ignored_diagnostics,
                     &mut variant_occurrences,
-                );
+                ));
+                variant_references.insert(variant.path.clone(), references);
                 occurrences_by_source.insert(variant.path.clone(), variant_occurrences);
                 let (title, omit_leading_title) =
                     resolved_entry_title(frontmatter_value, space, &variant.document);
@@ -409,7 +438,7 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
     spaces.sort_by(|left, right| space_sort_key(left).cmp(&space_sort_key(right)));
 
     let mut views = discover_views(
-        root,
+        workspace,
         &workspace.model,
         &workspace.config_sources,
         &path_index,
@@ -429,6 +458,25 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
         }
     }
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
+    let unreadable_sources = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.code.as_str(),
+                "file.readFailed" | "view.readFailed"
+            )
+        })
+        .filter_map(|diagnostic| diagnostic.path.as_deref())
+        .collect::<BTreeSet<_>>();
+    if !unreadable_sources.is_empty() {
+        diagnostics.push(crate::routes::route_preflight_incomplete(format!(
+            "could not read: {}",
+            unreadable_sources
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
     diagnostics.extend(crate::routes::route_diagnostics(
         &index_entries,
         &views,
@@ -455,6 +503,21 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
         DiscoveryRuntime {
             references_by_target,
             fragment_projections,
+            entry_sources: std::sync::Arc::new(
+                entries
+                    .into_iter()
+                    .flat_map(|entry| {
+                        std::iter::once((entry.path, entry.source)).chain(
+                            entry
+                                .variants
+                                .into_iter()
+                                .map(|variant| (variant.path, variant.source)),
+                        )
+                    })
+                    .collect(),
+            ),
+            content_candidates: std::sync::Arc::new(content_candidates),
+            variant_references,
             path_index,
         },
     )
@@ -504,7 +567,12 @@ pub fn check_workspace(root: impl AsRef<Path>) -> CheckResult {
             ));
             diagnostics
         }
-        Err(error) => vec![config_error_diagnostic(error)],
+        Err(error) => vec![
+            config_error_diagnostic(error),
+            crate::routes::route_preflight_incomplete(
+                "could not load effective workspace configuration",
+            ),
+        ],
     };
     diagnostics.sort_by_key(diagnostic_sort_key);
     check_result("check", diagnostics)
@@ -530,19 +598,44 @@ fn check_result(operation: &str, diagnostics: Vec<Diagnostic>) -> CheckResult {
 
 fn discover_entries(
     workspace: &FormaWorkspace,
+    content_candidates: &[PathBuf],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<CandidateEntry> {
     let root = &workspace.root;
     let config = &workspace.config;
-    let markdown_files = workspace
-        .model
-        .scan_plan()
-        .content_patterns()
-        .matching_files_with_extensions(&["md", "mdx"])
-        .unwrap_or_default();
+    let mut unrepresentable = BTreeSet::new();
+    let markdown_files = content_candidates
+        .iter()
+        .filter(|path| crate::scan::is_markdown_file(path))
+        .filter_map(|path| {
+            let relative = path.strip_prefix(root).unwrap_or(path);
+            if relative.to_str().is_some()
+                && let Some(canonical) = workspace_relative_path(root, path)
+            {
+                return Some((path, canonical));
+            } else if let Some(relative) = relative.to_str()
+                && let Some(diagnostic) = crate::routes::reserved_content_diagnostic(
+                    &relative.replace(std::path::MAIN_SEPARATOR, "/"),
+                )
+            {
+                // A literal top-level "~" is excluded by the persisted path parser.
+                // It can still appear when a valid broad content pattern matches it.
+                diagnostics.push(diagnostic);
+            } else {
+                unrepresentable.insert(relative.to_string_lossy().into_owned());
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+    if !unrepresentable.is_empty() {
+        diagnostics.push(crate::routes::route_preflight_incomplete(format!(
+            "could not establish precise source paths for {}",
+            unrepresentable.into_iter().collect::<Vec<_>>().join(", ")
+        )));
+    }
     let markdown_paths = markdown_files
         .iter()
-        .filter_map(|path| workspace_relative_path(root, path))
+        .map(|(_, path)| path.clone())
         .collect::<BTreeSet<_>>();
     let config_source_paths = workspace
         .config_sources
@@ -555,10 +648,7 @@ fn discover_entries(
     let mut entries = Vec::new();
     let mut variants_by_canonical = BTreeMap::<String, Vec<CandidateVariant>>::new();
 
-    for path in markdown_files {
-        let Some(relative) = workspace_relative_path(root, &path) else {
-            continue;
-        };
+    for (path, relative) in markdown_files {
         if config_source_paths.contains(&relative) {
             continue;
         }
@@ -603,7 +693,7 @@ fn discover_entries(
                 );
                 continue;
             }
-            match fs::read_to_string(&path) {
+            match fs::read_to_string(path) {
                 Ok(source) => {
                     let document = FormaMarkdownDocument::parse(&source);
                     diagnostics.extend(
@@ -632,7 +722,7 @@ fn discover_entries(
             continue;
         }
 
-        match fs::read_to_string(&path) {
+        match fs::read_to_string(path) {
             Ok(source) => {
                 let document = FormaMarkdownDocument::parse(&source);
                 diagnostics.extend(
@@ -810,7 +900,7 @@ fn build_space_matchers(
 }
 
 fn discover_views(
-    root: &Path,
+    workspace: &FormaWorkspace,
     model: &ResolvedWorkspaceModel,
     config_sources: &[ConfigSourcePath],
     path_index: &PathIndex,
@@ -825,7 +915,7 @@ fn discover_views(
         .filter(|source| source.path.ends_with(".md") || source.path.ends_with(".mdx"))
         .map(|source| source.path.clone())
     {
-        let Ok(source_text) = fs::read_to_string(root.join(&relative)) else {
+        let Some(source_text) = workspace.config_text.get(&relative) else {
             diagnostics.push(
                 Diagnostic::error("view.readFailed", "View file could not be read.")
                     .with_path(relative),
@@ -1149,14 +1239,31 @@ fn resolve_body_refs(
             });
             continue;
         }
-        let target = split_reference_target(
-            &reference.target,
-            source_path,
-            matches!(
-                reference.syntax,
-                FormaReferenceSyntax::MarkdownLink | FormaReferenceSyntax::MarkdownImage
-            ),
+        let unresolved = || {
+            Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
+                .with_path(source_path)
+                .with_location(
+                    reference
+                        .span
+                        .map(|span| DiagnosticLocation::Body {
+                            line: Some(span.start_line),
+                            column: Some(span.start_column),
+                        })
+                        .unwrap_or(DiagnosticLocation::Body {
+                            line: None,
+                            column: None,
+                        }),
+                )
+                .with_actual(reference.target.clone())
+        };
+        let markdown_uri = matches!(
+            reference.syntax,
+            FormaReferenceSyntax::MarkdownLink | FormaReferenceSyntax::MarkdownImage
         );
+        let Some(target) = split_reference_target(&reference.target, markdown_uri) else {
+            diagnostics.push(unresolved());
+            continue;
+        };
         let resolved = if is_non_markdown_resource_target(&target.path) {
             if !matches!(
                 reference.syntax,
@@ -1171,6 +1278,17 @@ fn resolve_body_refs(
                 }
                 _ => continue,
             }
+        } else if reference.syntax == FormaReferenceSyntax::MarkdownLink {
+            path_index.resolve_author_document(&target.path, source_path)
+        } else if markdown_uri
+            && !target.path.is_empty()
+            && let Some(relative) =
+                crate::operations::normalized_relative_target(source_path, &target.path)
+            && let Some(candidate) = candidate_paths(&relative)
+                .into_iter()
+                .find(|candidate| path_index.path_allowed(candidate, None))
+        {
+            ResolveResult::Resolved(candidate)
         } else {
             path_index.resolve_from(&target.path, source_path, None)
         };
@@ -1207,23 +1325,7 @@ fn resolve_body_refs(
                     });
                 }
             }
-            ResolveResult::Unresolved => diagnostics.push(
-                Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
-                    .with_path(source_path)
-                    .with_location(
-                        reference
-                            .span
-                            .map(|span| DiagnosticLocation::Body {
-                                line: Some(span.start_line),
-                                column: Some(span.start_column),
-                            })
-                            .unwrap_or(DiagnosticLocation::Body {
-                                line: None,
-                                column: None,
-                            }),
-                    )
-                    .with_actual(reference.target.clone()),
-            ),
+            ResolveResult::Unresolved => diagnostics.push(unresolved()),
             ResolveResult::Ambiguous => diagnostics.push(
                 Diagnostic::error(
                     "entryRef.ambiguous",
@@ -1280,11 +1382,7 @@ struct SplitReferenceTarget {
     fragment_kind: Option<ReferenceFragmentKind>,
 }
 
-fn split_reference_target(
-    raw_target: &str,
-    source_path: &str,
-    markdown_uri: bool,
-) -> SplitReferenceTarget {
+fn split_reference_target(raw_target: &str, markdown_uri: bool) -> Option<SplitReferenceTarget> {
     let trimmed = raw_target.trim();
     let (raw_path, raw_fragment) = trimmed.split_once('#').unwrap_or((trimmed, ""));
     let raw_path = if markdown_uri {
@@ -1292,20 +1390,18 @@ fn split_reference_target(
     } else {
         raw_path
     };
-    let path = if raw_path.is_empty() {
-        source_path.to_string()
-    } else if markdown_uri {
-        crate::routes::decode_public_path_once(raw_path)
+    let path = if markdown_uri {
+        crate::routes::decode_markdown_uri_path(raw_path)?
     } else {
         raw_path.to_string()
     };
     let (fragment, fragment_kind) = reference_fragment(raw_fragment);
 
-    SplitReferenceTarget {
+    Some(SplitReferenceTarget {
         path,
         fragment,
         fragment_kind,
-    }
+    })
 }
 
 fn reference_fragment(raw_fragment: &str) -> (Option<String>, Option<ReferenceFragmentKind>) {
@@ -1328,7 +1424,7 @@ fn reference_fragment(raw_fragment: &str) -> (Option<String>, Option<ReferenceFr
     }
 }
 
-enum ResolveResult {
+pub(crate) enum ResolveResult {
     Resolved(String),
     Unresolved,
     Ambiguous,
@@ -1337,23 +1433,28 @@ enum ResolveResult {
 impl PathIndex {
     fn from_entries(entries: &[CandidateEntry]) -> Self {
         let mut all_paths = BTreeSet::new();
+        let mut author_paths = BTreeSet::new();
         let mut by_suffix: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut by_basename: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut by_space: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
         for entry in entries {
             all_paths.insert(entry.path.clone());
-            if let Some((_, suffix)) = entry.path.split_once('/') {
-                by_suffix
-                    .entry(suffix.to_string())
+            for path in std::iter::once(&entry.path)
+                .chain(entry.variants.iter().map(|variant| &variant.path))
+            {
+                author_paths.insert(path.clone());
+                if let Some((_, suffix)) = path.split_once('/') {
+                    by_suffix
+                        .entry(suffix.to_string())
+                        .or_default()
+                        .push(path.clone());
+                }
+                by_basename
+                    .entry(basename_id(path))
                     .or_default()
-                    .push(entry.path.clone());
+                    .push(path.clone());
             }
-            let basename = basename_id(&entry.path);
-            by_basename
-                .entry(basename)
-                .or_default()
-                .push(entry.path.clone());
             by_space
                 .entry(entry.space.clone())
                 .or_default()
@@ -1362,6 +1463,7 @@ impl PathIndex {
 
         Self {
             all_paths,
+            author_paths,
             by_suffix,
             by_basename,
             by_space,
@@ -1375,6 +1477,12 @@ impl PathIndex {
     fn resolve_from(&self, target: &str, source_path: &str, space: Option<&str>) -> ResolveResult {
         // Body references have already been parsed; decoded filename characters
         // must not be interpreted as wiki markup a second time.
+        if target.is_empty() {
+            return self
+                .path_allowed(source_path, space)
+                .then(|| ResolveResult::Resolved(source_path.to_string()))
+                .unwrap_or(ResolveResult::Unresolved);
+        }
         if target.starts_with('/') {
             return crate::operations::normalized_relative_target(source_path, target)
                 .into_iter()
@@ -1398,11 +1506,60 @@ impl PathIndex {
             }
         }
 
+        self.resolve_short_candidates(&candidates, |path| self.path_allowed(path, space))
+    }
+
+    fn resolve_author_document(&self, target: &str, source_path: &str) -> ResolveResult {
+        if target.is_empty() {
+            return self
+                .author_paths
+                .contains(source_path)
+                .then(|| ResolveResult::Resolved(source_path.to_string()))
+                .unwrap_or(ResolveResult::Unresolved);
+        }
+        let Some(relative) = crate::operations::normalized_relative_target(source_path, target)
+        else {
+            return ResolveResult::Unresolved;
+        };
+        let direct = target.trim_start_matches("./");
+        let candidates = author_document_candidates(&relative, true);
+        let rooted = target.starts_with('/');
+        let direct_candidates =
+            (!rooted && direct != relative).then(|| author_document_candidates(direct, true));
+        if let Some(path) = candidates
+            .into_iter()
+            .chain(direct_candidates.into_iter().flatten())
+            .find(|path| self.author_paths.contains(path))
+        {
+            return ResolveResult::Resolved(path);
+        }
+        if rooted {
+            return ResolveResult::Unresolved;
+        }
+        // A short path names a managed entry after one top-level segment. As
+        // with the index's wiki resolver, only a bare name can use the final
+        // basename tier, and a conflicting tier never picks a winner.
+        let cmp = |path: &str| self.author_paths.contains(path);
+        if relative != direct && (target.starts_with("./") || target.starts_with("../")) {
+            let result =
+                self.resolve_short_candidates(&author_document_candidates(&relative, false), cmp);
+            if !matches!(result, ResolveResult::Unresolved) {
+                return result;
+            }
+        }
+        self.resolve_short_candidates(&author_document_candidates(direct, false), cmp)
+    }
+
+    fn resolve_short_candidates(
+        &self,
+        candidates: &[String],
+        path_allowed: impl Fn(&str) -> bool,
+    ) -> ResolveResult {
         let suffix_matches = candidates
             .iter()
             .filter_map(|candidate| self.by_suffix.get(candidate))
             .flatten()
-            .filter(|path| self.path_allowed(path, space))
+            .filter(|path| path_allowed(path))
             .cloned()
             .collect::<BTreeSet<_>>()
             .into_iter()
@@ -1424,8 +1581,7 @@ impl PathIndex {
             .flatten()
             .filter(|path| {
                 let basename = path.rsplit('/').next().unwrap_or(path.as_str());
-                candidates.iter().any(|candidate| candidate == basename)
-                    && self.path_allowed(path, space)
+                candidates.iter().any(|candidate| candidate == basename) && path_allowed(path)
             })
             .cloned()
             .collect::<Vec<_>>();
@@ -1462,6 +1618,21 @@ fn candidate_paths(target: &str) -> Vec<String> {
             target.to_string(),
         ]
     }
+}
+
+fn author_document_candidates(target: &str, directory_intro: bool) -> Vec<String> {
+    let mut candidates = vec![target.to_string()];
+    if !target.rsplit_once('.').is_some_and(|(_, extension)| {
+        extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("mdx")
+    }) {
+        candidates.extend([".md", ".mdx"].map(|extension| format!("{target}{extension}")));
+        if directory_intro {
+            candidates.extend(
+                ["/index.md", "/index.mdx"].map(|extension| format!("{target}{extension}")),
+            );
+        }
+    }
+    candidates
 }
 
 fn strip_markdown_extension(path: &str) -> &str {
@@ -2644,12 +2815,14 @@ mod tests {
         let result = check_workspace(&root);
 
         assert_eq!(result.status, OperationStatus::Failed);
-        assert_eq!(result.diagnostics.len(), 1);
-        assert_eq!(result.diagnostics[0].code, "config.parseFailed");
-        assert_eq!(
-            result.diagnostics[0].path.as_deref(),
-            Some(FORMA_CONFIG_PATH)
-        );
+        assert_eq!(result.diagnostics.len(), 2);
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == crate::routes::ROUTE_PREFLIGHT_INCOMPLETE_CODE
+        }));
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "config.parseFailed"
+                && diagnostic.path.as_deref() == Some(FORMA_CONFIG_PATH)
+        }));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -2666,12 +2839,64 @@ mod tests {
         let result = check_workspace(&root);
 
         assert_eq!(result.status, OperationStatus::Failed);
-        assert_eq!(result.diagnostics.len(), 1);
-        assert_eq!(result.diagnostics[0].code, "config.legacyRefKind");
-        assert_eq!(
-            result.diagnostics[0].path.as_deref(),
-            Some(FORMA_CONFIG_PATH)
+        assert_eq!(result.diagnostics.len(), 2);
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == crate::routes::ROUTE_PREFLIGHT_INCOMPLETE_CODE
+        }));
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "config.legacyRefKind"
+                && diagnostic.path.as_deref() == Some(FORMA_CONFIG_PATH)
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn route_preflight_retains_reserved_routes_and_unreadable_sources() {
+        let root = fixture_root("route-preflight-incomplete");
+        write_workspace(&root);
+        let reserved = ["~/reserved.md", "-/reserved.md"];
+        for path in reserved {
+            write_workspace_file(&root, path, "# Reserved\n");
+        }
+        let config_path = root.join(".forma/spaces/notes.md");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            config_path,
+            config.replace(
+                "  - notes/**/*.md\n",
+                "  - notes/**/*.md\n  - '[-~]/**/*.md'\n",
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::write(root.join("notes/invalid.md"), [0xff]).unwrap();
+        write_workspace_file(&root, "notes/readable.md", "# Readable\n");
+
+        let discovery = discover_workspace(&root).unwrap();
+        assert!(
+            discovery
+                .index
+                .entries
+                .iter()
+                .any(|entry| entry.path == "notes/readable.md")
         );
+        for path in reserved {
+            assert!(
+                discovery.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == crate::routes::ROUTE_RESERVED_CODE
+                        && diagnostic.path.as_deref() == Some(path)
+                }),
+                "{path}: {:#?}",
+                discovery.diagnostics
+            );
+        }
+        assert!(discovery.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == crate::routes::ROUTE_PREFLIGHT_INCOMPLETE_CODE
+                && diagnostic
+                    .actual
+                    .as_deref()
+                    .is_some_and(|actual| actual.contains("notes/invalid.md"))
+        }));
         fs::remove_dir_all(root).unwrap();
     }
 

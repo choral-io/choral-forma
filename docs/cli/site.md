@@ -19,20 +19,27 @@ order: 60
 
 `forma site build` exports the configured workspace projection as a static, multi-page HTML artifact. It does not start a server, create a second content store, or change workspace sources. Serve the completed output with an ordinary static-file host; every generated route has its own HTML file, including `404.html`, `sitemap.xml`, and `robots.txt`.
 
-Content owns the root of the URL space: a page is served at its source path without the Markdown extension, so `notes/welcome.md` is `/notes/welcome`, and `notes/index.md` is `/notes`. The root page is `.forma.md` and also lists the root folders. Each other directory that holds an indexed page has its own page at its path listing its folders and pages, unless a page is served at that route already, such as the directory's `index.md` or a same-named page beside it. Everything Forma adds is under the reserved `-` segment: collections at `/-/browse/<taxonomy>/<term>`, Views at `/-/views/<view>`, and the artifact's data, assets, and resources.
+Document URLs use the exact workspace-relative path, including the Markdown extension. For example, `notes/welcome.md` is `/notes/welcome.md`. The directory `/notes` lists indexed children and can use `notes/index.md` as its introduction. `/notes/index.md` still opens that source document. Home at `/` shows `.forma.md` and the root listing.
 
-The initial HTML contains readable entry bodies and ordinary links, with directory lists below the documents that represent folders. The static Health page at `/-/health` shows the recorded export check status. Opening `/-/` leads to Home, including when JavaScript is disabled. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `-/data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
+Collections are at `/~`, with taxonomies at `/~/<taxonomy>` and terms at `/~/<taxonomy>/<term>`. Views are at `/-/views/<public-id>`. If several Views share the same basename, all members of that collision group receive a stable digest suffix based on their full configuration ID. Use the projected View URL or sitemap when updating bookmarks. The top-level segments `~` and `-` are reserved.
+
+Older bookmarks to extensionless entries should use the full source path. Where an old bookmark opened an index document, use the directory URL for its introduction and listing or add `/index.md` to open the specific document. Replace `/-/browse` with `/~` for collection links and preserve any query or fragment needed by the destination. An old URL that matches a current directory opens that directory.
+
+The export includes readable entry bodies, directory listings, navigation, and Health without JavaScript. Opening `/-/` leads to Home. Interactive enhancement adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. It reads the manifest and explicit detail paths under `/-/data/<artifactId>/` and activates only after validating the document's target against data from the same build. An enhancement failure preserves the initial HTML.
 
 ### Route Conflicts
 
-`forma check` reports content that cannot be served at its route, and `site build` refuses to write an artifact while any of these remain, listing each one:
+`forma check` reports conflicting owners together. `forma serve` runs route preflight before binding its port, and `site build` runs route and static output preflight before writing the artifact.
 
-- `route.reserved`: a document whose top-level name is `-`, the segment reserved for Forma.
-- `route.invalidSegment`: a generated document route segment, taxonomy id, or term id that is empty, `.`, or `..`.
-- `route.collision`: two sources at one route, such as `x.md` beside `x/index.md`.
-- `route.staticOutputConflict`: routes a static artifact cannot hold apart, such as paths that differ only in case, a page named `index.html`, or a root page named after one of the artifact's root files. A local server still serves these, so `forma check` reports them as warnings; `site build` treats them as errors.
+- `route.reserved` identifies documents under a reserved top-level segment.
+- `route.invalidSegment` identifies invalid URL path segments in documents and classification IDs.
+- `route.collision` identifies multiple owners of the same canonical route.
+- `route.staticOutputConflict` identifies conflicts in the static output tree, including case-only differences and clashes with fixed artifact files. It is a warning for workspace checks and an error for static builds.
+- `route.preflightIncomplete` indicates that input errors prevented a complete route check.
 
-Rename or exclude one of the sources to resolve a conflict.
+`site build` also checks whether the destination filesystem treats distinct output names as equivalent, including Unicode normalization and non-ASCII case differences. It reports the conflicting owners before writing the artifact. This destination check preserves the original classification IDs and RPC routes. Run it on the intended output filesystem to verify whether a particular set of routes can be exported there.
+
+Rename or exclude a conflicting source, or repair invalid configuration before repeating preflight.
 
 ## CLI Help
 
@@ -52,7 +59,7 @@ The root page always renders the Markdown body of `.forma.md`. Its frontmatter r
 
 The output directory is disposable and owned by Forma. A new output is written through a staging directory. An existing output can be replaced only when it contains the `.forma-site-artifact` marker, preventing accidental replacement of an unrelated directory. A successful build replaces the complete artifact tree, including stale files. If staging fails, the previous artifact remains untouched; if activation fails after the old artifact was moved aside, Forma attempts to restore it. After a successful activation, no automatic rollback copy is retained: host operators should retain the prior artifact or rebuild from a known source commit for rollback.
 
-The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `-/raw/`, and hosting support files. Only `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `_headers`, and the ownership marker sit at its root beside the content directories; everything else is under `-/`. It needs no SPA fallback rule, long-running Forma process, database, or RPC endpoint. Its `_headers` file supplies a restrictive response-header baseline, including a CSP that permits same-origin scripts but no executable inline script. Static hosts differ in whether they apply `_headers`; configure equivalent headers when yours does not. Building an artifact is separate from any hosting or publication operation.
+The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `-/raw/`, and hosting support files. Only `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `_headers`, and the ownership marker sit at its root beside the content and collection directories. Assets, copied resources and build-specific data are under `-/`. It needs no SPA fallback rule, long-running Forma process, database, or RPC endpoint. Its `_headers` file supplies a restrictive response-header baseline, including a CSP that permits same-origin scripts but no executable inline script. Static hosts differ in whether they apply `_headers`; configure equivalent headers when yours does not. Building an artifact is separate from any hosting or publication operation.
 
 ## Publication And Resource Boundary
 

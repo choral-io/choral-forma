@@ -42,11 +42,20 @@ const dashboard = {
             variants: [],
         },
     ],
-    taxonomies: [{ id: "topics", title: "Topics", terms: [{ id: "wow!", title: "Punctuation term" }] }],
+    directories: [{ path: "notes", routePath: "/notes", childDirectoryPaths: [], entryPaths: ["notes/home.md"] }],
+    taxonomies: [
+        {
+            id: "topics",
+            routePath: "/~/topics",
+            title: "Topics",
+            terms: [{ id: "wow!", routePath: "/~/topics/wow%21", title: "Punctuation term" }],
+        },
+    ],
     views: [
-        { id: "wow!", title: "Punctuation View", description: "", kind: "table" },
+        { id: "wow!", routePath: "/-/views/wow%21", title: "Punctuation View", description: "", kind: "table" },
         {
             id: "notes",
+            routePath: "/-/views/notes",
             title: "Notes",
             description: "",
             kind: "table",
@@ -66,11 +75,11 @@ describe("static document metadata", () => {
         document.head.innerHTML = "";
     });
 
-    it.each(["/-/browse/topics/wow%21/", "/-/browse/topics/wow!"])(
+    it.each(["/~/topics/wow%21/", "/~/topics/wow!"])(
         "resolves term metadata with the same canonical path from %s",
         (pathname) => {
             expect(resolveStaticDocumentMetadata(dashboard, pathname)).toMatchObject({
-                canonicalPath: "/-/browse/topics/wow%21",
+                canonicalPath: "/~/topics/wow%21",
                 title: "Punctuation term",
             });
         },

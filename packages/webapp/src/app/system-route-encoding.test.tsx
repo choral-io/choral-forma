@@ -5,8 +5,10 @@ import { MemoryRouter, Outlet, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import type { DashboardTaxonomy, DashboardTaxonomyTerm, WorkspaceDashboard } from "@/data/workspace-client";
+import { readWorkspacePage } from "@/data/workspace-page-read";
 import { TaxonomyRoute, TaxonomyTermRoute } from "@/features/browse/TaxonomyRoutes";
 import { ViewRoute } from "@/features/views/ViewRoute";
+import { WorkspacePageContext } from "@/features/workspace/use-workspace-page";
 
 const getViewRender = vi.hoisted(() => vi.fn());
 vi.mock("@/data/workspace-client-source", () => ({
@@ -16,6 +18,7 @@ vi.mock("@/data/workspace-client-source", () => ({
 
 const term: DashboardTaxonomyTerm = {
     id: "literal%2F",
+    routePath: "/~/spaces/literal%252F",
     title: "Literal term",
     description: "",
     entryCount: 0,
@@ -24,6 +27,7 @@ const term: DashboardTaxonomyTerm = {
 };
 const taxonomy: DashboardTaxonomy = {
     id: "spaces",
+    routePath: "/~/spaces",
     title: "Spaces",
     mode: "multiple",
     description: "",
@@ -36,6 +40,7 @@ const dashboard: WorkspaceDashboard = {
     taxonomies: [taxonomy],
     spaces: [],
     entries: [],
+    directories: [],
     diagnostics: [],
     health: { status: "healthy", diagnostics: [], findings: [] },
     views: [],
@@ -63,14 +68,26 @@ async function openRoute(pathname: string, fixture = dashboard) {
     const container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
+    const read = await readWorkspacePage(
+        { getViewRender, getDashboard: vi.fn(), getEntry: vi.fn() },
+        fixture,
+        pathname.replace(/\/$/u, ""),
+    );
     await act(async () => {
         root?.render(
             <MemoryRouter basename="/preview" initialEntries={[`/preview${pathname}`]}>
                 <Routes>
                     <Route element={<Outlet context={fixture} />}>
-                        <Route path="/-/browse/:taxonomyId" element={<TaxonomyRoute />} />
-                        <Route path="/-/browse/:taxonomyId/:termId" element={<TaxonomyTermRoute />} />
-                        <Route path="/-/views/*" element={<ViewRoute />} />
+                        <Route path="/~/:taxonomyId" element={<TaxonomyRoute />} />
+                        <Route path="/~/:taxonomyId/:termId" element={<TaxonomyTermRoute />} />
+                        <Route
+                            path="/-/views/*"
+                            element={
+                                <WorkspacePageContext value={read}>
+                                    <ViewRoute />
+                                </WorkspacePageContext>
+                            }
+                        />
                     </Route>
                 </Routes>
             </MemoryRouter>,
@@ -81,22 +98,25 @@ async function openRoute(pathname: string, fixture = dashboard) {
 }
 
 it("opens a term whose id contains a literal percent-encoded slash", async () => {
-    const container = await openRoute("/-/browse/spaces/literal%252F/");
+    const container = await openRoute("/~/spaces/literal%252F/");
     expect(container.querySelector("main h1")?.textContent).toBe("Literal term");
 });
 
 it.each([
-    ["literal%2F", "/-/browse/literal%252F/"],
-    ["literal/slash", "/-/browse/literal%2Fslash"],
+    ["literal%2F", "/~/literal%252F/"],
+    ["literal/slash", "/~/literal%2Fslash"],
 ])("opens the taxonomy %s from its canonical route", async (id, pathname) => {
-    const fixture = { ...dashboard, taxonomies: [{ ...taxonomy, id, title: "Configured taxonomy" }] };
+    const fixture = {
+        ...dashboard,
+        taxonomies: [{ ...taxonomy, id, routePath: pathname.replace(/\/$/u, ""), title: "Configured taxonomy" }],
+    };
     const container = await openRoute(pathname, fixture);
     expect(container.querySelector("main h1")?.textContent).toBe("Configured taxonomy");
 });
 
 it.each([
-    ["literal/slash", "/-/browse/spaces/literal%2Fslash"],
-    ["literal%2Fslash", "/-/browse/spaces/literal%252Fslash/"],
+    ["literal/slash", "/~/spaces/literal%2Fslash"],
+    ["literal%2Fslash", "/~/spaces/literal%252Fslash/"],
 ])("distinguishes the term %s from an encoded slash", async (id, pathname) => {
     const fixture = {
         ...dashboard,
@@ -106,6 +126,7 @@ it.each([
                 terms: ["literal/slash", "literal%2Fslash"].map((termId) => ({
                     ...term,
                     id: termId,
+                    routePath: `/~/spaces/${encodeURIComponent(termId)}`,
                     title: termId,
                 })),
             },
@@ -122,7 +143,19 @@ it.each([
 ])("opens View %s and loads its original id", async (id, pathname) => {
     const fixture: WorkspaceDashboard = {
         ...dashboard,
-        views: [{ id, title: "Configured View", kind: "list", description: "", path: `${id}.md` }],
+        views: [
+            {
+                id,
+                configId: id,
+                publicId: "projected",
+                routePath: pathname.replace(/\/$/u, ""),
+                sourcePath: `${id}.md`,
+                title: "Configured View",
+                kind: "list",
+                description: "",
+                path: `${id}.md`,
+            },
+        ],
     };
     const container = await openRoute(pathname, fixture);
     expect(container.querySelector("main h1")?.textContent).toBe("Configured View");

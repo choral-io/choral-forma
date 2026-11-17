@@ -332,10 +332,13 @@ pub struct FilesListResult {
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceDashboardResult {
     pub schema_version: u16,
+    pub route_projection_version: u16,
+    pub canonical_language: String,
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
     pub home: WorkspaceHomeDocument,
+    pub directories: Vec<crate::routes::RouteDirectory>,
     pub taxonomies: Vec<DashboardTaxonomy>,
     pub spaces: Vec<DashboardSpace>,
     pub entries: Vec<DashboardEntrySummary>,
@@ -352,6 +355,7 @@ pub struct WorkspaceDashboardResult {
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceHomeDocument {
     pub path: String,
+    pub route_path: String,
     pub title: Option<String>,
     pub omit_leading_title: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -426,6 +430,7 @@ pub struct WorkspaceExplorerEntriesResult {
 #[serde(rename_all = "camelCase")]
 pub struct DashboardTaxonomy {
     pub id: String,
+    pub route_path: String,
     pub title: String,
     pub mode: String,
     #[serde(
@@ -442,6 +447,7 @@ pub struct DashboardTaxonomy {
 #[serde(rename_all = "camelCase")]
 pub struct DashboardTaxonomyTerm {
     pub id: String,
+    pub route_path: String,
     pub title: String,
     #[serde(
         default,
@@ -518,6 +524,10 @@ pub struct DashboardEntryVariant {
 pub struct DashboardViewSummary {
     pub id: String,
     pub path: String,
+    pub config_id: String,
+    pub source_path: String,
+    pub public_id: String,
+    pub route_path: String,
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -683,6 +693,7 @@ pub struct WorkspaceSnapshot {
     control_paths: BTreeSet<String>,
     view_paths: BTreeSet<String>,
     runtime: DiscoveryRuntime,
+    route_files: Option<Arc<Vec<WorkspaceFile>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -1445,106 +1456,114 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
 pub fn workspace_dashboard(
     root: impl AsRef<Path>,
 ) -> Result<WorkspaceDashboardResult, OperationError> {
-    let workspace = load_workspace(root.as_ref())?;
-    let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
-    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
-    diagnostics.sort_by_key(|diagnostic| {
-        (
-            diagnostic.path.clone().unwrap_or_default(),
-            diagnostic.code.clone(),
-            diagnostic.message.clone(),
-        )
-    });
-    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    WorkspaceSnapshot::load_for_routes(root)?.dashboard()
+}
 
-    let spaces = discovery
-        .index
-        .spaces
-        .iter()
-        .map(|space| DashboardSpace {
-            id: space.id.clone(),
-            title: space.title.clone(),
-            display: space.display.clone(),
-            include: space.include.clone(),
-            include_patterns: space.include_patterns.clone(),
-            entry_count: space.entry_count,
-            status: status_for_paths(
-                &diagnostics,
-                discovery
-                    .index
-                    .entries
-                    .iter()
-                    .filter(|entry| entry.space == space.id)
-                    .map(|entry| entry.path.as_str()),
-            ),
-        })
-        .collect::<Vec<_>>();
+impl WorkspaceSnapshot {
+    pub fn dashboard(&self) -> Result<WorkspaceDashboardResult, OperationError> {
+        let workspace = self.workspace();
+        let root = self.root();
+        let discovery = self.discovery();
+        let mut diagnostics = read_operation_diagnostics(discovery.diagnostics.clone());
+        diagnostics.sort_by_key(|diagnostic| {
+            (
+                diagnostic.path.clone().unwrap_or_default(),
+                diagnostic.code.clone(),
+                diagnostic.message.clone(),
+            )
+        });
+        let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
-    let mut entries = discovery
-        .index
-        .entries
-        .iter()
-        .map(|entry| dashboard_entry_summary(root.as_ref(), entry, &diagnostics))
-        .collect::<Vec<_>>();
+        let spaces = discovery
+            .index
+            .spaces
+            .iter()
+            .map(|space| DashboardSpace {
+                id: space.id.clone(),
+                title: space.title.clone(),
+                display: space.display.clone(),
+                include: space.include.clone(),
+                include_patterns: space.include_patterns.clone(),
+                entry_count: space.entry_count,
+                status: status_for_paths(
+                    &diagnostics,
+                    discovery
+                        .index
+                        .entries
+                        .iter()
+                        .filter(|entry| entry.space == space.id)
+                        .map(|entry| entry.path.as_str()),
+                ),
+            })
+            .collect::<Vec<_>>();
 
-    let config_paths = workspace_config_paths(&workspace);
-    let workspace_files = collect_workspace_files(&workspace);
-    let taxonomies = dashboard_taxonomies(
-        root.as_ref(),
-        &workspace.config,
-        &workspace.model,
-        &workspace_files,
-        &config_paths,
-        &entries,
-        &diagnostics,
-    );
-    for entry in taxonomies
-        .iter()
-        .flat_map(|taxonomy| taxonomy.terms.iter())
-        .flat_map(|term| term.entries.iter())
-    {
-        if !entries.iter().any(|existing| existing.path == entry.path) {
-            entries.push(entry.clone());
+        let mut entries = discovery
+            .index
+            .entries
+            .iter()
+            .map(|entry| dashboard_entry_summary(root, entry, &diagnostics))
+            .collect::<Vec<_>>();
+
+        let config_paths = workspace_config_paths(workspace);
+        let workspace_files = self.route_files();
+        let taxonomies = dashboard_taxonomies(
+            root,
+            &workspace.config,
+            &workspace.model,
+            &workspace_files,
+            &config_paths,
+            &entries,
+            &diagnostics,
+        );
+        for entry in taxonomies
+            .iter()
+            .flat_map(|taxonomy| taxonomy.terms.iter())
+            .flat_map(|term| term.entries.iter())
+        {
+            if !entries.iter().any(|existing| existing.path == entry.path) {
+                entries.push(entry.clone());
+            }
         }
+        entries.sort_by(|left, right| left.path.cmp(&right.path));
+
+        let views = dashboard_view_summaries(&discovery.index.views, &workspace.model);
+        let source = self.read_route_source(FORMA_CONFIG_PATH)?;
+        let home = workspace_home_document(workspace, self.runtime(), source);
+
+        Ok(WorkspaceDashboardResult {
+            schema_version: 1,
+            route_projection_version: 1,
+            canonical_language: workspace.config.workspace.canonical_language.clone(),
+            directories: crate::routes::route_directories(&discovery.index.entries),
+            operation: "workspace.dashboard".to_string(),
+            status: summary.status(),
+            workspace: WorkspaceSummary {
+                root: ".".to_string(),
+                name: workspace.config.workspace.name.clone(),
+                logo: workspace_logo_summary(root, &workspace.config.workspace),
+            },
+            home,
+            taxonomies,
+            spaces,
+            entries,
+            views,
+            summary,
+            diagnostics,
+        })
     }
-    entries.sort_by(|left, right| left.path.cmp(&right.path));
-
-    let views = dashboard_view_summaries(&discovery.index.views, &workspace.model);
-    let home = workspace_home_document(&workspace, &runtime)?;
-
-    Ok(WorkspaceDashboardResult {
-        schema_version: 1,
-        operation: "workspace.dashboard".to_string(),
-        status: summary.status(),
-        workspace: WorkspaceSummary {
-            root: ".".to_string(),
-            name: workspace.config.workspace.name.clone(),
-            logo: workspace_logo_summary(root.as_ref(), &workspace.config.workspace),
-        },
-        home,
-        taxonomies,
-        spaces,
-        entries,
-        views,
-        summary,
-        diagnostics,
-    })
 }
 
 fn workspace_home_document(
     workspace: &FormaWorkspace,
     runtime: &DiscoveryRuntime,
-) -> Result<WorkspaceHomeDocument, OperationError> {
+    source: &str,
+) -> WorkspaceHomeDocument {
     let root = &workspace.root;
-    let source =
-        fs::read_to_string(root.join(FORMA_CONFIG_PATH)).map_err(|source| OperationError::Io {
-            path: FORMA_CONFIG_PATH.to_string(),
-            source,
-        })?;
-    let document = FormaMarkdownDocument::parse(&source);
+    let document = FormaMarkdownDocument::parse(source);
     let (title, omit_leading_title) = resolve_markdown_title(None, &document);
-    Ok(WorkspaceHomeDocument {
+    WorkspaceHomeDocument {
         path: FORMA_CONFIG_PATH.to_string(),
+        route_path: "/".to_string(),
         title,
         omit_leading_title,
         updated_at: file_modified_at(root, FORMA_CONFIG_PATH),
@@ -1559,7 +1578,7 @@ fn workspace_home_document(
             runtime,
         ),
         headings: render_home_headings(&document),
-    })
+    }
 }
 
 pub fn workspace_explorer(
@@ -1769,11 +1788,19 @@ fn dashboard_view_summaries(
     views: &[crate::index::IndexView],
     model: &ResolvedWorkspaceModel,
 ) -> Vec<DashboardViewSummary> {
+    let allocation = crate::routes::allocate_view_routes(views);
     views
         .iter()
         .map(|view| DashboardViewSummary {
             id: view.id.clone(),
             path: view.path.clone(),
+            config_id: view.id.clone(),
+            source_path: view.path.clone(),
+            public_id: allocation.ids.get(&view.id).cloned().unwrap_or_default(),
+            route_path: allocation
+                .ids
+                .get(&view.id)
+                .map_or_else(String::new, |id| crate::routes::view_route_path(id)),
             kind: view.mode.clone(),
             title: view.title.clone(),
             display: view.display.clone(),
@@ -1820,6 +1847,7 @@ fn dashboard_taxonomies(
                     );
                     DashboardTaxonomyTerm {
                         id: term_id.clone(),
+                        route_path: crate::routes::taxonomy_term_route_path(taxonomy_id, term_id),
                         title: term.title.clone(),
                         display: term.display.clone(),
                         description: term.description.clone(),
@@ -1835,6 +1863,7 @@ fn dashboard_taxonomies(
             terms.sort_by_key(taxonomy_term_sort_key);
             DashboardTaxonomy {
                 id: taxonomy_id.clone(),
+                route_path: crate::routes::taxonomy_route_path(taxonomy_id),
                 title: config_value_string(value, "title").unwrap_or_else(|| taxonomy_id.clone()),
                 mode: config_value_string(value, "mode").unwrap_or_else(|| "multiple".to_string()),
                 display: config_value_display(value),
@@ -2055,21 +2084,25 @@ pub fn list_file_references(
     root: impl AsRef<Path>,
     path: &str,
 ) -> Result<FileReferencesResult, OperationError> {
+    WorkspaceSnapshot::load(root)?.file_references(path)
+}
+
+fn snapshot_file_references(
+    snapshot: &WorkspaceSnapshot,
+    path: &str,
+) -> Result<FileReferencesResult, OperationError> {
     let path = normalize_entry_path(path)?;
-    let workspace = load_workspace(root.as_ref())?;
-    let discovery = discover_loaded_workspace(&workspace);
-    let index_entry = discovery
-        .index
-        .entries
-        .iter()
-        .find(|entry| entry.path == path)
+    let workspace = snapshot.workspace();
+    let discovery = snapshot.discovery();
+    let index_entry = snapshot
+        .route_entry(&path)
         .ok_or(OperationError::EntryNotFound)?;
-    let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
+    let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics.clone(), &path);
     diagnostics.sort_by_key(diagnostic_sort_key);
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
     let outgoing = unique_references_by_target(index_entry.refs.iter())
         .into_iter()
-        .map(|reference| reference_edge(index_entry, reference, &discovery.index.entries))
+        .map(|reference| reference_edge(&index_entry, reference, &discovery.index.entries))
         .collect::<Vec<_>>();
     let mut backlinks = discovery
         .index
@@ -2095,7 +2128,7 @@ pub fn list_file_references(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
             logo: None,
         },
         file: ReferenceFile {
@@ -2143,11 +2176,112 @@ impl WorkspaceSnapshot {
             control_paths,
             view_paths,
             runtime,
+            route_files: None,
         })
+    }
+
+    pub fn load_for_routes(root: impl AsRef<Path>) -> Result<Self, OperationError> {
+        let mut snapshot = Self::load(root)?;
+        snapshot.route_files = Some(Arc::new(collect_workspace_files_from_candidates(
+            &snapshot.workspace,
+            snapshot.runtime.content_candidates.iter().cloned(),
+        )));
+        Ok(snapshot)
+    }
+
+    pub(crate) fn route_files(&self) -> std::borrow::Cow<'_, [WorkspaceFile]> {
+        match &self.route_files {
+            Some(files) => std::borrow::Cow::Borrowed(files),
+            None => std::borrow::Cow::Owned(collect_workspace_files_from_candidates(
+                &self.workspace,
+                self.runtime.content_candidates.iter().cloned(),
+            )),
+        }
     }
 
     pub fn root(&self) -> &Path {
         &self.workspace.root
+    }
+
+    pub fn read_route_source(&self, path: &str) -> Result<&str, OperationError> {
+        self.runtime
+            .entry_sources
+            .get(path)
+            .or_else(|| self.workspace.config_text.get(path))
+            .map(String::as_str)
+            .ok_or(OperationError::EntryNotFound)
+    }
+
+    /// Validate captured source bytes and candidate membership before publishing a route snapshot.
+    pub fn route_sources_match_workspace(&self) -> bool {
+        let mut diagnostics = Vec::new();
+        let config_candidates = self
+            .scan_plan
+            .config_patterns()
+            .route_markdown_files(&mut diagnostics);
+        let content_candidates = self
+            .scan_plan
+            .content_patterns()
+            .route_files(&mut diagnostics);
+        if !diagnostics.is_empty()
+            || config_candidates != *self.workspace.config_candidates
+            || content_candidates != *self.runtime.content_candidates
+        {
+            return false;
+        }
+        let Ok(boundary) = WorkspaceBoundary::new(self.root()) else {
+            return false;
+        };
+        self.workspace
+            .config_text
+            .iter()
+            .chain(self.runtime.entry_sources.iter())
+            .all(|(path, source)| {
+                WorkspacePath::parse_config(path)
+                    .ok()
+                    .and_then(|path| boundary.resolve_existing_file(&path).ok())
+                    .and_then(|path| fs::read(path).ok())
+                    .is_some_and(|bytes| bytes == source.as_bytes())
+            })
+    }
+
+    pub(crate) fn route_entry(&self, path: &str) -> Option<std::borrow::Cow<'_, IndexEntry>> {
+        for entry in &self.discovery.index.entries {
+            if entry.path == path {
+                return Some(std::borrow::Cow::Borrowed(entry));
+            }
+            if let Some(variant) = entry.variants.iter().find(|variant| variant.path == path) {
+                return Some(std::borrow::Cow::Owned(IndexEntry {
+                    path: variant.path.clone(),
+                    space: entry.space.clone(),
+                    taxonomies: entry.taxonomies.clone(),
+                    kind: variant.kind.clone(),
+                    title: variant.title.clone(),
+                    omit_leading_title: variant.omit_leading_title,
+                    summary: variant.summary.clone(),
+                    variants: Vec::new(),
+                    refs: self
+                        .runtime
+                        .variant_references
+                        .get(path)
+                        .cloned()
+                        .unwrap_or_default(),
+                }));
+            }
+        }
+        None
+    }
+
+    pub fn file_references(&self, path: &str) -> Result<FileReferencesResult, OperationError> {
+        snapshot_file_references(self, path)
+    }
+
+    pub fn health(&self) -> WorkspaceHealthResult {
+        build_workspace_health_result(
+            &self.workspace.config.workspace.name,
+            &self.discovery.index.entries,
+            &self.discovery.diagnostics,
+        )
     }
 
     pub fn workspace(&self) -> &FormaWorkspace {
@@ -2906,9 +3040,9 @@ fn resolve_reference_in_snapshot(
         let path = target_text
             .split_once('?')
             .map_or(target_text.as_str(), |(path, _)| path);
-        crate::routes::decode_public_path_once(path)
+        crate::routes::decode_markdown_uri_path(path)
     } else {
-        target_text
+        Some(target_text)
     };
     let fragment = explicit_fragment.or(inline_fragment).map(|fragment| {
         if markdown_uri {
@@ -2926,23 +3060,23 @@ fn resolve_reference_in_snapshot(
     });
     let fragment = fragment.map(|value| value.trim_start_matches('^').to_string());
     let mut diagnostics = Vec::new();
-    let semantic_matches = if intent == ReferenceIntent::Reference && target_space.is_none() {
-        source_entry
-            .map(|entry| semantic_reference_candidates(entry, &target_text))
-            .unwrap_or_default()
-    } else {
-        Vec::new()
-    };
-    let matches = if semantic_matches.is_empty() {
+    let matches = target_text.as_deref().map_or_else(Vec::new, |target_text| {
+        if intent == ReferenceIntent::Reference
+            && target_space.is_none()
+            && let Some(entry) = source_entry
+        {
+            let semantic_matches = semantic_reference_candidates(entry, target_text);
+            if !semantic_matches.is_empty() {
+                return semantic_matches;
+            }
+        }
         resolve_reference_candidates(
             &snapshot.discovery.index.entries,
             &source_path,
-            &target_text,
+            target_text,
             target_space,
         )
-    } else {
-        semantic_matches
-    };
+    });
     let mut candidates = if matches.len() > 1 {
         matches
             .iter()
@@ -3846,18 +3980,24 @@ fn inspect_config_value(
 }
 
 fn collect_workspace_files(workspace: &FormaWorkspace) -> Vec<WorkspaceFile> {
-    let root = &workspace.root;
-    let mut files = BTreeMap::<String, WorkspaceFile>::new();
-    if let Ok(paths) = workspace
+    let candidates = workspace
         .model
         .scan_plan()
         .content_patterns()
         .matching_files()
-    {
-        for path in paths {
-            if let Some(file) = workspace_file_from_path(root, path) {
-                files.insert(file.path.clone(), file);
-            }
+        .unwrap_or_default();
+    collect_workspace_files_from_candidates(workspace, candidates)
+}
+
+fn collect_workspace_files_from_candidates(
+    workspace: &FormaWorkspace,
+    candidates: impl IntoIterator<Item = PathBuf>,
+) -> Vec<WorkspaceFile> {
+    let root = &workspace.root;
+    let mut files = BTreeMap::<String, WorkspaceFile>::new();
+    for path in candidates {
+        if let Some(file) = workspace_file_from_path(root, path) {
+            files.insert(file.path.clone(), file);
         }
     }
 
@@ -5595,6 +5735,34 @@ Exclude this reference.
     }
 
     #[test]
+    fn route_snapshot_checks_captured_candidate_membership_and_source_bytes() {
+        let root = fixture_root("route-snapshot-source-inventory");
+        copy_starter_workspace(&root);
+        let snapshot = WorkspaceSnapshot::load_for_routes(&root).unwrap();
+        assert!(snapshot.route_sources_match_workspace());
+
+        let content_path = root.join("notes/added.md");
+        fs::write(&content_path, "# Before\n").unwrap();
+        assert!(!snapshot.route_sources_match_workspace());
+        let snapshot = WorkspaceSnapshot::load_for_routes(&root).unwrap();
+        assert!(snapshot.route_sources_match_workspace());
+
+        let config_path = root.join(".forma/views/added.md");
+        fs::write(&config_path, "# Imported\n").unwrap();
+        assert!(!snapshot.route_sources_match_workspace());
+        let snapshot = WorkspaceSnapshot::load_for_routes(&root).unwrap();
+        assert!(snapshot.route_sources_match_workspace());
+        fs::write(&content_path, "# Edited\n").unwrap();
+        assert!(!snapshot.route_sources_match_workspace());
+        assert_eq!(
+            snapshot.read_route_source("notes/added.md").unwrap(),
+            "# Before\n"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn workspace_dashboard_uses_path_derived_entry_ids() {
         let root = fixture_root("dashboard-entry-ids");
         fs::create_dir_all(&root).unwrap();
@@ -5825,9 +5993,9 @@ imports:
             .find(|entry| entry.path == "notes/nested/index.md")
             .unwrap();
 
-        assert_eq!(topic.route_path, "/notes/topic");
+        assert_eq!(topic.route_path, "/notes/topic.md");
         assert_eq!(topic.raw_path, "/-/raw/notes/topic.md");
-        assert_eq!(nested.route_path, "/notes/nested");
+        assert_eq!(nested.route_path, "/notes/nested/index.md");
         assert_eq!(nested.raw_path, "/-/raw/notes/nested/index.md");
         let encoded = result
             .entries
@@ -5836,7 +6004,7 @@ imports:
             .unwrap();
         assert_eq!(
             encoded.route_path,
-            "/notes/space%20%2520%20%23%E4%B8%AD%E6%96%87%21"
+            "/notes/space%20%2520%20%23%E4%B8%AD%E6%96%87%21.md"
         );
         assert_eq!(
             encoded.raw_path,
@@ -5887,7 +6055,7 @@ imports:
         assert_eq!(topic.variants.len(), 1);
         assert_eq!(topic.variants[0].language, "zh-Hans");
         assert_eq!(topic.variants[0].path, "notes/topic.zh-hans.md");
-        assert_eq!(topic.variants[0].route_path, "/notes/topic.zh-hans");
+        assert_eq!(topic.variants[0].route_path, "/notes/topic.zh-hans.md");
         assert_eq!(topic.variants[0].raw_path, "/-/raw/notes/topic.zh-hans.md");
         assert_eq!(topic.variants[0].title.as_deref(), Some("Topic ZH"));
         assert_eq!(
@@ -6868,6 +7036,26 @@ conventions:
     }
 
     #[test]
+    fn public_workspace_paths_fail_closed_when_import_inventory_is_incomplete() {
+        let root = fixture_root("public-path-invalid-import");
+        copy_starter_workspace(&root);
+        let config_path = root.join(".forma.md");
+        let original = fs::read_to_string(&config_path).unwrap();
+        assert!(original.contains("imports:\n"));
+        fs::write(
+            &config_path,
+            original.replace("imports:\n", "imports:\n  - 'profiles/[invalid.md'\n"),
+        )
+        .unwrap();
+        assert!(super::config_source_paths(&root).is_err());
+        assert!(!is_public_workspace_path_allowed(&root, "notes/public.md"));
+
+        fs::write(config_path, original).unwrap();
+        assert!(is_public_workspace_path_allowed(&root, "notes/public.md"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn file_references_returns_outgoing_references_and_backlinks() {
         let root = fixture_root("references-list");
         fs::create_dir_all(&root).unwrap();
@@ -7078,7 +7266,7 @@ conventions:
             .iter()
             .find(|entry| entry.path == "notes/source.md")
             .unwrap();
-        assert!(entry.markdown.contains("[Root](/preview/notes/target)"));
+        assert!(entry.markdown.contains("[Root](/preview/notes/target.md)"));
         assert!(
             entry
                 .markdown

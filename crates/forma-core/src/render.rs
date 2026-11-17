@@ -21,6 +21,7 @@ use crate::markdown::{
     rendered_markdown_headings,
 };
 use crate::model::ResolvedWorkspaceModel;
+use crate::operations::WorkspaceSnapshot;
 use crate::operations::{
     OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
     normalize_entry_path,
@@ -766,26 +767,26 @@ pub fn render_file(
     if format == "source" {
         return render_source_file(root, path);
     }
+    render_snapshot_file(&WorkspaceSnapshot::load(root)?, path, format)
+}
+
+pub fn render_snapshot_file(
+    snapshot: &WorkspaceSnapshot,
+    path: &str,
+    format: &str,
+) -> Result<FileRenderResult, OperationError> {
     if format != "html" && format != "markdown" {
         return Err(OperationError::InvalidInput("format".to_string()));
     }
 
     let path = normalize_entry_path(path)?;
-    let workspace = load_workspace(root.as_ref())?;
-    let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
-    let index_entry = discovery
-        .index
-        .entries
-        .iter()
-        .find(|entry| entry.path == path)
+    let workspace = snapshot.workspace();
+    let runtime = snapshot.runtime();
+    let index_entry = snapshot
+        .route_entry(&path)
         .ok_or(OperationError::EntryNotFound)?;
-    let source =
-        fs::read_to_string(root.as_ref().join(&path)).map_err(|source| OperationError::Io {
-            path: path.clone(),
-            source,
-        })?;
-    let document = FormaMarkdownDocument::parse(&source);
-    let markdown = markdown_with_reference_fallbacks(&workspace, &document, &path, &runtime);
+    let document = FormaMarkdownDocument::parse(snapshot.read_route_source(&path)?);
+    let markdown = markdown_with_reference_fallbacks(workspace, &document, &path, runtime);
     let (markdown, html) = if format == "markdown" {
         (Some(markdown), None)
     } else {
@@ -798,7 +799,7 @@ pub fn render_file(
         }) {
             let targets = HtmlWikilinkTargets::new(&markdown, &html);
             let resolved =
-                lower_reader_references(&workspace, &document, &path, &runtime, Some(&targets));
+                lower_reader_references(workspace, &document, &path, runtime, Some(&targets));
             if resolved == markdown {
                 html
             } else {
@@ -809,7 +810,8 @@ pub fn render_file(
         };
         (None, Some(html))
     };
-    let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
+    let mut diagnostics =
+        diagnostics_for_workspace_path(snapshot.discovery().diagnostics.clone(), &path);
     diagnostics.extend(
         document
             .diagnostics
@@ -826,7 +828,7 @@ pub fn render_file(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
             logo: None,
         },
         file: RenderedFile {
@@ -950,6 +952,20 @@ pub(crate) fn render_indexed_view_from_loaded(
     render_view_from_loaded(workspace, discovery, runtime, view, params, false)
 }
 
+pub fn render_snapshot_view(
+    snapshot: &WorkspaceSnapshot,
+    view: &str,
+    params: BTreeMap<String, Value>,
+) -> Result<ViewRenderResult, OperationError> {
+    render_indexed_view_from_loaded(
+        snapshot.workspace(),
+        snapshot.discovery(),
+        snapshot.runtime(),
+        view,
+        params,
+    )
+}
+
 fn render_view_from_loaded(
     workspace: &FormaWorkspace,
     discovery: &Discovery,
@@ -961,9 +977,10 @@ fn render_view_from_loaded(
     let root = &workspace.root;
     let index_view = discovery.index.views.iter().find(|candidate| {
         candidate.id == view
-            || candidate.path == view
-            || candidate.path.strip_suffix(".md") == Some(view)
-            || candidate.path.strip_suffix(".mdx") == Some(view)
+            || (allow_unindexed
+                && (candidate.path == view
+                    || candidate.path.strip_suffix(".md") == Some(view)
+                    || candidate.path.strip_suffix(".mdx") == Some(view)))
     });
     let view_path = if let Some(index_view) = index_view {
         index_view.path.clone()
@@ -974,11 +991,16 @@ fn render_view_from_loaded(
     };
 
     let mut diagnostics = discovery.diagnostics.clone();
-    let source =
-        fs::read_to_string(root.join(&view_path)).map_err(|source| OperationError::Io {
-            path: view_path.clone(),
-            source,
-        })?;
+    let source = match workspace.config_text.get(&view_path) {
+        Some(source) => std::borrow::Cow::Borrowed(source.as_str()),
+        None if allow_unindexed => std::borrow::Cow::Owned(
+            fs::read_to_string(root.join(&view_path)).map_err(|source| OperationError::Io {
+                path: view_path.clone(),
+                source,
+            })?,
+        ),
+        None => return Err(OperationError::ViewNotFound(view.to_string())),
+    };
     let document = FormaMarkdownDocument::parse(&source);
     diagnostics.extend(
         document
@@ -989,15 +1011,10 @@ fn render_view_from_loaded(
     );
 
     let view_definition = parse_view_definition(&document, &view_path, &mut diagnostics);
-    let body_line_offset = source
-        .get(..source.len().saturating_sub(document.body.len()))
-        .map_or(0, |prefix| {
-            prefix.bytes().filter(|byte| *byte == b'\n').count()
-        });
     let view_document = view_render_document(
+        &source,
         &document.body,
         markdown_with_reference_fallbacks(workspace, &document, &view_path, runtime),
-        body_line_offset,
     );
     let has_legacy_mount = document.references.iter().any(|reference| {
         reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
@@ -1040,7 +1057,7 @@ fn render_view_from_loaded(
     let render = view_definition.as_ref().and_then(|definition| {
         if definition_is_valid {
             render_view_definition(
-                root,
+                runtime,
                 definition,
                 &workspace.config,
                 &workspace.model,
@@ -1086,12 +1103,17 @@ fn render_view_from_loaded(
     })
 }
 
-fn view_render_document(
+pub(crate) fn view_render_document(
+    source: &str,
     source_body: &str,
     body_source: String,
-    body_line_offset: usize,
 ) -> ViewRenderDocument {
     const MARKER: &str = "<!-- forma:content -->";
+    let body_line_offset = source
+        .get(..source.len().saturating_sub(source_body.len()))
+        .map_or(0, |prefix| {
+            prefix.bytes().filter(|byte| *byte == b'\n').count()
+        });
     // Preserve mount diagnostics even for occurrence(s) inside a wiki label or
     // target. Ordinary standalone mounts always survive wikilink lowering.
     let body_source = if body_source.matches(MARKER).count() == source_body.matches(MARKER).count()
@@ -1596,7 +1618,7 @@ fn workspace_source() -> ViewSource {
 }
 
 fn render_view_definition(
-    root: &Path,
+    runtime: &DiscoveryRuntime,
     definition: &ViewDefinition,
     config: &WorkspaceConfig,
     model: &ResolvedWorkspaceModel,
@@ -1609,7 +1631,7 @@ fn render_view_definition(
     }
     let mut items = entries
         .iter()
-        .filter_map(|entry| RenderCandidate::from_index_entry(root, entry))
+        .filter_map(|entry| RenderCandidate::from_index_entry(runtime, entry))
         .filter(|item| view_candidate_matches(item, definition))
         .collect::<Vec<_>>();
     if matches!(definition.mode.as_str(), "calendar" | "gantt") {
@@ -2138,8 +2160,9 @@ fn field_label(field: &str) -> String {
 }
 
 impl RenderCandidate {
-    fn from_index_entry(root: &Path, entry: &IndexEntry) -> Option<Self> {
-        let metadata = read_entry_metadata(root, &entry.path)?;
+    fn from_index_entry(runtime: &DiscoveryRuntime, entry: &IndexEntry) -> Option<Self> {
+        let source = runtime.entry_sources.get(&entry.path)?;
+        let metadata = FormaMarkdownDocument::parse(source).frontmatter.value?;
         Some(Self {
             path: entry.path.clone(),
             space: entry.space.clone(),
@@ -2226,11 +2249,6 @@ impl RenderCandidate {
             }
         }
     }
-}
-
-fn read_entry_metadata(root: &Path, path: &str) -> Option<Value> {
-    let source = fs::read_to_string(root.join(path)).ok()?;
-    FormaMarkdownDocument::parse(&source).frontmatter.value
 }
 
 fn apply_sort(items: &mut [RenderCandidate], sort: &[SortDefinition]) {

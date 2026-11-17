@@ -11,7 +11,7 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use axum::Router;
 use axum::body::Bytes;
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{OriginalUri, Path as AxumPath, State};
 use axum::http::header::{
     ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
     CONTENT_TYPE, HeaderName, ORIGIN, VARY,
@@ -22,7 +22,7 @@ use axum::routing::{get, post};
 use clap::{Parser, Subcommand, ValueEnum};
 use forma_core::routes::{
     BROWSE_ROUTE_PATH, HEALTH_ROUTE_PATH, RAW_ROUTE_PREFIX, RPC_ROUTE_PATH, SYSTEM_ROUTE_SEGMENT,
-    VIEWS_ROUTE_PATH,
+    VIEWS_ROUTE_PATH, canonical_route_path,
 };
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreatePreviewRequest, CreateRequest,
@@ -37,6 +37,7 @@ use serde_json::Value as JsonValue;
 use serde_yml::Value;
 
 mod modeling;
+mod route_rpc;
 mod self_update;
 mod site;
 mod static_html;
@@ -106,6 +107,7 @@ struct RpcCacheValidation {
 struct RpcCacheRuntime {
     responses: Mutex<RpcResponseCache>,
     validation: Mutex<RpcCacheValidation>,
+    routes: route_rpc::RouteRpc,
 }
 
 #[derive(Debug)]
@@ -229,6 +231,7 @@ impl RpcCacheRuntime {
     }
 
     fn invalidate(&self) {
+        self.routes.invalidate();
         self.invalidate_responses();
         if let Ok(mut validation) = self.validation.lock() {
             validation.invalidate();
@@ -852,6 +855,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         dispatcher.dispatch(OperationRequest::ViewRender(ViewRenderRequest {
                             view: view.expect("Clap requires VIEW unless --all is set"),
                             params: Default::default(),
+                            expected_route_generation: None,
                         }))?;
                     print_result(&result, json, "view render")?;
                     exit_if_failed(&result);
@@ -1122,7 +1126,20 @@ fn print_site_build_result(result: &site::SiteBuildResult, json: bool) -> io::Re
     Ok(())
 }
 
-fn print_site_build_failure(error: &str, json: bool) -> io::Result<()> {
+fn print_site_build_failure(error: &site::SiteBuildError, json: bool) -> io::Result<()> {
+    let diagnostics = if error.diagnostics.is_empty() {
+        vec![serde_json::json!({
+            "severity": "error",
+            "code": "site.buildFailed",
+            "message": error.message,
+        })]
+    } else {
+        error
+            .diagnostics
+            .iter()
+            .map(|diagnostic| serde_json::json!(diagnostic))
+            .collect()
+    };
     if json {
         stdout_println!(
             "{}",
@@ -1130,16 +1147,21 @@ fn print_site_build_failure(error: &str, json: bool) -> io::Result<()> {
                 "schemaVersion": 1,
                 "operation": "site.build",
                 "status": "failed",
-                "summary": { "errors": 1, "warnings": 0, "infos": 0 },
-                "diagnostics": [{
-                    "severity": "error",
-                    "code": "site.buildFailed",
-                    "message": error,
-                }],
+                "summary": { "errors": diagnostics.len(), "warnings": 0, "infos": 0 },
+                "diagnostics": diagnostics,
             })
         )?;
     } else {
-        eprintln!("error site.buildFailed: {error}");
+        if error.diagnostics.is_empty() {
+            eprintln!("error site.buildFailed: {error}");
+        } else {
+            for diagnostic in &error.diagnostics {
+                eprintln!("error {}: {}", diagnostic.code, diagnostic.message);
+                if let Some(actual) = &diagnostic.actual {
+                    eprintln!("  {actual}");
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -1419,20 +1441,20 @@ pub async fn serve(
     dispatcher: Dispatcher,
     workspace_root: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let state = Arc::new(RpcCacheRuntime::default());
+    state.routes.preflight(&workspace_root)?;
+    let router = workspace_router(
+        webapp_dir,
+        cors_origins,
+        dispatcher,
+        workspace_root,
+        root_path,
+        state,
+    )?;
     let listener = tokio::net::TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
     stdout_println!("forma serve listening on http://{local_addr}")?;
-    axum::serve(
-        listener,
-        rpc_router_with_dispatcher_and_workspace(
-            webapp_dir,
-            cors_origins,
-            dispatcher,
-            workspace_root,
-            root_path,
-        )?,
-    )
-    .await?;
+    axum::serve(listener, router).await?;
     Ok(())
 }
 
@@ -1483,6 +1505,24 @@ fn rpc_router_with_dispatcher_and_workspace(
     workspace_root: PathBuf,
     root_path: String,
 ) -> Result<Router, Box<dyn std::error::Error>> {
+    workspace_router(
+        webapp_dir,
+        cors_origins,
+        dispatcher,
+        workspace_root,
+        root_path,
+        Arc::new(RpcCacheRuntime::default()),
+    )
+}
+
+fn workspace_router(
+    webapp_dir: Option<PathBuf>,
+    cors_origins: Vec<String>,
+    dispatcher: Dispatcher,
+    workspace_root: PathBuf,
+    root_path: String,
+    rpc_cache: Arc<RpcCacheRuntime>,
+) -> Result<Router, Box<dyn std::error::Error>> {
     if let Some(webapp_dir) = &webapp_dir
         && !webapp_dir.is_dir()
     {
@@ -1497,7 +1537,7 @@ fn rpc_router_with_dispatcher_and_workspace(
 
     let state = AppState {
         dispatcher,
-        rpc_cache: Arc::new(RpcCacheRuntime::default()),
+        rpc_cache,
         workspace_root,
         webapp_dir,
         cors_origins,
@@ -1591,16 +1631,38 @@ async fn rpc_handler(State(state): State<AppState>, headers: HeaderMap, body: By
     let body = body.to_vec();
     let result = tokio::task::spawn_blocking(move || {
         let cacheable_request = cacheable_rpc_request(&body);
-        let (cache_lease, cached_response) = cacheable_request
-            .as_ref()
-            .and_then(|request| rpc_cache.start_request(&workspace_root, request))
-            .map(|(lease, response)| (Some(lease), response))
-            .unwrap_or((None, None));
-        if let Some(response) = cached_response {
-            return response;
+        let mut handled_route = false;
+        let mut cached_response = None;
+        let mut cache_lease = None;
+        let response = dispatcher.handle_json_rpc_using(&body, |request| {
+            if let Some(operation) = request.route_read() {
+                handled_route = true;
+                return rpc_cache.routes.dispatch(
+                    &workspace_root,
+                    request,
+                    operation,
+                    cacheable_request.as_ref().map(|request| &request.key),
+                );
+            }
+            if let Some((lease, cached)) = cacheable_request
+                .as_ref()
+                .and_then(|request| rpc_cache.start_request(&workspace_root, request))
+            {
+                cache_lease = Some(lease);
+                if let Some(cached) = cached {
+                    cached_response = Some(cached);
+                    // Return a placeholder that is replaced by the cached JSON-RPC response below.
+                    return Err(forma_rpc::OperationError::Failed);
+                }
+            }
+            dispatcher.dispatch(request)
+        });
+        if let Some(cached) = cached_response {
+            return cached;
         }
-
-        let response = dispatcher.handle_json_rpc(&body);
+        if handled_route {
+            return response.to_string();
+        }
         complete_rpc_request(&rpc_cache, &body, cacheable_request, cache_lease, response)
     })
     .await
@@ -1685,10 +1747,27 @@ async fn index_handler(State(state): State<AppState>) -> Response {
 
 async fn asset_handler(
     AxumPath(path): AxumPath<String>,
+    OriginalUri(uri): OriginalUri,
     State(state): State<AppState>,
 ) -> Response {
-    if path == RPC_ROUTE_PATH.trim_start_matches('/') {
+    let raw = uri.path();
+    let mounted = if state.root_path == "/" {
+        raw
+    } else {
+        raw.strip_prefix(&state.root_path).unwrap_or_default()
+    };
+    let Some(route) = canonical_route_path(mounted) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if route == RPC_ROUTE_PATH {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
+    }
+    if [BROWSE_ROUTE_PATH, VIEWS_ROUTE_PATH].iter().any(|prefix| {
+        route
+            .strip_prefix(prefix)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    }) {
+        return index_handler(State(state)).await;
     }
     webapp_asset_response(&path, state.webapp_dir.as_deref(), state.root_path.as_str())
 }
@@ -1894,7 +1973,7 @@ fn should_serve_spa_index(path: &str) -> bool {
         return true;
     };
     let system = system.trim_start_matches('/');
-    [BROWSE_ROUTE_PATH, VIEWS_ROUTE_PATH, HEALTH_ROUTE_PATH]
+    [VIEWS_ROUTE_PATH, HEALTH_ROUTE_PATH]
         .iter()
         .map(|route| route.trim_start_matches("/-/"))
         .any(|page| system.is_empty() || system == page || system.starts_with(&format!("{page}/")))
@@ -2059,8 +2138,8 @@ mod tests {
             "assets/app.js",
             "-",
             "-/",
-            "-/browse",
-            "-/browse/areas/design",
+            "~",
+            "~/areas/design",
             "-/views/board",
             "-/health",
         ] {
@@ -2076,6 +2155,7 @@ mod tests {
             "-/forma-icon.svg",
             "-/rpc",
             "-/raw/notes/a.png",
+            "-/browse/areas/design",
             "-/healthy",
         ] {
             assert!(
@@ -2083,6 +2163,40 @@ mod tests {
                 "expected reserved route: {path}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn logical_routes_are_validated_before_external_asset_resolution() {
+        let root = fixture_root("webapp-logical-paths");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("index.html"),
+            "<html><head></head><body>Reader shell</body></html>",
+        )
+        .unwrap();
+        for prefix in ["", "/preview"] {
+            let router =
+                rpc_router_with_options_and_root_path(Some(root.clone()), Vec::new(), prefix)
+                    .unwrap();
+            for (path, status) in [
+                ("/~/topics/team%2F..%2Funit", StatusCode::OK),
+                ("/~/topics/literal%252F", StatusCode::OK),
+                ("/notes%2Fintro.md", StatusCode::NOT_FOUND),
+                ("/-/assets%2Fapp.js", StatusCode::NOT_FOUND),
+            ] {
+                let response = router
+                    .clone()
+                    .oneshot(
+                        Request::get(format!("{prefix}{path}"))
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), status, "{prefix}{path}");
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -2318,10 +2432,8 @@ mod tests {
         let first = response_json(first).await;
         assert_eq!(first["id"], "first");
         assert!(first.get("result").is_some());
-        assert_eq!(rpc_cache.responses.lock().unwrap().responses.len(), 1);
+        assert_eq!(rpc_cache.routes.cached_responses(&root), 1);
 
-        fs::remove_dir_all(&root).unwrap();
-        rpc_cache.validation.lock().unwrap().last_validated = Some(Instant::now());
         let second = rpc_handler(
             axum::extract::State(state),
             HeaderMap::new(),
@@ -2332,7 +2444,9 @@ mod tests {
         .await;
         let second = response_json(second).await;
         assert_eq!(second["id"], "second");
-        assert!(second.get("result").is_some());
+        assert_eq!(second["result"], first["result"]);
+        assert_eq!(rpc_cache.routes.cached_responses(&root), 1);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
@@ -2366,15 +2480,24 @@ mod tests {
             first["result"]["workspace"]["name"],
             "Choral Forma Getting Started Workspace"
         );
-        let generation = rpc_cache.responses.lock().unwrap().generation;
+        let generation = first["result"]["routeGeneration"].clone();
 
         let config_path = root.join(".forma.md");
-        let config = fs::read_to_string(&config_path).unwrap().replace(
-            "Choral Forma Getting Started Workspace",
-            "Externally Updated Workspace",
+        let changed_name = "choral forma getting started workspace";
+        let config = fs::read_to_string(&config_path).unwrap();
+        let updated = config.replace("Choral Forma Getting Started Workspace", changed_name);
+        assert_eq!(updated.len(), config.len());
+        let modified_at = fs::metadata(&config_path).unwrap().modified().unwrap();
+        fs::write(&config_path, updated).unwrap();
+        fs::File::open(&config_path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(modified_at))
+            .unwrap();
+        assert_eq!(
+            fs::metadata(config_path).unwrap().modified().unwrap(),
+            modified_at
         );
-        fs::write(config_path, config).unwrap();
-        rpc_cache.validation.lock().unwrap().last_validated = None;
+        rpc_cache.routes.expire_validation();
 
         let second = response_json(
             rpc_handler(
@@ -2387,14 +2510,118 @@ mod tests {
             .await,
         )
         .await;
+        assert_eq!(second["result"]["workspace"]["name"], changed_name);
+        assert_ne!(second["result"]["routeGeneration"], generation);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn route_reads_block_all_generations_during_a_conflict_and_recover_in_place() {
+        let root = fixture_root("rpc-route-generations");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let space = root.join(".forma/spaces/notes.md");
+        let config = fs::read_to_string(&space).unwrap();
+        assert!(config.contains("include:\n"));
+        fs::write(
+            &space,
+            config.replace("include:\n", "include:\n  - \"-/**/*.md\"\n"),
+        )
+        .unwrap();
+        fs::write(root.join("notes/one.md"), "# One\n\nOld text.\n").unwrap();
+        let runtime = Arc::new(RpcCacheRuntime::default());
+        let state = AppState {
+            dispatcher: Dispatcher::new(&root),
+            rpc_cache: runtime.clone(),
+            workspace_root: root.clone(),
+            webapp_dir: None,
+            cors_origins: Vec::new(),
+            root_path: "/preview".into(),
+        };
+        let read = |method: &'static str, params| {
+            let state = state.clone();
+            async move {
+                response_json(
+                    rpc_handler(
+                        axum::extract::State(state),
+                        HeaderMap::new(),
+                        Bytes::from(
+                            json!({
+                                "jsonrpc": "2.0", "id": 1, "method": method, "params": params,
+                            })
+                            .to_string(),
+                        ),
+                    )
+                    .await,
+                )
+                .await
+            }
+        };
+        let first = read("workspace.dashboard", json!({})).await;
+        let first_generation = first["result"]["routeGeneration"].as_str().unwrap();
+        let params = json!({ "path": "notes/one.md", "expectedRouteGeneration": first_generation });
+        let detail = read("file.render", params.clone()).await;
+        assert_eq!(detail["result"]["status"], "passed");
+        assert_eq!(detail["result"]["routeGeneration"], first_generation);
+        assert_eq!(detail["result"]["file"]["path"], "notes/one.md");
+
+        fs::create_dir(root.join("-")).unwrap();
+        let conflict = root.join("-/conflict.md");
+        fs::write(&conflict, "# Conflict\n").unwrap();
+        let startup = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            super::serve(
+                "127.0.0.1:0".parse().unwrap(),
+                "/".into(),
+                None,
+                Vec::new(),
+                Dispatcher::new(&root),
+                root.clone(),
+            ),
+        )
+        .await
+        .expect("invalid workspace must exit before listening");
+        assert!(startup.unwrap_err().to_string().contains("route.reserved"));
+        runtime.routes.expire_validation();
+        let blocked = read("file.render", params.clone()).await;
+        assert_eq!(blocked["result"]["status"], "failed");
         assert_eq!(
-            second["result"]["workspace"]["name"],
-            "Externally Updated Workspace"
+            blocked["result"]["diagnostics"][0]["code"],
+            "route.unavailable"
         );
+        assert!(blocked["result"].get("file").is_none());
+        let health = read("workspace.health", json!({})).await;
         assert_eq!(
-            rpc_cache.responses.lock().unwrap().generation,
-            generation + 1
+            health["result"]["routeGeneration"],
+            blocked["result"]["routeGeneration"]
         );
+        assert!(
+            health["result"]["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["code"] == "route.reserved")
+        );
+
+        fs::remove_file(conflict).unwrap();
+        fs::write(root.join("notes/one.md"), "# One\n\nNew text.\n").unwrap();
+        runtime.routes.expire_validation();
+        let stale = read("file.render", params).await;
+        assert_eq!(
+            stale["result"]["diagnostics"][0]["code"],
+            "route.generationMismatch"
+        );
+        assert!(stale["result"].get("file").is_none());
+        let fresh = read("workspace.dashboard", json!({})).await;
+        let fresh_generation = &fresh["result"]["routeGeneration"];
+        assert_ne!(fresh_generation, first_generation);
+        let render = read(
+            "file.render",
+            json!({ "path": "notes/one.md", "expectedRouteGeneration": fresh_generation }),
+        )
+        .await;
+        assert_eq!(render["result"]["routeGeneration"], *fresh_generation);
+        assert!(render["result"].to_string().contains("New text."));
         fs::remove_dir_all(root).unwrap();
     }
 

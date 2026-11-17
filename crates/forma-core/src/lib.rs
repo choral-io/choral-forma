@@ -99,11 +99,11 @@ pub use schema::{
     validate_space_schemas,
 };
 pub use site::{
-    STATIC_SITE_SNAPSHOT_SCHEMA_VERSION, StaticSiteDiagnostic, StaticSiteEntry,
-    StaticSiteEntryVariant, StaticSiteResourceCandidate, StaticSiteRoute, StaticSiteRouteKind,
-    StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace, StaticSiteTaxonomy,
-    StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace, StaticSiteWorkspaceLogo,
-    build_static_site_snapshot, build_static_site_snapshot_with_root_path,
+    STATIC_SITE_SNAPSHOT_SCHEMA_VERSION, StaticSiteDiagnostic, StaticSiteDirectory,
+    StaticSiteEntry, StaticSiteEntryVariant, StaticSiteResourceCandidate, StaticSiteRoute,
+    StaticSiteRouteKind, StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace,
+    StaticSiteTaxonomy, StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace,
+    StaticSiteWorkspaceLogo, build_static_site_snapshot, build_static_site_snapshot_with_root_path,
 };
 pub use tools::{
     SchemaValidateResult, StructuredFormat, ToolDescriptor, ToolsDescribeResult, ToolsListResult,

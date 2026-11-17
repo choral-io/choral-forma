@@ -1,12 +1,12 @@
-import type { DashboardEntry } from "@/data/workspace-client";
-
-import { directoryOwners } from "./directory-owners";
+import { dashboardEntryByPath } from "@/data/static-route-target";
+import type { DashboardDirectory, DashboardEntry, WorkspaceDashboard } from "@/data/workspace-client";
 
 export interface DirectoryListingFolder {
     /** Documents anywhere below this folder. */
     documentCount: number;
     name: string;
     path: string;
+    routePath: string;
     /** Title of the document that stands for this folder, such as its `index` file. */
     title?: string;
 }
@@ -17,51 +17,32 @@ export interface DirectoryListing<T> {
     path: string;
 }
 
-/**
- * The folders and documents directly inside `path`, sorted as the Files tree sorts them.
- * The empty path is the workspace root. A path that holds no document is not a directory.
- * A document that stands for a folder titles that folder and is not listed on its own.
- */
-export function directoryListing<T extends Pick<DashboardEntry, "path" | "routePath" | "title">>(
-    entries: readonly T[],
-    path: string,
-): DirectoryListing<T> | undefined {
-    const owners = directoryOwners(entries);
-    const ownerPaths = new Set([...owners.values()].map((owner) => owner.path));
-    const directory = path.split("/").filter((segment) => segment.length > 0);
-    const folders = new Map<string, number>();
-    const documents: T[] = [];
-    let found = directory.length === 0;
-
-    for (const entry of entries) {
-        // The workspace entry document is the root's own page, Home, not one of the root's pages.
-        if (entry.routePath === "/") continue;
-        const segments = entry.path.split("/").filter((segment) => segment.length > 0);
-        if (!directory.every((segment, index) => segments[index] === segment)) continue;
-        const rest = segments.slice(directory.length);
-        if (rest.length === 0) continue;
-        found = true;
-        if (rest.length === 1) {
-            if (!ownerPaths.has(entry.path)) documents.push(entry);
-        } else folders.set(rest[0] ?? "", (folders.get(rest[0] ?? "") ?? 0) + 1);
-    }
-    if (!found) return undefined;
-
-    const prefix = directory.join("/");
+/** Use the public directory projection for navigation and include directly indexed variants. */
+export function projectedDirectoryListing(
+    dashboard: WorkspaceDashboard,
+    directory: DashboardDirectory,
+): DirectoryListing<DashboardEntry> {
+    const directoriesByPath = new Map(dashboard.directories.map((child) => [child.path, child]));
+    const directories = directory.childDirectoryPaths.flatMap((path): DirectoryListingFolder[] => {
+        const child = directoriesByPath.get(path);
+        if (!child) return [];
+        const title = child.introEntryPath ? dashboardEntryByPath(dashboard, child.introEntryPath)?.title : undefined;
+        const documentCount = dashboard.directories
+            .filter((candidate) => candidate.path === path || candidate.path.startsWith(`${path}/`))
+            .reduce((total, candidate) => total + candidate.entryPaths.length, 0);
+        return [{ path, routePath: child.routePath, name: path.split("/").at(-1) ?? path, title, documentCount }];
+    });
+    const entries = directory.entryPaths.flatMap((path) => {
+        const entry = dashboardEntryByPath(dashboard, path);
+        return entry ? [entry] : [];
+    });
     return {
-        directories: [...folders]
-            .map(([name, documentCount]): DirectoryListingFolder => {
-                const folderPath = prefix ? `${prefix}/${name}` : name;
-                const title = owners.get(folderPath)?.title;
-                return { documentCount, name, path: folderPath, ...(title ? { title } : {}) };
-            })
-            .sort(
-                (left, right) =>
-                    compareText(left.title ?? left.name, right.title ?? right.name) ||
-                    compareText(left.name, right.name),
-            ),
-        entries: documents.sort((left, right) => compareText(left.title, right.title)),
-        path: prefix,
+        path: directory.path,
+        directories: directories.sort(
+            (left, right) =>
+                compareText(left.title ?? left.name, right.title ?? right.name) || compareText(left.name, right.name),
+        ),
+        entries: entries.sort((left, right) => compareText(left.title, right.title)),
     };
 }
 

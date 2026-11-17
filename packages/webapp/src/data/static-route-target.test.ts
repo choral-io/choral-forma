@@ -10,7 +10,7 @@ import type { WorkspaceDashboard } from "./workspace-client";
 const canonical = {
     id: "notes--one",
     path: "notes/one.md",
-    routePath: "/notes/one",
+    routePath: "/notes/one.md",
     rawPath: "notes/one.md",
     title: "One",
     omitLeadingTitle: false,
@@ -23,7 +23,7 @@ const canonical = {
             id: "notes--one.zh-hans",
             language: "zh-Hans",
             path: "notes/one.zh-Hans.md",
-            routePath: "/notes/one.zh-Hans",
+            routePath: "/notes/one.zh-Hans.md",
             rawPath: "notes/one.zh-Hans.md",
             title: "一",
             omitLeadingTitle: true,
@@ -42,19 +42,17 @@ describe("resolveDashboardEntryTarget", () => {
     });
 
     it("matches canonical entry routes", () => {
-        expect(resolveDashboardEntryTarget(dashboard, "/notes/one")).toMatchObject({
-            entryId: "notes--one",
+        expect(resolveDashboardEntryTarget(dashboard, "/notes/one.md")).toMatchObject({
             summary: { title: "One" },
         });
     });
 
     it("matches localized variant routes without replacing their identity", () => {
-        expect(resolveDashboardEntryTarget(dashboard, "/notes/one.zh-Hans")).toMatchObject({
-            entryId: "notes--one.zh-hans",
+        expect(resolveDashboardEntryTarget(dashboard, "/notes/one.zh-Hans.md")).toMatchObject({
             summary: {
                 id: "notes--one.zh-hans",
                 path: "notes/one.zh-Hans.md",
-                routePath: "/notes/one.zh-Hans",
+                routePath: "/notes/one.zh-Hans.md",
                 title: "一",
                 omitLeadingTitle: true,
             },
@@ -66,12 +64,12 @@ describe("resolveDashboardEntryTarget", () => {
     });
 
     it.each([
-        ["/preview/notes/with%20space", "/notes/with%20space", "notes--with-space"],
-        ["/preview/notes/with%20space/", "/notes/with%20space", "notes--with-space"],
-        ["/preview/notes/%E4%BD%A0%E5%A5%BD", "/notes/%E4%BD%A0%E5%A5%BD", "notes--unicode"],
-        ["/preview/notes/%E4%BD%A0%E5%A5%BD/", "/notes/%E4%BD%A0%E5%A5%BD", "notes--unicode"],
-        ["/preview/notes/100%25", "/notes/100%25", "notes--percent"],
-        ["/preview/notes/100%25/", "/notes/100%25", "notes--percent"],
+        ["/preview/notes/with%20space.md", "/notes/with%20space.md", "notes--with-space"],
+        ["/preview/notes/with%20space.md/", "/notes/with%20space.md", "notes--with-space"],
+        ["/preview/notes/%E4%BD%A0%E5%A5%BD.md", "/notes/%E4%BD%A0%E5%A5%BD.md", "notes--unicode"],
+        ["/preview/notes/%E4%BD%A0%E5%A5%BD.md/", "/notes/%E4%BD%A0%E5%A5%BD.md", "notes--unicode"],
+        ["/preview/notes/100%25.md", "/notes/100%25.md", "notes--percent"],
+        ["/preview/notes/100%25.md/", "/notes/100%25.md", "notes--percent"],
     ])("matches an encoded direct load from %s", (pathname, routePath, entryId) => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",
@@ -83,21 +81,21 @@ describe("resolveDashboardEntryTarget", () => {
                 ...canonical,
                 id: "notes--with-space",
                 path: "notes/with space.md",
-                routePath: "/notes/with%20space",
+                routePath: "/notes/with%20space.md",
                 variants: [],
             },
             {
                 ...canonical,
                 id: "notes--unicode",
                 path: "notes/你好.md",
-                routePath: "/notes/%E4%BD%A0%E5%A5%BD",
+                routePath: "/notes/%E4%BD%A0%E5%A5%BD.md",
                 variants: [],
             },
             {
                 ...canonical,
                 id: "notes--percent",
                 path: "notes/100%.md",
-                routePath: "/notes/100%25",
+                routePath: "/notes/100%25.md",
                 variants: [],
             },
         ];
@@ -106,6 +104,6 @@ describe("resolveDashboardEntryTarget", () => {
         const canonicalPath = canonicalRoutePath(logicalPathname(pathname));
 
         expect(canonicalPath).toBe(routePath);
-        expect(resolveDashboardEntryTarget(encodedDashboard, canonicalPath)?.entryId).toBe(entryId);
+        expect(resolveDashboardEntryTarget(encodedDashboard, canonicalPath)?.summary.id).toBe(entryId);
     });
 });

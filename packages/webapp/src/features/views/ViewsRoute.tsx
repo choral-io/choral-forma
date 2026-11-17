@@ -1,11 +1,10 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ChevronRight } from "lucide-react";
-import { Link } from "react-router";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { RouteBodySection } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { viewRoutePath } from "@/lib/workspace-routes";
 
 export function ViewsRoute() {
     const dashboard = useWorkspaceDashboard();
@@ -38,10 +37,10 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
         // A labelled list, not a navigation landmark; the explicit role survives removed list markers in Safari.
         <ul aria-label="Views" className="divide-y divide-base-300 border-y border-base-300" role="list">
             {views.map((view) => (
-                <li key={view.id}>
+                <li key={view.configId}>
                     <Link
                         className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
-                        to={viewRoutePath(view.id)}
+                        to={view.routePath}
                     >
                         <div className="min-w-0">
                             <div className="truncate font-medium" title={view.title}>

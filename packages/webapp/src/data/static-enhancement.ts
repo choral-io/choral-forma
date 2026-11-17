@@ -1,79 +1,63 @@
-import {
-    browseRoutePath,
-    directoryForRoutePath,
-    healthRoutePath,
-    isSystemRoutePath,
-    systemRouteSegment,
-    taxonomyRoutePath,
-    taxonomyTermRoutePath,
-    viewRoutePath,
-    viewsRoutePath,
-} from "@/lib/workspace-routes";
-
 import { canonicalRoutePath, resolveDashboardEntryTarget } from "./static-route-target";
 import { logicalPathname } from "./static-runtime";
 import type { DashboardEntry, DashboardViewRender, WorkspaceDashboard } from "./workspace-client";
 import { createWorkspaceDashboardContext } from "./workspace-client";
-import { isStaticWorkspaceClient, workspaceClient } from "./workspace-client-source";
+import { staticWorkspaceClient } from "./workspace-client-source";
 
-export interface PreparedStaticEnhancement {
-    dashboard: WorkspaceDashboard;
-    entry?: { detail: DashboardEntry; routePath: string };
-    view?: { render: DashboardViewRender; viewId: string };
+export interface PreparedStaticRoute {
+    entry?: DashboardEntry;
+    view?: DashboardViewRender;
 }
 
-let prepared: PreparedStaticEnhancement | undefined;
+let dashboard: WorkspaceDashboard | undefined;
+const preparedRoutes = new Map<string, PreparedStaticRoute>();
+const preparedRouteListeners = new Set<() => void>();
 
 export async function prepareStaticEnhancement(pathname: string) {
-    if (!isStaticWorkspaceClient) return undefined;
-
-    const dashboard = await workspaceClient.getDashboard();
-    const dashboardContext = createWorkspaceDashboardContext(dashboard);
-    const routePath = logicalPathname(pathname);
-    const seed: PreparedStaticEnhancement = { dashboard };
-
-    // Home and the system pages render from the dashboard alone; any other route is content.
-    const isContentRoute = routePath !== "/" && !isSystemRoutePath(routePath);
-    const contentRoute = isContentRoute ? canonicalRoutePath(routePath) : undefined;
-    const pageTarget = contentRoute ? resolveDashboardEntryTarget(dashboard, contentRoute) : undefined;
-    const directory = directoryForRoutePath(dashboard.entries, routePath);
-    // A document served at a route wins; a directory page lists the dashboard's own entries.
-    if (pageTarget && contentRoute) {
-        seed.entry = {
-            detail: await workspaceClient.getEntry(pageTarget.entryId, dashboardContext),
-            routePath: contentRoute,
-        };
-    } else if (isContentRoute && !directory) {
-        throw new Error(`Static artifact route was not listed: ${routePath}`);
-    } else if (routePath.startsWith(`${viewsRoutePath}/`)) {
-        const viewPath = canonicalRoutePath(routePath);
-        const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === viewPath);
-        if (!view) throw new Error(`Static artifact View route was not listed: ${routePath}`);
-        seed.view = {
-            render: await workspaceClient.getViewRender(view.id, dashboardContext),
-            viewId: view.id,
-        };
-    } else if (!isDashboardOnlyRoute(dashboard, routePath) && !directory) {
-        throw new Error(`Static artifact route cannot be enhanced: ${routePath}`);
-    }
-
-    prepared = seed;
-    return seed;
+    if (!staticWorkspaceClient) return undefined;
+    const projection = await staticWorkspaceClient.getDashboard();
+    const routePath = canonicalRoutePath(logicalPathname(pathname));
+    await staticWorkspaceClient.verifyStaticBootstrap(routePath);
+    dashboard = projection;
+    return prepareStaticRoute(routePath);
 }
 
 export function readPreparedStaticEnhancement() {
-    return prepared;
+    return dashboard ? { dashboard } : undefined;
 }
 
-function isDashboardOnlyRoute(dashboard: WorkspaceDashboard, routePath: string) {
-    // `/-` has no page of its own; the router leads it home.
-    if (["/", `/${systemRouteSegment}`, viewsRoutePath, browseRoutePath, healthRoutePath].includes(routePath)) {
-        return true;
+export function hasStaticRoute(pathname: string) {
+    return staticWorkspaceClient?.hasStaticRoute(pathname) ?? false;
+}
+
+export function readPreparedStaticRoute(pathname: string) {
+    return preparedRoutes.get(pathname);
+}
+
+export function subscribePreparedStaticRoutes(listener: () => void) {
+    preparedRouteListeners.add(listener);
+    return () => {
+        preparedRouteListeners.delete(listener);
+    };
+}
+
+export async function prepareStaticRoute(pathname: string) {
+    const cached = readPreparedStaticRoute(pathname);
+    if (cached) return cached;
+    if (!staticWorkspaceClient || !dashboard) throw new Error("Static artifact manifest has not been prepared.");
+
+    await staticWorkspaceClient.prepareStaticRoute(pathname);
+    const context = createWorkspaceDashboardContext(dashboard);
+    const directory = dashboard.directories.find((candidate) => candidate.routePath === pathname);
+    const entryPath = directory?.introEntryPath ?? resolveDashboardEntryTarget(dashboard, pathname)?.summary.path;
+    const view = dashboard.views.find((candidate) => candidate.routePath === pathname);
+    // These reads consume the validated cache from prepareStaticRoute before the Router commits.
+    const route: PreparedStaticRoute = {};
+    if (entryPath && pathname !== "/") {
+        route.entry = await staticWorkspaceClient.getEntry(entryPath, context, { directoryPath: directory?.path });
     }
-    const collectionPath = canonicalRoutePath(routePath);
-    return dashboard.taxonomies.some(
-        (taxonomy) =>
-            collectionPath === taxonomyRoutePath(taxonomy.id) ||
-            taxonomy.terms.some((term) => collectionPath === taxonomyTermRoutePath(taxonomy.id, term.id)),
-    );
+    if (view) route.view = await staticWorkspaceClient.getViewRender(view.configId, context);
+    preparedRoutes.set(pathname, route);
+    for (const listener of preparedRouteListeners) listener();
+    return route;
 }

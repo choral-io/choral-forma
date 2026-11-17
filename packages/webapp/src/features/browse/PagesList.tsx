@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 
 import type { DashboardEntry } from "@/data/workspace-client";
 import { formatAbsoluteDateTime } from "@/lib/date-time";

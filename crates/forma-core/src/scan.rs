@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use globset::{GlobSet, GlobSetBuilder};
 
-use crate::boundary::WorkspaceBoundary;
+use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::config::WorkspaceConfig;
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::markdown::FormaMarkdownDocument;
@@ -91,6 +91,22 @@ impl WorkspacePatternSet {
     }
 
     pub fn matching_files(&self) -> io::Result<Vec<PathBuf>> {
+        self.matching_files_with_failures(&mut Vec::new())
+    }
+
+    pub fn matching_files_strict(&self) -> io::Result<Vec<PathBuf>> {
+        let mut failures = Vec::new();
+        let files = self.matching_files_with_failures(&mut failures)?;
+        if let Some((_, error)) = failures.into_iter().next() {
+            return Err(error);
+        }
+        Ok(files)
+    }
+
+    pub(crate) fn matching_files_with_failures(
+        &self,
+        failures: &mut Vec<(PathBuf, io::Error)>,
+    ) -> io::Result<Vec<PathBuf>> {
         let mut files = BTreeSet::new();
         let boundary = WorkspaceBoundary::new(&self.root)
             .map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, error))?;
@@ -102,11 +118,16 @@ impl WorkspacePatternSet {
                 let prefix = prefix.to_string_lossy().replace('\\', "/");
                 let prefix = WorkspacePath::parse_config(prefix)
                     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-                if boundary.resolve_scan_root(&prefix).is_err() {
-                    continue;
+                match boundary.resolve_scan_root(&prefix) {
+                    Ok(_) => {}
+                    Err(WorkspaceBoundaryError::Io { source, .. }) => {
+                        failures.push((scan_root.clone(), source));
+                        continue;
+                    }
+                    Err(_) => continue,
                 }
             }
-            collect_regular_files(&self.root, scan_root, &self.matcher, &mut files)?;
+            collect_regular_files(&self.root, scan_root, &self.matcher, &mut files, failures);
         }
         Ok(files.into_iter().collect())
     }
@@ -126,6 +147,49 @@ impl WorkspacePatternSet {
             })
             .collect())
     }
+
+    pub(crate) fn route_markdown_files(&self, diagnostics: &mut Vec<Diagnostic>) -> Vec<PathBuf> {
+        self.route_files(diagnostics)
+            .into_iter()
+            .filter(|path| is_markdown_file(path))
+            .collect()
+    }
+
+    pub(crate) fn route_files(&self, diagnostics: &mut Vec<Diagnostic>) -> Vec<PathBuf> {
+        let mut failures = Vec::new();
+        let files = match self.matching_files_with_failures(&mut failures) {
+            Ok(files) => files,
+            Err(error) => {
+                failures.push((self.root.clone(), error));
+                Vec::new()
+            }
+        };
+        if !failures.is_empty() {
+            let branches = failures
+                .iter()
+                .map(|(path, error)| {
+                    let relative = path.strip_prefix(&self.root).unwrap_or(path);
+                    if relative.as_os_str().is_empty() {
+                        format!(".: {error}")
+                    } else {
+                        format!("{}: {error}", relative.display())
+                    }
+                })
+                .collect::<BTreeSet<_>>();
+            diagnostics.push(crate::routes::route_preflight_incomplete(
+                branches.into_iter().collect::<Vec<_>>().join("; "),
+            ));
+        }
+        files
+    }
+}
+
+pub(crate) fn is_markdown_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("mdx")
+        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -555,37 +619,55 @@ fn collect_regular_files(
     path: &Path,
     matcher: &GlobSet,
     files: &mut BTreeSet<PathBuf>,
-) -> io::Result<()> {
+    failures: &mut Vec<(PathBuf, io::Error)>,
+) {
     let metadata = match if path == workspace_root {
         fs::metadata(path)
     } else {
         fs::symlink_metadata(path)
     } {
         Ok(metadata) => metadata,
-        Err(_) => return Ok(()),
+        Err(error) => {
+            failures.push((path.to_path_buf(), error));
+            return;
+        }
     };
     if metadata.file_type().is_symlink() {
-        return Ok(());
+        return;
     }
     if metadata.is_file() {
         let relative = path.strip_prefix(workspace_root).unwrap_or(path);
         if matcher.is_match(relative) {
             files.insert(path.to_path_buf());
         }
-        return Ok(());
+        return;
     }
     if !metadata.is_dir() {
-        return Ok(());
+        return;
     }
 
-    let Ok(read_dir) = fs::read_dir(path) else {
-        return Ok(());
+    let read_dir = match fs::read_dir(path) {
+        Ok(read_dir) => read_dir,
+        Err(error) => {
+            failures.push((path.to_path_buf(), error));
+            return;
+        }
     };
-    let mut entries = read_dir.flatten().collect::<Vec<_>>();
-    entries.sort_by_key(|entry| entry.file_name());
+    let mut entries = Vec::new();
+    for entry in read_dir {
+        match entry {
+            Ok(entry) => entries.push(entry),
+            Err(error) => failures.push((path.to_path_buf(), error)),
+        }
+    }
+    entries.sort_by_key(fs::DirEntry::file_name);
     for entry in entries {
-        let Ok(file_type) = entry.file_type() else {
-            continue;
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(error) => {
+                failures.push((entry.path(), error));
+                continue;
+            }
         };
         if file_type.is_symlink() {
             continue;
@@ -598,9 +680,8 @@ fn collect_regular_files(
         {
             continue;
         }
-        collect_regular_files(workspace_root, &entry.path(), matcher, files)?;
+        collect_regular_files(workspace_root, &entry.path(), matcher, files, failures);
     }
-    Ok(())
 }
 
 #[cfg(test)]

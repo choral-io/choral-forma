@@ -1,10 +1,13 @@
 import { createMarkdownHeadingAnchor, markdownFootnoteLabelId } from "@choral-forma/shared";
 import DOMPurify from "dompurify";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation, useOutletContext } from "react-router";
 
-import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
-import type { DashboardEntry } from "@/data/workspace-client";
+import { targetFromPublicUrl, useWorkspaceNavigate, useWorkspaceNavigation } from "@/app/workspace-navigation-state";
+import { hasStaticRoute } from "@/data/static-enhancement";
+import { canonicalRoutePath } from "@/data/static-route-target";
+import { isStaticRawHref, logicalHref, logicalPathname, rootAwareHref } from "@/data/static-runtime";
+import type { DashboardEntry, WorkspaceDashboard } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { isExternalHref, normalizeWorkspacePath, splitWorkspaceUri } from "@/lib/workspace-links";
@@ -14,7 +17,7 @@ import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
 } from "@/lib/projection-sticky-boundary";
-import { resolveReaderLink, type MarkdownLinkSource } from "./markdown-links";
+import { resolveReaderLink, type MarkdownLinkSource, type ReaderLinkTarget } from "./markdown-links";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 import { renderMarkdown } from "./markdown-renderer";
 import { enhanceReader } from "./reader-enhancements";
@@ -42,6 +45,7 @@ export interface MarkdownReaderProps {
 interface MarkdownRenderState {
     currentPath: string;
     currentRoutePath?: string;
+    directories: readonly ReaderLinkTarget[];
     entries: DashboardEntry[];
     error?: string;
     headings: MarkdownHeading[];
@@ -54,6 +58,8 @@ interface MarkdownRenderState {
     status: "error" | "ready";
 }
 
+const noDirectories: readonly ReaderLinkTarget[] = [];
+
 export function MarkdownReader({
     currentPath,
     currentRoutePath,
@@ -65,6 +71,7 @@ export function MarkdownReader({
     omitLeadingTitle = false,
     projection,
 }: MarkdownReaderProps) {
+    const directories = useOutletContext<WorkspaceDashboard | undefined>()?.directories ?? noDirectories;
     const hasProjection = Boolean(projection);
     const projectionBoundary = projection?.boundary;
     const [renderState, setRenderState] = useState<MarkdownRenderState>();
@@ -72,6 +79,7 @@ export function MarkdownReader({
     const isCurrentRender =
         renderState?.currentPath === currentPath &&
         renderState.currentRoutePath === currentRoutePath &&
+        renderState.directories === directories &&
         renderState.entries === entries &&
         renderState.headings === headings &&
         renderState.markdown === markdown &&
@@ -93,6 +101,7 @@ export function MarkdownReader({
                 setRenderState({
                     currentPath,
                     currentRoutePath,
+                    directories,
                     entries,
                     headings,
                     sections: postProcessMarkdownSections(
@@ -104,6 +113,7 @@ export function MarkdownReader({
                         currentRoutePath,
                         linkSource,
                         hasProjection,
+                        directories,
                     ),
                     markdown,
                     linkSource,
@@ -119,6 +129,7 @@ export function MarkdownReader({
                     setRenderState({
                         currentPath,
                         currentRoutePath,
+                        directories,
                         entries,
                         error: error instanceof Error ? error.message : "Unknown rendering error",
                         headings,
@@ -139,6 +150,7 @@ export function MarkdownReader({
     }, [
         currentPath,
         currentRoutePath,
+        directories,
         entries,
         headings,
         markdown,
@@ -213,7 +225,8 @@ export function MarkdownReader({
 
 function MarkdownReaderBody({ html }: { html: string }) {
     const { hash, pathname, search } = useLocation();
-    const navigate = useNavigate();
+    const navigate = useWorkspaceNavigate();
+    const staticNavigation = useWorkspaceNavigation();
     const readerRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => {
@@ -234,6 +247,7 @@ function MarkdownReaderBody({ html }: { html: string }) {
 
     useEffect(() => {
         const restore = () => {
+            if (canonicalRoutePath(logicalPathname(window.location.pathname)) !== canonicalRoutePath(pathname)) return;
             if (readerRef.current) restoreReaderFragment(readerRef.current);
         };
         // A router navigation can change the query or fragment without a native history event.
@@ -247,7 +261,14 @@ function MarkdownReaderBody({ html }: { html: string }) {
     }, [hash, html, pathname, search]);
 
     function navigateReaderLink(event: React.MouseEvent<HTMLDivElement>) {
-        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+        ) {
             return;
         }
 
@@ -264,12 +285,17 @@ function MarkdownReaderBody({ html }: { html: string }) {
             return;
         }
         if (navigation.samePageFragment) {
+            staticNavigation?.cancel();
             if (scrollReaderAnchor(anchor)) {
                 event.preventDefault();
             }
             return;
         }
 
+        if (staticNavigation && !hasStaticRoute(targetFromPublicUrl(new URL(anchor.href)).pathname)) {
+            staticNavigation.cancel();
+            return;
+        }
         event.preventDefault();
         void navigate(navigation.href);
     }
@@ -369,6 +395,7 @@ export function postProcessMarkdownHtml(
     omitLeadingTitle: boolean,
     currentRoutePath?: string,
     linkSource: MarkdownLinkSource = "workspace",
+    directories: readonly ReaderLinkTarget[] = noDirectories,
 ) {
     return postProcessMarkdownSections(
         [html],
@@ -378,6 +405,8 @@ export function postProcessMarkdownHtml(
         omitLeadingTitle,
         currentRoutePath,
         linkSource,
+        false,
+        directories,
     )[0];
 }
 
@@ -397,6 +426,7 @@ export function postProcessMarkdownSections(
     currentRoutePath?: string,
     linkSource: MarkdownLinkSource = "workspace",
     viewDocument = false,
+    directories: readonly ReaderLinkTarget[] = noDirectories,
 ): [string, string?] {
     const parser = new DOMParser();
     const document = parser.parseFromString(before, "text/html");
@@ -507,6 +537,7 @@ export function postProcessMarkdownSections(
             entries,
             currentRoutePath,
             linkSource,
+            directories,
         );
         anchor.classList.add("link");
         anchor.dataset.linkKind = resolvedLink.kind;
@@ -526,6 +557,7 @@ export function postProcessMarkdownSections(
         const source = image.getAttribute("src");
         if (
             !source ||
+            linkSource === "published" ||
             isExternalHref(source) ||
             source.startsWith("//") ||
             source.startsWith("#") ||
@@ -534,7 +566,8 @@ export function postProcessMarkdownSections(
             continue;
         }
 
-        const { path, query, hash } = splitWorkspaceUri(source);
+        const { path, query, hash, invalidPath } = splitWorkspaceUri(source);
+        if (invalidPath) continue;
         const target = normalizeWorkspacePath(path, currentPath, entries).split("/").map(encodeRouteSegment).join("/");
         image.setAttribute("src", rootAwareHref(`${rawRoutePrefix}/${target}${query}${hash}`));
     }

@@ -26,8 +26,8 @@ const abort = new AbortController();
 let interrupted;
 let testResult;
 let cleanupPromise;
-let backend;
-let staticServer;
+const backends = [];
+const staticServers = [];
 let browserStarted = false;
 let backendLog = "";
 const mime = {
@@ -125,6 +125,21 @@ try {
     await cp(join(root, "examples/minimal-workspace"), workspace, { recursive: true });
     await rm(join(workspace, "notes"), { recursive: true });
     await mkdir(join(workspace, "notes"));
+    for (const [path, body] of [
+        [
+            "notes/sub/short-path-source.md",
+            "# Short path source\n\n[Suffix link](guides/short-target.md?x=a%2Fb&x=2#section)\n\n[Nearby link](guides/nearby.md?x=1#section)\n\n[Exact link](/notes/guides/nearby.md?x=1#section)\n\n[Ambiguous link](guides/ambiguous.md?x=1#section)\n",
+        ],
+        ["notes/guides/short-target.md", "# Unique short-path target\n\n## Section\n"],
+        ["notes/guides/nearby.md", "# Exact root target\n\n## Section\n"],
+        ["notes/sub/guides/nearby.md", "# Nearby target\n\n## Section\n"],
+        ["notes/guides/ambiguous.md", "# First ambiguous target\n\n## Section\n"],
+        ["alternate/guides/ambiguous.md", "# Second ambiguous target\n\n## Section\n"],
+    ]) {
+        const source = join(workspace, path);
+        await mkdir(dirname(source), { recursive: true });
+        await writeFile(source, body);
+    }
     const configPath = join(workspace, ".forma.md");
     const config = await readFile(configPath, "utf8");
     await writeFile(
@@ -238,7 +253,10 @@ try {
     const notesTermConfig = await readFile(notesTermPath, "utf8");
     await writeFile(
         notesTermPath,
-        notesTermConfig.replace('  - "notes/**/*.md"\n', '  - "notes/**/*.md"\n  - "guides/**/*.mdx"\n'),
+        notesTermConfig.replace(
+            '  - "notes/**/*.md"\n',
+            '  - "notes/**/*.md"\n  - "guides/**/*.mdx"\n  - "alternate/**/*.md"\n',
+        ),
     );
     await mkdir(join(workspace, "guides/nested/deeper"), { recursive: true });
     await writeFile(join(workspace, "guides/navigation-target.mdx"), "# Alternate format\n\n## 第二节\n");
@@ -518,7 +536,7 @@ try {
             "[Change query and jump](?mode=next&value=a%3Fb&tag=one&tag=two#user-content-fnref-review)",
             "[Exact entry query](./contract-target.md?value=a%2Fb&tag=one&tag=two#hello-world)",
             "[Alias entry query](./contract-target?value=a%2Fb&tag=one&tag=two#hello-world)",
-            "[Index entry query](./resource-directory.txt?value=a%2Fb&tag=one&tag=two#details)",
+            "[Index entry query](./resource-directory.txt/index.md?value=a%2Fb&tag=one&tag=two#details)",
             "[Sidecar entry query](../guides/query-sidecar.txt?value=a%2Fb&tag=one&tag=two#details)",
             "> [!note]- Folded review target\n>\n> See the footnote[^review].",
             "[^review]: Back to the review target.",
@@ -565,73 +583,109 @@ try {
     );
 
     abort.signal.throwIfAborted();
-    backend = spawn(
-        binary,
-        ["serve", "-w", workspace, "--webapp-dir", join(root, "packages/webapp/dist"), "--bind", "127.0.0.1:0"],
-        { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
-    );
-    const origin = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("WebApp server did not become ready")), 30_000);
-        const finish = (error, value) => {
-            clearTimeout(timer);
-            error ? reject(error) : resolve(value);
-        };
-        abort.signal.addEventListener("abort", () => finish(abort.signal.reason), { once: true });
-        const consume = (data) => {
-            backendLog += data;
-            const match = backendLog.match(/forma serve listening on (http:\/\/127\.0\.0\.1:\d+)/u);
-            if (match) finish(undefined, match[1]);
-        };
-        backend.stdout.on("data", consume);
-        backend.stderr.on("data", consume);
-        backend.once("error", (error) => finish(error));
-        backend.once("exit", (code) => finish(new Error(`WebApp exited ${code}: ${backendLog}`)));
-    });
-    abort.signal.throwIfAborted();
-    staticServer = createServer(async (request, response) => {
-        try {
-            const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
-            // A raw document has no HTML head, so Chromium requests its default icon at the origin.
-            if (pathname === "/favicon.ico") {
-                response.writeHead(204);
-                response.end();
-                return;
+    const rpcWebapp = join(temporary, "webapp");
+    await cp(join(root, "packages/webapp/dist"), rpcWebapp, { recursive: true });
+    async function startRpc(prefix) {
+        const backend = spawn(
+            binary,
+            [
+                "serve",
+                "-w",
+                workspace,
+                "--webapp-dir",
+                rpcWebapp,
+                "--bind",
+                "127.0.0.1:0",
+                "--root-path",
+                prefix || "/",
+            ],
+            { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
+        );
+        backends.push(backend);
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error("WebApp server did not become ready")), 30_000);
+            const finish = (error, value) => {
+                clearTimeout(timer);
+                error ? reject(error) : resolve(value);
+            };
+            abort.signal.addEventListener("abort", () => finish(abort.signal.reason), { once: true });
+            const consume = (data) => {
+                backendLog += data;
+                const match = String(data).match(/forma serve listening on (http:\/\/127\.0\.0\.1:\d+)/u);
+                if (match) finish(undefined, match[1]);
+            };
+            backend.stdout.on("data", consume);
+            backend.stderr.on("data", consume);
+            backend.once("error", (error) => finish(error));
+            backend.once("exit", (code) => finish(new Error(`WebApp exited ${code}: ${backendLog}`)));
+        });
+    }
+    async function startStatic(prefix, directory, label) {
+        const server = createServer(async (request, response) => {
+            try {
+                const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+                if (pathname === "/favicon.ico") {
+                    response.writeHead(204);
+                    response.end();
+                    return;
+                }
+                if (!pathname.startsWith(prefix + "/")) throw new Error("Outside root");
+                let file = resolve(directory, pathname.slice(prefix.length + 1));
+                if (file !== directory && !file.startsWith(directory + sep)) throw new Error("Outside site");
+                if ((await stat(file)).isDirectory()) file = join(file, "index.html");
+                response.setHeader("Content-Type", mime[extname(file)] ?? "application/octet-stream");
+                response.end(await readFile(file));
+            } catch {
+                response.writeHead(404);
+                response.end("Not found");
             }
-            if (!pathname.startsWith("/preview/")) throw new Error("Outside root");
-            let file = resolve(site, pathname.slice("/preview/".length));
-            if (file !== site && !file.startsWith(site + sep)) throw new Error("Outside site");
-            if ((await stat(file)).isDirectory()) file = join(file, "index.html");
-            response.setHeader("Content-Type", mime[extname(file)] ?? "application/octet-stream");
-            response.end(await readFile(file));
-        } catch {
-            response.writeHead(404);
-            response.end("Not found");
-        }
-    });
-    staticServer.listen(0, "127.0.0.1");
-    await once(staticServer, "listening");
-    const staticOrigin = `http://127.0.0.1:${staticServer.address().port}`;
-    const build = await command(
-        binary,
-        [
-            "site",
-            "build",
-            "-w",
-            workspace,
-            "--out",
-            site,
-            "--base-url",
-            staticOrigin,
-            "--root-path",
-            "/preview",
-            "--json",
-        ],
-        60_000,
-        false,
-        "static-build",
-    );
-    await writeFile(join(artifacts, "static-build.json"), build);
-    if (JSON.parse(build).status !== "passed") throw new Error("Static build failed");
+        });
+        staticServers.push(server);
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        const origin = `http://127.0.0.1:${server.address().port}`;
+        const build = await command(
+            binary,
+            [
+                "site",
+                "build",
+                "-w",
+                workspace,
+                "--out",
+                directory,
+                "--base-url",
+                origin,
+                "--root-path",
+                prefix || "/",
+                "--json",
+            ],
+            60_000,
+            false,
+            label,
+        );
+        await writeFile(join(artifacts, label + ".json"), build);
+        const { status, diagnostics } = JSON.parse(build);
+        const [ambiguity] = diagnostics;
+        if (
+            status !== "warning" ||
+            diagnostics.length !== 1 ||
+            ambiguity.code !== "entryRef.ambiguous" ||
+            ambiguity.path !== "notes/sub/short-path-source.md" ||
+            ambiguity.actual !== "guides/ambiguous.md?x=1#section"
+        )
+            throw new Error(`Unexpected static fixture diagnostics: ${JSON.stringify(diagnostics)}`);
+        return origin;
+    }
+    const origin = await startRpc("");
+    const previewOrigin = await startRpc("/preview");
+    const staticOrigin = await startStatic("/preview", site, "static-build");
+    const staticRootOrigin = await startStatic("", join(temporary, "site-root"), "static-root-build");
+    const routeMatrix = [
+        { name: "webapp", root: "", origin },
+        { name: "webapp", root: "/preview", origin: previewOrigin },
+        { name: "static", root: "", origin: staticRootOrigin },
+        { name: "static", root: "/preview", origin: staticOrigin },
+    ];
     const options = {
         artifacts,
         calloutBoundaries,
@@ -652,6 +706,18 @@ try {
         reading: readingCases.map((fixture) => fixture.id),
         callouts: calloutBoundaries.map((fixture) => fixture.id),
         disclosures: disclosureCases.map((fixture) => fixture.id),
+    });
+    phases.unshift({
+        name: "route-matrix",
+        mode: "route-matrix",
+        hosts: routeMatrix,
+        expectedSourceCases: {},
+        expectedResults: routeMatrix.flatMap(({ name, root }) =>
+            (name === "static" ? ["initial", "enhanced"] : ["rpc"]).flatMap((surface) => [
+                `${surface} ${root || "/"}: exact routes and query/fragment`,
+                `${surface} ${root || "/"}: authored Markdown short-path resolution`,
+            ]),
+        ),
     });
     const completedPhases = [];
     for (const phase of phases) {
@@ -726,13 +792,11 @@ function cleanup() {
         };
         // Startup has settled before finally runs: a close cannot race a later open.
         if (browserStarted) await attempt(() => browserCommand("close"));
-        await attempt(() => stop(backend));
-        if (staticServer)
+        for (const backend of backends) await attempt(() => stop(backend));
+        for (const server of staticServers)
             await attempt(async () => {
-                staticServer.closeAllConnections();
-                await new Promise((resolve, reject) =>
-                    staticServer.close((error) => (error ? reject(error) : resolve())),
-                );
+                server.closeAllConnections();
+                await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
             });
         await attempt(() => writeFile(join(artifacts, "backend.log"), backendLog));
         await attempt(() => rm(temporary, { recursive: true, force: true }));
@@ -742,9 +806,11 @@ function cleanup() {
                 {
                     status: errors.length ? "failed" : "passed",
                     interrupted,
-                    backend: backend
-                        ? { pid: backend.pid, exitCode: backend.exitCode, signal: backend.signalCode }
-                        : null,
+                    backends: backends.map((backend) => ({
+                        pid: backend.pid,
+                        exitCode: backend.exitCode,
+                        signal: backend.signalCode,
+                    })),
                     errors,
                 },
                 null,

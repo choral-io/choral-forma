@@ -14,7 +14,7 @@ export async function markdownMermaidGeometry(page, options) {
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
         try {
             const current = await context.newPage();
-            await current.goto(`${host.origin}${host.root}/notes/mermaid-geometry/`);
+            await current.goto(`${host.origin}${host.root}/notes/mermaid-geometry.md`);
             const reader = current.locator(
                 '[data-enhancement-ready] [data-reader="markdown"]:not([data-reader-loading])',
             );

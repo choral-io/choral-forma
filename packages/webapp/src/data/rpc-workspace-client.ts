@@ -1,5 +1,6 @@
 import {
     FormaRpcClient,
+    type BaseOperationResult,
     type Diagnostic,
     type FileReferencesResult,
     type FileRenderResult,
@@ -18,6 +19,7 @@ import { rpcEndpointPath } from "@/lib/workspace-routes";
 
 import { formatRelativeDateTime } from "@/lib/date-time";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
+import { dashboardEntryByPath } from "./static-route-target";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -40,59 +42,172 @@ import type {
 } from "./workspace-client";
 import { latestUpdatedAt } from "./workspace-client";
 
+export class RouteReadError extends Error {
+    readonly code: "route.generationMismatch" | "route.unavailable" | "route.superseded";
+    readonly routeGeneration?: string;
+
+    constructor(code: RouteReadError["code"], routeGeneration?: string) {
+        super(code === "route.unavailable" ? "Workspace routes are unavailable." : "Workspace routes have changed.");
+        this.code = code;
+        this.routeGeneration = routeGeneration;
+    }
+}
+
+function validateGeneration(
+    result: Omit<BaseOperationResult, "schemaVersion"> & { schemaVersion: number },
+    expected?: string,
+): string {
+    const generation = result.routeGeneration;
+    if (!generation || result.schemaVersion !== 1) throw new Error("Unsupported Forma route response.");
+    for (const diagnostic of result.diagnostics ?? []) {
+        if (diagnostic.code === "route.unavailable" || diagnostic.code === "route.generationMismatch") {
+            throw new RouteReadError(diagnostic.code, generation);
+        }
+    }
+    if (expected !== undefined && generation !== expected) {
+        throw new RouteReadError("route.generationMismatch", generation);
+    }
+    return generation;
+}
+
 export class RpcWorkspaceClient implements WorkspaceClient {
     readonly #rpc: FormaRpcClient;
+    #generation: string | undefined;
+    #epoch = 0;
+    #dashboardAttempt = 0;
+    #healthAttempt = 0;
+    readonly #invalidations = new Set<(error: RouteReadError) => void>();
 
     constructor(endpoint = rpcEndpointPath) {
         this.#rpc = new FormaRpcClient(endpoint);
     }
 
     async getDashboard(): Promise<WorkspaceDashboard> {
-        const [dashboardResult, healthResult] = await Promise.all([
-            this.#rpc.workspaceDashboard(),
-            this.#rpc.workspaceHealth(),
-        ]);
-        return mapWorkspaceDashboard(dashboardResult, healthResult);
+        const attempt = ++this.#dashboardAttempt;
+        let epoch = this.#epoch;
+        try {
+            const result = await this.#rpc.workspaceDashboard();
+            this.#checkAttempt(epoch, attempt === this.#dashboardAttempt);
+            const generation = validateGeneration(result);
+            if (
+                result.routeProjectionVersion !== 1 ||
+                !Array.isArray(result.directories) ||
+                !result.canonicalLanguage
+            ) {
+                throw new Error("Unsupported Forma dashboard route projection.");
+            }
+            if (generation !== this.#generation) {
+                this.#generation = undefined;
+                epoch = ++this.#epoch;
+            }
+            const health = await this.#rpc.workspaceHealth(generation);
+            this.#checkAttempt(epoch, attempt === this.#dashboardAttempt);
+            validateGeneration(health, generation);
+            const dashboard = mapWorkspaceDashboard(result, health);
+            this.#generation = generation;
+            return dashboard;
+        } catch (error) {
+            this.#checkAttempt(epoch, attempt === this.#dashboardAttempt);
+            this.#invalidate(error);
+            throw error;
+        }
     }
 
-    async getEntry(entryId: string, context: WorkspaceDashboardContext): Promise<DashboardEntry> {
-        const { entriesById, entriesByPath } = context;
-        const entry = entriesById.get(entryId);
+    async getHealth(): Promise<DashboardHealth> {
+        const epoch = this.#epoch;
+        const attempt = ++this.#healthAttempt;
+        let health: WorkspaceHealthResult;
+        try {
+            health = await this.#rpc.workspaceHealth();
+        } catch (error) {
+            this.#checkAttempt(epoch, attempt === this.#healthAttempt);
+            throw error;
+        }
+        this.#checkAttempt(epoch, attempt === this.#healthAttempt);
+        try {
+            validateGeneration(health, this.#generation);
+        } catch (error) {
+            this.#invalidate(error);
+            if (!(error instanceof RouteReadError)) throw error;
+        }
+        return mapDashboardHealth(health, new Map());
+    }
+
+    subscribeInvalidation(listener: (error: RouteReadError) => void): () => void {
+        this.#invalidations.add(listener);
+        return () => this.#invalidations.delete(listener);
+    }
+
+    #checkAttempt(epoch: number, active = true) {
+        if (!active || epoch !== this.#epoch) throw new RouteReadError("route.superseded");
+    }
+
+    #invalidate(error: unknown) {
+        if (error instanceof RouteReadError && error.code !== "route.superseded") {
+            const notify = this.#generation !== undefined;
+            this.#generation = undefined;
+            this.#epoch++;
+            if (notify) {
+                for (const listener of this.#invalidations) listener(error);
+            }
+        }
+    }
+
+    async #readFor<T>(context: WorkspaceDashboardContext, read: (generation: string) => Promise<T>): Promise<T> {
+        const generation = context.dashboard.routeGeneration;
+        if (!generation || generation !== this.#generation) throw new RouteReadError("route.superseded");
+        const epoch = this.#epoch;
+        try {
+            const detail = await read(generation);
+            this.#checkAttempt(epoch);
+            return detail;
+        } catch (error) {
+            this.#checkAttempt(epoch);
+            this.#invalidate(error);
+            throw error;
+        }
+    }
+
+    async getEntry(entryPath: string, context: WorkspaceDashboardContext): Promise<DashboardEntry> {
+        const { dashboard, entriesByPath } = context;
+        const entry = dashboardEntryByPath(dashboard, entryPath);
 
         if (!entry) {
-            throw new Error(`Entry not found: ${entryId}`);
+            throw new Error(`Entry not found: ${entryPath}`);
         }
 
         if (entry.id === "workspace-root") {
             return entry;
         }
 
-        const [renderResult, referencesResult] = await Promise.all([
-            this.#rpc.renderFile(entry.path),
-            this.#rpc.listFileReferences(entry.path),
-        ]);
-
-        return mapEntryDetail(entry, renderResult, referencesResult, entriesByPath);
+        return this.#readFor(context, async (generation) => {
+            const [renderResult, referencesResult] = await Promise.all([
+                this.#rpc.renderFile(entry.path, "markdown", generation),
+                this.#rpc.listFileReferences(entry.path, generation),
+            ]);
+            validateGeneration(renderResult, generation);
+            validateGeneration(referencesResult, generation);
+            const { file: renderedFile } = renderResult as Partial<FileRenderResult>;
+            const { file: referencedFile } = referencesResult as Partial<FileReferencesResult>;
+            if (renderedFile?.path !== entry.path || referencedFile?.path !== entry.path) {
+                throw new Error("Forma entry response does not match its requested source path.");
+            }
+            return mapEntryDetail(entry, renderResult, referencesResult, entriesByPath);
+        });
     }
 
     async getViewRender(viewId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender> {
         const { entriesByPath } = context;
-        const result = await this.#rpc.renderView(viewId);
-
-        if (!result.render) {
-            throw new Error(`View render output not found: ${viewId}`);
-        }
-
-        const projection = mapViewProjection(result.render, entriesByPath);
-        if (projection.kind === "gantt") {
-            const config = await this.#rpc.configInspect();
-            projection.canonicalLanguage = config.config.workspace?.canonicalLanguage;
-        }
-
-        return {
-            document: mapViewDocument(result, viewId),
-            projection,
-        };
+        return this.#readFor(context, async (generation) => {
+            const result = await this.#rpc.renderView(viewId, generation);
+            validateGeneration(result, generation);
+            if (!result.render || result.view?.id !== viewId) {
+                throw new Error(`View render output not found: ${viewId}`);
+            }
+            const projection = mapViewProjection(result.render, entriesByPath);
+            if (projection.kind === "gantt") projection.canonicalLanguage = context.dashboard.canonicalLanguage;
+            return { document: mapViewDocument(result, viewId), projection };
+        });
     }
 }
 
@@ -134,6 +249,9 @@ function mapWorkspaceDashboard(
 
     return {
         workspaceName: result.workspace.name,
+        canonicalLanguage: result.canonicalLanguage,
+        routeGeneration: result.routeGeneration,
+        directories: result.directories ?? [],
         workspaceLogo: result.workspace.logo,
         tagline: "Markdown-backed workspace content.",
         status: maxHealth(mapStatus(result.status), health.status),
@@ -185,12 +303,14 @@ function mapTaxonomy(
 ): DashboardTaxonomy {
     return {
         id: taxonomy.id,
+        routePath: requiredRoutePath(taxonomy.routePath),
         title: taxonomy.title,
         mode: taxonomy.mode,
         display: taxonomy.display,
         description: taxonomy.description ?? "Configured workspace classification.",
         terms: taxonomy.terms.map((term) => ({
             id: term.id,
+            routePath: requiredRoutePath(term.routePath),
             title: term.title,
             display: term.display,
             description: term.description ?? "Configured classification term.",
@@ -205,13 +325,13 @@ function mapTaxonomy(
 }
 
 function mapDashboardHealth(
-    result: WorkspaceHealthResult,
+    result: BaseOperationResult & { findings?: WorkspaceHealthFinding[] },
     entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardHealth {
     return {
         status: mapStatus(result.status),
         diagnostics: (result.diagnostics ?? []).map(mapDiagnostic),
-        findings: result.findings.map((finding) => mapHealthFinding(finding, entriesByPath)),
+        findings: (result.findings ?? []).map((finding) => mapHealthFinding(finding, entriesByPath)),
     };
 }
 
@@ -253,7 +373,7 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
         id: entry.id,
         kind: entry.kind,
         path: entry.path,
-        routePath: entry.routePath,
+        routePath: requiredRoutePath(entry.routePath),
         rawPath: entry.rawPath,
         title: nonBlankText(entry.title) ?? entry.path.trim(),
         omitLeadingTitle: entry.omitLeadingTitle ?? false,
@@ -265,7 +385,7 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
         variants: (entry.variants ?? []).map((variant) => ({
             language: variant.language,
             path: variant.path,
-            routePath: variant.routePath,
+            routePath: requiredRoutePath(variant.routePath),
             rawPath: variant.rawPath,
             kind: variant.kind,
             title: variant.title,
@@ -428,15 +548,25 @@ function mapReferenceKind(edge: ReferenceEdge, targetEntry: DashboardEntry | und
 }
 
 function mapView(view: WorkspaceDashboardResult["views"][number]): DashboardView {
+    if (!view.configId || !view.sourcePath || !view.publicId) throw new Error("Missing Forma View route identity.");
     return {
         id: view.id,
         path: view.path,
+        configId: view.configId,
+        sourcePath: view.sourcePath,
+        publicId: view.publicId,
+        routePath: requiredRoutePath(view.routePath),
         title: view.title ?? view.id,
         display: view.display,
         space: view.space,
         description: view.space ? `Configured ${view.kind} view over ${view.space}.` : `Configured ${view.kind} view.`,
         kind: mapViewKind(view.kind),
     };
+}
+
+function requiredRoutePath(path: string | undefined): string {
+    if (!path?.startsWith("/") || path.startsWith("//")) throw new Error("Missing Forma route projection.");
+    return path;
 }
 
 function mapViewProjection(

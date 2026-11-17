@@ -1,6 +1,6 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ChevronRight, House } from "lucide-react";
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
-import { Link } from "react-router";
 
 import type { DashboardView } from "@/data/workspace-client";
 import { displayColor, displayIconId, displayIcons } from "@/lib/display-icons";

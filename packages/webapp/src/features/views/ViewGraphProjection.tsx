@@ -1,3 +1,4 @@
+import { useWorkspaceNavigate } from "@/app/workspace-navigation-state";
 import {
     createGraphRuntime,
     createGraphThemeFromTokens,
@@ -8,7 +9,7 @@ import {
 } from "@choral-forma/graph-view";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 
 import { diagramViewerResetIconPaths } from "@/lib/diagram-viewer-icons";
 import { mediaViewerControlButtonClassName, mediaViewerControlRailClassName } from "@/lib/media-viewer-controls";
@@ -20,7 +21,7 @@ import { activeGraphNodeId, mapDashboardGraphProjection, type DashboardGraphProj
 
 export function ViewGraphProjection({ projection }: { projection: DashboardGraphProjection }) {
     const location = useLocation();
-    const navigate = useNavigate();
+    const navigate = useWorkspaceNavigate();
     const canvasId = useId();
     const surfaceRef = useRef<HTMLDivElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);

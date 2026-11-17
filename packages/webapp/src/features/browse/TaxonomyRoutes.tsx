@@ -1,12 +1,13 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ArrowRight, FileText, Layers3 } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 
 import { canonicalRoutePath } from "@/data/static-route-target";
 import type { DashboardTaxonomy, DashboardTaxonomyTerm, WorkspaceDashboard } from "@/data/workspace-client";
 import { EmptyPage, EmptyState, RouteBodySection } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { browseRoutePath, taxonomyRoutePath, taxonomyTermRoutePath } from "@/lib/workspace-routes";
+import { browseRoutePath } from "@/lib/workspace-routes";
 
 import { PagesList } from "./PagesList";
 
@@ -30,7 +31,7 @@ export function TaxonomyRoute() {
     const dashboard = useWorkspaceDashboard();
     const { pathname } = useLocation();
     const routePath = canonicalRoutePath(pathname);
-    const taxonomy = dashboard.taxonomies.find((item) => taxonomyRoutePath(item.id) === routePath);
+    const taxonomy = dashboard.taxonomies.find((item) => item.routePath === routePath);
 
     if (!taxonomy) {
         return (
@@ -57,8 +58,8 @@ export function TaxonomyTermRoute() {
     const { pathname } = useLocation();
     const routePath = canonicalRoutePath(pathname);
     // Router params collapse a literal `%2F` into `/`; compare encoded paths instead.
-    const taxonomy = dashboard.taxonomies.find((item) => routePath.startsWith(`${taxonomyRoutePath(item.id)}/`));
-    const term = taxonomy?.terms.find((item) => taxonomyTermRoutePath(taxonomy.id, item.id) === routePath);
+    const taxonomy = dashboard.taxonomies.find((item) => item.terms.some((term) => term.routePath === routePath));
+    const term = taxonomy?.terms.find((item) => item.routePath === routePath);
 
     if (!taxonomy || !term) {
         return (
@@ -71,7 +72,7 @@ export function TaxonomyTermRoute() {
     return (
         <WorkspaceRouteFrame
             contentWidth="narrow"
-            breadcrumb={[...collectionsBreadcrumb, { label: taxonomy.title, to: taxonomyRoutePath(taxonomy.id) }]}
+            breadcrumb={[...collectionsBreadcrumb, { label: taxonomy.title, to: taxonomy.routePath }]}
             description={term.description}
             title={term.title}
         >
@@ -132,7 +133,7 @@ function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
                 <li key={taxonomy.id}>
                     <Link
                         className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-                        to={taxonomyRoutePath(taxonomy.id)}
+                        to={taxonomy.routePath}
                     >
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
@@ -164,7 +165,7 @@ function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
                 <li key={term.id}>
                     <Link
                         className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-                        to={taxonomyTermRoutePath(taxonomy.id, term.id)}
+                        to={term.routePath}
                     >
                         <div className="min-w-0">
                             <span className="font-medium">{term.title}</span>

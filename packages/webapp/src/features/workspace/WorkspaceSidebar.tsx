@@ -1,6 +1,7 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ChevronRight, HeartPulse, PanelLeftClose } from "lucide-react";
 import { useId, useMemo, useSyncExternalStore, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 
 import { canonicalRoutePath } from "@/data/static-route-target";
 

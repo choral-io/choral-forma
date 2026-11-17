@@ -127,6 +127,53 @@ pub enum OperationRequest {
     ToolsSchemaValidate(ToolsSchemaValidateRequest),
 }
 
+impl OperationRequest {
+    pub fn route_read(&self) -> Option<Operation> {
+        match self {
+            Self::WorkspaceDashboard(_) => Some(Operation::WorkspaceDashboard),
+            Self::WorkspaceHealth(_) => Some(Operation::WorkspaceHealth),
+            Self::FileRender(request) if request.format != "source" => Some(Operation::FileRender),
+            Self::FileReferences(_) => Some(Operation::FileReferences),
+            Self::ViewRender(_) => Some(Operation::ViewRender),
+            _ => None,
+        }
+    }
+
+    pub fn expected_route_generation(&self) -> Option<&str> {
+        match self {
+            Self::WorkspaceHealth(request) => request.expected_route_generation.as_deref(),
+            Self::FileRender(request) => request.expected_route_generation.as_deref(),
+            Self::FileReferences(request) => request.expected_route_generation.as_deref(),
+            Self::ViewRender(request) => request.expected_route_generation.as_deref(),
+            _ => None,
+        }
+    }
+
+    pub fn dispatch_route_read(
+        self,
+        snapshot: &forma_core::WorkspaceSnapshot,
+    ) -> Result<OperationResult, OperationError> {
+        let operation = self.route_read().ok_or(OperationError::InvalidParams)?;
+        let result = match self {
+            Self::WorkspaceDashboard(_) => snapshot.dashboard().map(OperationResult::from),
+            Self::WorkspaceHealth(_) => Ok(snapshot.health().into()),
+            Self::FileRender(request) => {
+                forma_core::render::render_snapshot_file(snapshot, &request.path, &request.format)
+                    .map(OperationResult::from)
+            }
+            Self::FileReferences(request) => snapshot
+                .file_references(&request.path)
+                .map(OperationResult::from),
+            Self::ViewRender(request) => {
+                forma_core::render::render_snapshot_view(snapshot, &request.view, request.params)
+                    .map(OperationResult::from)
+            }
+            _ => return Err(OperationError::InvalidParams),
+        };
+        Ok(result.unwrap_or_else(|error| core_error_result(operation, error)))
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
@@ -245,6 +292,8 @@ pub struct ViewRenderRequest {
     pub view: String,
     #[serde(default)]
     pub params: BTreeMap<String, serde_yml::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_route_generation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,6 +303,8 @@ pub struct FileRenderRequest {
     pub path: String,
     #[serde(default = "default_render_format")]
     pub format: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_route_generation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -261,6 +312,8 @@ pub struct FileRenderRequest {
 #[serde(rename_all = "camelCase")]
 pub struct FileReferencesRequest {
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_route_generation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -277,7 +330,10 @@ pub struct ReferenceResolveRequest {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkspaceHealthRequest {}
+pub struct WorkspaceHealthRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_route_generation: Option<String>,
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -390,6 +446,9 @@ impl Dispatcher {
     }
 
     pub fn dispatch(&self, request: OperationRequest) -> Result<OperationResult, OperationError> {
+        if request.expected_route_generation().is_some() {
+            return Err(OperationError::InvalidParams);
+        }
         let root = &self.root;
         match request {
             OperationRequest::Check(_) => {
@@ -539,6 +598,14 @@ impl Dispatcher {
     }
 
     pub fn handle_json_rpc(&self, body: &[u8]) -> Value {
+        self.handle_json_rpc_using(body, |operation| self.dispatch(operation))
+    }
+
+    pub fn handle_json_rpc_using(
+        &self,
+        body: &[u8],
+        dispatch: impl FnOnce(OperationRequest) -> Result<OperationResult, OperationError>,
+    ) -> Value {
         let value = match serde_json::from_slice::<Value>(body) {
             Ok(value) => value,
             Err(_) => {
@@ -562,7 +629,7 @@ impl Dispatcher {
             Err(error) => return error.with_id(id).into_response(),
         };
 
-        match self.dispatch(operation) {
+        match dispatch(operation) {
             Ok(result) => json!({
                 "jsonrpc": "2.0",
                 "id": id,
@@ -1229,8 +1296,17 @@ impl From<forma_core::FilesListResult> for OperationResult {
 impl From<forma_core::WorkspaceDashboardResult> for OperationResult {
     fn from(result: forma_core::WorkspaceDashboardResult) -> Self {
         let mut data = BTreeMap::new();
+        data.insert(
+            "routeProjectionVersion".to_string(),
+            json!(result.route_projection_version),
+        );
+        data.insert(
+            "canonicalLanguage".to_string(),
+            json!(result.canonical_language),
+        );
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("home".to_string(), json!(result.home));
+        data.insert("directories".to_string(), json!(result.directories));
         data.insert("taxonomies".to_string(), json!(result.taxonomies));
         data.insert("spaces".to_string(), json!(result.spaces));
         data.insert("entries".to_string(), json!(result.entries));
@@ -1682,7 +1758,14 @@ mod tests {
         assert_eq!(response["result"]["status"], "failed");
         assert_eq!(
             response["result"]["summary"],
-            json!({"errors":1,"warnings":0,"infos":0})
+            json!({"errors":2,"warnings":0,"infos":0})
+        );
+        assert!(
+            response["result"]["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "route.preflightIncomplete")
         );
     }
 

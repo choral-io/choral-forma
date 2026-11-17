@@ -20,23 +20,34 @@ export function splitWorkspaceUri(href: string) {
     const queryIndex = withoutHash.indexOf("?");
     const rawPath = queryIndex < 0 ? withoutHash : withoutHash.slice(0, queryIndex);
     const query = queryIndex < 0 ? "" : withoutHash.slice(queryIndex);
-    let decodedPath = rawPath;
-    try {
-        decodedPath = decodeURIComponent(rawPath);
-    } catch {
-        // Preserve malformed percent escapes as authored filename characters.
-    }
-    return { path: decodedPath, query, hash };
+    let invalidPath = false;
+    const path = rawPath
+        .split("/")
+        .map((segment) => {
+            try {
+                const decoded = decodeURIComponent(segment);
+                if (
+                    decoded.includes("/") ||
+                    decoded.includes("\\") ||
+                    (decoded !== segment && /^\.{1,2}$/u.test(decoded))
+                ) {
+                    invalidPath = true;
+                }
+                return decoded;
+            } catch {
+                // Preserve malformed percent escapes as authored filename characters.
+                return segment;
+            }
+        })
+        .join("/");
+    return { path, query, hash, invalidPath };
 }
 
 /** Resolve an already parsed path without interpreting filename characters as URI syntax. */
 export function normalizeWorkspacePath(pathPart: string, currentPath: string, entries: WorkspaceLinkEntry[]) {
-    const relativePath = resolvePathSegments(pathPart, currentPath);
+    const relativePath = normalizeRelativeWorkspacePath(pathPart, currentPath) ?? "";
     if (pathPart.startsWith("/")) return relativePath;
-    if (
-        (pathPart.startsWith("./") || pathPart.startsWith("../")) &&
-        entries.some((entry) => entry.path === relativePath)
-    ) {
+    if (entries.some((entry) => entry.path === relativePath)) {
         return relativePath;
     }
 
@@ -58,8 +69,10 @@ export function normalizeWorkspacePath(pathPart: string, currentPath: string, en
     return relativePath;
 }
 
-function resolvePathSegments(pathPart: string, currentPath: string) {
-    const pathSegments = pathPart.startsWith("/") ? [] : currentPath.split("/").slice(0, -1);
+/** Normalize lexical segments, with source references bounded by the workspace. */
+export function normalizeRelativeWorkspacePath(pathPart: string, currentPath: string, strictSource = false) {
+    const rooted = pathPart.startsWith("/");
+    const pathSegments = rooted ? [] : currentPath.split("/").slice(0, -1);
 
     for (const segment of pathPart.split("/")) {
         if (!segment || segment === ".") {
@@ -67,6 +80,7 @@ function resolvePathSegments(pathPart: string, currentPath: string) {
         }
 
         if (segment === "..") {
+            if (strictSource && (rooted || !pathSegments.length)) return undefined;
             pathSegments.pop();
             continue;
         }

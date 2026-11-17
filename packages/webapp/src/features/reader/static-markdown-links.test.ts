@@ -46,7 +46,7 @@ describe("static Markdown root paths", () => {
         expect(html).toContain('href="/preview/notes/two#scope"');
         expect(html).toContain('href="https://example.com"');
         expect(html).toContain('src="/preview/-/raw/notes/existing.png"');
-        expect(html).toContain('src="/preview/-/raw/notes/relative.png"');
+        expect(html).toContain('src="./relative.png"');
     });
 
     it.each(["/", "/preview"])("preserves published routes that also name source files under %s", (rootPath) => {
@@ -81,12 +81,12 @@ describe("static Markdown root paths", () => {
             `${root}/notes/target.md`,
             `${root}/notes/target.md#details`,
             `${root}/notes/target.md?mode=reader#details`,
-            `${root}/notes/target`,
+            "./target.md",
             "./missing.md",
         ]);
     });
 
-    it("resolves static View source Markdown instead of treating it as published routes", () => {
+    it("resolves live View source Markdown using the View source path", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/-/data",

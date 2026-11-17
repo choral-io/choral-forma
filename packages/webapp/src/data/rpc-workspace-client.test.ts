@@ -10,9 +10,170 @@ import calendarFixture from "../../../shared/src/fixtures/calendar-core.json";
 import ganttFixture from "../../../shared/src/fixtures/gantt-core.json";
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
 import { createWorkspaceDashboardContext } from "./workspace-client";
+import { readWorkspacePageGroup } from "./workspace-page-read";
 
 async function contextFor(client: RpcWorkspaceClient) {
     return createWorkspaceDashboardContext(await client.getDashboard());
+}
+
+describe("RPC route generations", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("retries a mixed dashboard and Health once and uses the accepted generation for a View", async () => {
+        const view = ".forma/views/release-scope";
+        const requests = stubRouteRounds([
+            ["workspace.dashboard", {}, "g1"],
+            ["workspace.health", { expectedRouteGeneration: "g1" }, "g2"],
+            ["workspace.dashboard", {}, "g2"],
+            ["workspace.health", { expectedRouteGeneration: "g2" }, "g2"],
+            ["view.render", { view, expectedRouteGeneration: "g2" }, "g2"],
+        ]);
+        const client = new RpcWorkspaceClient("/-/rpc");
+        const page = await readWorkspacePageGroup(client, "/-/views/release-scope", () => true);
+        expect(page?.dashboard.routeGeneration).toBe("g2");
+        expect(page?.detail.view?.projection).toMatchObject({ kind: "gantt", canonicalLanguage: "zh-Hans" });
+        expect(requests).toHaveLength(0);
+    });
+
+    it.each(["success", "failure"])("drops a late independent Health %s from an earlier epoch", async (outcome) => {
+        let completeStale: (() => void) | undefined;
+        const stale = new Promise<string>((resolve, reject) => {
+            completeStale = () => {
+                if (outcome === "success") resolve("g1");
+                else reject(new Error("Delayed network failure"));
+            };
+        });
+        const requests = stubRouteRounds([
+            ["workspace.dashboard", {}, "g1"],
+            ["workspace.health", { expectedRouteGeneration: "g1" }, "g1"],
+            ["workspace.health", {}, stale],
+            ["workspace.dashboard", {}, "g2"],
+            ["workspace.health", { expectedRouteGeneration: "g2" }, "g2"],
+        ]);
+        const client = new RpcWorkspaceClient("/-/rpc");
+        const invalidated = vi.fn();
+        client.subscribeInvalidation(invalidated);
+        await client.getDashboard();
+        const oldHealth = expect(client.getHealth()).rejects.toMatchObject({ code: "route.superseded" });
+        await expect(client.getDashboard()).resolves.toMatchObject({ routeGeneration: "g2" });
+        completeStale?.();
+        await oldHealth;
+        expect(invalidated).not.toHaveBeenCalled();
+        expect(requests).toHaveLength(0);
+    });
+
+    it("discards a View generated before its current dashboard and retries the complete group", async () => {
+        const view = ".forma/views/release-scope";
+        const requests = stubRouteRounds([
+            ["workspace.dashboard", {}, "g2"],
+            ["workspace.health", { expectedRouteGeneration: "g2" }, "g2"],
+            ["view.render", { view, expectedRouteGeneration: "g2" }, "g1"],
+            ["workspace.dashboard", {}, "g3"],
+            ["workspace.health", { expectedRouteGeneration: "g3" }, "g3"],
+            ["view.render", { view, expectedRouteGeneration: "g3" }, "g3"],
+        ]);
+        const client = new RpcWorkspaceClient("/-/rpc");
+        await expect(readWorkspacePageGroup(client, "/-/views/release-scope", () => true)).resolves.toMatchObject({
+            dashboard: { routeGeneration: "g3" },
+            detail: { view: { projection: { kind: "gantt", canonicalLanguage: "zh-Hans" } } },
+        });
+        expect(requests).toHaveLength(0);
+    });
+
+    it("limits mixed generations to one retry and recovers following a fresh read", async () => {
+        const requests = stubRouteRounds([
+            ["workspace.dashboard", {}, "server1:g1"],
+            ["workspace.health", { expectedRouteGeneration: "server1:g1" }, "server2:g1"],
+            ["workspace.dashboard", {}, "server2:g1"],
+            ["workspace.health", { expectedRouteGeneration: "server2:g1" }, "server2:g2"],
+            ["workspace.dashboard", {}, "server2:g2"],
+            ["workspace.health", { expectedRouteGeneration: "server2:g2" }, "server2:g2"],
+        ]);
+        const client = new RpcWorkspaceClient("/-/rpc");
+        const read = () => readWorkspacePageGroup(client, "/", () => true);
+        await expect(read()).rejects.toMatchObject({ code: "route.generationMismatch" });
+        expect(requests).toHaveLength(2);
+        await expect(read()).resolves.toMatchObject({ dashboard: { routeGeneration: "server2:g2" } });
+        expect(requests).toHaveLength(0);
+    });
+
+    it("discards a successful old View after accepting a newly restarted server's dashboard", async () => {
+        const view = ".forma/views/release-scope";
+        let resolveOldView: ((generation: string) => void) | undefined;
+        const oldView = new Promise<string>((resolve) => {
+            resolveOldView = resolve;
+        });
+        const requests = stubRouteRounds([
+            ["workspace.dashboard", {}, "old-session:1"],
+            ["workspace.health", { expectedRouteGeneration: "old-session:1" }, "old-session:1"],
+            ["view.render", { view, expectedRouteGeneration: "old-session:1" }, oldView],
+            ["workspace.dashboard", {}, "new-session:1"],
+            ["workspace.health", { expectedRouteGeneration: "new-session:1" }, "new-session:1"],
+            ["view.render", { view, expectedRouteGeneration: "new-session:1" }, "new-session:1"],
+        ]);
+        const client = new RpcWorkspaceClient("/-/rpc");
+        const invalidated = vi.fn();
+        client.subscribeInvalidation(invalidated);
+        const oldContext = await contextFor(client);
+        const stale = expect(client.getViewRender(view, oldContext)).rejects.toMatchObject({
+            code: "route.superseded",
+        });
+        const current = await contextFor(client);
+        resolveOldView?.("old-session:1");
+        await stale;
+        await expect(client.getViewRender(view, current)).resolves.toMatchObject({ projection: { kind: "gantt" } });
+        expect(invalidated).not.toHaveBeenCalled();
+        expect(requests).toHaveLength(0);
+    });
+});
+
+function stubRouteRounds(
+    rounds: [method: string, params: Record<string, string>, generation: string | Promise<string>][],
+) {
+    vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init: RequestInit) => {
+            if (typeof init.body !== "string") throw new Error("Expected a JSON RPC request body.");
+            const request = JSON.parse(init.body) as {
+                id: string;
+                method: string;
+                params: { view?: string };
+            };
+            const round = rounds.shift();
+            if (!round) throw new Error(`Unexpected RPC call: ${request.method}`);
+            const [method, params, generation] = round;
+            expect(request.method).toBe(method);
+            expect(request.params).toEqual(params);
+            const viewId = ".forma/views/release-scope";
+            const result = rpcResult(
+                method,
+                "",
+                undefined,
+                undefined,
+                ganttFixture as ViewRenderOutput,
+                [],
+                [
+                    {
+                        id: viewId,
+                        path: `${viewId}.md`,
+                        configId: viewId,
+                        routePath: "/-/views/release-scope",
+                        kind: "gantt",
+                        publicId: "release-scope",
+                        sourcePath: `${viewId}.md`,
+                    },
+                ],
+                [],
+                request.params.view,
+            ) as object;
+            return Response.json({
+                jsonrpc: "2.0",
+                id: request.id,
+                result: { ...result, routeGeneration: await generation, canonicalLanguage: "zh-Hans" },
+            });
+        }),
+    );
+    return rounds;
 }
 
 describe("RpcWorkspaceClient View rendering", () => {
@@ -197,12 +358,14 @@ describe("RpcWorkspaceClient View rendering", () => {
         stubRpc("", undefined, undefined, { kind: "table", columns: [], items: [] }, [
             {
                 id: "topics",
+                routePath: "/~/topics",
                 title: "Topics",
                 mode: "multiple",
                 description: "Configured topics.",
                 terms: [
                     {
                         id: "guides",
+                        routePath: "/~/topics/guides",
                         title: "Guides",
                         description: "Configured guides.",
                         entryCount: 1,
@@ -264,6 +427,10 @@ describe("RpcWorkspaceClient View rendering", () => {
                 {
                     id: ".forma/views/release-scope",
                     path: ".forma/views/release-scope.md",
+                    configId: ".forma/views/release-scope",
+                    publicId: "release-scope",
+                    routePath: "/-/views/release-scope",
+                    sourcePath: ".forma/views/release-scope.md",
                     kind: "table",
                     title: "Release Scope",
                 },
@@ -339,6 +506,7 @@ function stubRpc(
             const request = JSON.parse(requestInit.body) as {
                 id: string;
                 method: string;
+                params: { view?: string };
             };
             const result = rpcResult(
                 request.method,
@@ -349,6 +517,7 @@ function stubRpc(
                 taxonomies,
                 views,
                 entries,
+                request.params.view,
             );
 
             return Promise.resolve({
@@ -369,11 +538,15 @@ function rpcResult(
     taxonomies: DashboardTaxonomy[],
     views: DashboardViewSummary[],
     entries: DashboardEntrySummary[],
+    viewId?: string,
 ): unknown {
-    if (method === "config.inspect") return { config: { workspace: { canonicalLanguage: "en" } } };
     if (method === "workspace.dashboard") {
         return {
             schemaVersion: 1,
+            routeProjectionVersion: 1,
+            routeGeneration: "fixture-generation",
+            canonicalLanguage: "en",
+            directories: [],
             operation: method,
             status: "passed",
             summary: { errors: 0, warnings: 0, infos: 0 },
@@ -396,6 +569,7 @@ function rpcResult(
     if (method === "workspace.health") {
         return {
             schemaVersion: 1,
+            routeGeneration: "fixture-generation",
             operation: method,
             status: "passed",
             summary: { errors: 0, warnings: 0, infos: 0 },
@@ -406,15 +580,17 @@ function rpcResult(
     }
 
     if (method === "view.render") {
+        if (!viewId) throw new Error("Expected a View configuration ID.");
         return {
             schemaVersion: 1,
+            routeGeneration: "fixture-generation",
             operation: method,
             status: "passed",
             summary: { errors: 0, warnings: 0, infos: 0 },
             workspace: { root: ".", name: "Example" },
             view: {
-                id: ".forma/views/release-scope",
-                path: ".forma/views/release-scope.md",
+                id: viewId,
+                path: `${viewId}.md`,
                 surface: "page",
                 mode: "table",
                 title: "Release Scope",

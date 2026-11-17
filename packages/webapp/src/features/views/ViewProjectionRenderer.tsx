@@ -1,6 +1,5 @@
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { lazy, Suspense } from "react";
-import { Link } from "react-router";
 
 import type { DashboardViewProjection, DashboardViewProjectionItem } from "@/data/workspace-client";
 
@@ -28,19 +27,7 @@ const ViewGanttProjection = lazy(async () => {
     return { default: module.ViewGanttProjection };
 });
 
-export function ViewProjectionRenderer({
-    error,
-    onRetry,
-    projection,
-}: {
-    error?: string;
-    onRetry: () => void;
-    projection?: DashboardViewProjection;
-}) {
-    if (error) {
-        return <ProjectionErrorState message={error} onRetry={onRetry} />;
-    }
-
+export function ViewProjectionRenderer({ projection }: { projection?: DashboardViewProjection }) {
     if (!projection) {
         return <ProjectionLoadingState />;
     }
@@ -73,22 +60,6 @@ export function ProjectionLoadingState() {
     return (
         <div className="rounded-lg border border-dashed border-base-300 p-6 text-sm text-base-content/60">
             Loading view projection...
-        </div>
-    );
-}
-
-function ProjectionErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-    return (
-        <div className="alert alert-vertical alert-soft alert-error sm:alert-horizontal" role="alert">
-            <AlertTriangle aria-hidden="true" className="size-5" />
-            <div>
-                <h2 className="font-semibold">View projection failed to load</h2>
-                <p className="text-sm">{message}</p>
-            </div>
-            <button className="btn btn-sm" onClick={onRetry} type="button">
-                <RefreshCw aria-hidden="true" className="size-4" />
-                Retry
-            </button>
         </div>
     );
 }

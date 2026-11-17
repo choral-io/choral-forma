@@ -1,19 +1,16 @@
+import { WorkspaceLink as Link, NavigationFailure } from "@/app/workspace-navigation";
+import {
+    useWorkspaceNavigate,
+    useWorkspaceNavigation,
+    useWorkspaceNavigationState,
+} from "@/app/workspace-navigation-state";
 import { Search, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { cn } from "@/lib/utils";
-import {
-    browseRoutePath,
-    healthRoutePath,
-    isSystemRoutePath,
-    taxonomyRoutePath,
-    taxonomyTermRoutePath,
-    viewRoutePath,
-    viewsRoutePath,
-} from "@/lib/workspace-routes";
+import { browseRoutePath, healthRoutePath, isSystemRoutePath, viewsRoutePath } from "@/lib/workspace-routes";
 
 interface QuickOpenTriggerProps {
     className?: string;
@@ -122,7 +119,9 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
     const dialogRef = useRef<HTMLDialogElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listId = useId();
-    const navigate = useNavigate();
+    const navigate = useWorkspaceNavigate();
+    const navigation = useWorkspaceNavigation();
+    const navigationState = useWorkspaceNavigationState();
     const [activeIndex, setActiveIndex] = useState(0);
     const [query, setQuery] = useState("");
     const routeItems = [
@@ -133,22 +132,22 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
     ];
     const viewItems = dashboard.views.map((view) => ({
         group: "Views",
-        href: viewRoutePath(view.id),
-        keywords: view.id,
+        href: view.routePath,
+        keywords: view.configId,
         label: view.title,
         meta: view.kind,
     }));
     const taxonomyItems = dashboard.taxonomies.flatMap((taxonomy) => [
         {
             group: "Taxonomies",
-            href: taxonomyRoutePath(taxonomy.id),
+            href: taxonomy.routePath,
             keywords: taxonomy.id,
             label: taxonomy.title,
             meta: `${String(taxonomy.terms.length)} terms`,
         },
         ...taxonomy.terms.map((term) => ({
             group: taxonomy.title,
-            href: taxonomyTermRoutePath(taxonomy.id, term.id),
+            href: term.routePath,
             keywords: `${taxonomy.id} ${term.id}`,
             label: term.title,
             meta: `${String(term.entryCount)} ${term.entryCount === 1 ? "page" : "pages"}`,
@@ -210,13 +209,12 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
     }
 
     function openItem(href: string) {
-        closeQuickOpen();
-        void navigate(href);
+        void navigate(href, closeQuickOpen);
     }
 
     return (
         <dialog
-            className="modal bg-neutral/40 backdrop-blur-xs motion-reduce:transition-none"
+            className="peer/quick-open modal bg-neutral/40 backdrop-blur-xs motion-reduce:transition-none"
             id={quickOpenDialogId}
             onClose={() => {
                 setActiveIndex(0);
@@ -290,6 +288,11 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
                     </label>
                 </form>
 
+                {navigation && navigationState?.status === "failed" && navigationState.intent.kind === "push" ? (
+                    <div className="px-6 py-2">
+                        <NavigationFailure href={navigationState.intent.target.href} onRetry={navigation.retry} />
+                    </div>
+                ) : null}
                 <div className="min-h-0 flex-1 overflow-y-auto p-2">
                     {filteredItems.length > 0 ? (
                         <ul className="menu w-full flex-nowrap gap-1 p-0 [&_li]:flex-nowrap" id={listId} role="listbox">

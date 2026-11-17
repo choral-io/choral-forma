@@ -1,76 +1,91 @@
 import { describe, expect, it } from "vitest";
 
-import { directoryListing } from "./directory-listing";
+import type { DashboardEntry, WorkspaceDashboard } from "@/data/workspace-client";
 
-const entry = (path: string, title: string) => ({ path, routePath: `/${path.replace(/\.md$/u, "")}`, title });
+import { projectedDirectoryListing } from "./directory-listing";
+
+function entry(path: string, title: string): DashboardEntry {
+    return {
+        id: path,
+        path,
+        routePath: `/${path}`,
+        title,
+        summary: "",
+        updatedLabel: "",
+        space: "notes",
+        omitLeadingTitle: false,
+        status: "healthy",
+        body: [],
+        variants: [],
+        relations: { outgoing: [], backlinks: [] },
+    };
+}
+
+const listing = {
+    path: "notes",
+    routePath: "/notes",
+    introEntryPath: "notes/index.md",
+    childDirectoryPaths: ["notes/Gespräch"],
+    entryPaths: ["notes/index.mdx", "notes/index.md", "notes/index.zh.md", "notes/item-10.md", "notes/item-2.md"],
+};
+const child = {
+    path: "notes/Gespräch",
+    routePath: "/notes/Gespr%C3%A4ch",
+    childDirectoryPaths: ["notes/Gespräch/deep"],
+    entryPaths: [],
+};
 const entries = [
-    entry("notes/zeta.md", "Zeta"),
+    {
+        ...entry("notes/index.md", "Intro"),
+        variants: [
+            {
+                path: "notes/index.zh.md",
+                rawPath: "notes/index.zh.md",
+                routePath: "/notes/index.zh.md",
+                language: "zh",
+                title: "简介",
+            },
+        ],
+    },
+    entry("notes/index.mdx", "MDX intro"),
     entry("notes/item-10.md", "Item 10"),
     entry("notes/item-2.md", "Item 2"),
-    entry("notes/drafts/idea.md", "Idea"),
-    entry("notes/drafts/deep/more.md", "More"),
-    entry("Guides/setup.md", "Setup"),
-    entry("home.md", "Home"),
+    entry("notes/Gespräch/deep/more.md", "More"),
+    entry("notes.md", "Separate note"),
 ];
+const dashboard = {
+    entries,
+    directories: [
+        listing,
+        child,
+        {
+            path: "notes/Gespräch/deep",
+            routePath: "/notes/Gespr%C3%A4ch/deep",
+            childDirectoryPaths: [],
+            entryPaths: ["notes/Gespräch/deep/more.md"],
+        },
+    ],
+} as WorkspaceDashboard;
 
-describe("directoryListing", () => {
-    it("lists the folders and documents directly inside a directory", () => {
-        expect(directoryListing(entries, "notes")).toEqual({
-            directories: [{ documentCount: 2, name: "drafts", path: "notes/drafts" }],
-            entries: [
-                entry("notes/item-2.md", "Item 2"),
-                entry("notes/item-10.md", "Item 10"),
-                entry("notes/zeta.md", "Zeta"),
-            ],
-            path: "notes",
-        });
-    });
-
-    it("treats the empty path as the workspace root", () => {
-        const root = directoryListing(entries, "");
-        expect(root?.directories.map((folder) => folder.name)).toEqual(["Guides", "notes"]);
-        expect(root?.entries.map((item) => item.path)).toEqual(["home.md"]);
-    });
-
-    it("lists a folder that holds only folders, and ignores slashes around the path", () => {
-        expect(directoryListing(entries, "/notes/drafts/")?.directories).toEqual([
-            { documentCount: 1, name: "deep", path: "notes/drafts/deep" },
+describe("projectedDirectoryListing", () => {
+    it("lists direct projected paths, preserving both exact introductions and variants", () => {
+        const result = projectedDirectoryListing(dashboard, listing);
+        expect(result.entries.map(({ routePath }) => routePath)).toEqual([
+            "/notes/index.md",
+            "/notes/item-2.md",
+            "/notes/item-10.md",
+            "/notes/index.mdx",
+            "/notes/index.zh.md",
+        ]);
+        expect(result.directories).toEqual([
+            { documentCount: 1, name: "Gespräch", path: child.path, routePath: child.routePath, title: undefined },
         ]);
     });
 
-    it("titles a folder with the document that stands for it and does not list that document", () => {
-        const listing = directoryListing(
-            [
-                { path: "team/index.md", routePath: "/team", title: "Our Team" },
-                { path: "team/alex.md", routePath: "/team/alex", title: "Alex" },
-                entry("guide.md", "Guide overview"),
-                entry("guide/setup.md", "Setup"),
-                entry("about.md", "About"),
-            ],
-            "",
-        );
-
-        expect(listing?.directories).toEqual([
-            { documentCount: 1, name: "guide", path: "guide", title: "Guide overview" },
-            { documentCount: 2, name: "team", path: "team", title: "Our Team" },
-        ]);
-        expect(listing?.entries.map((item) => item.path)).toEqual(["about.md"]);
-        expect(directoryListing([{ path: "team/index.md", routePath: "/team", title: "Our Team" }], "team")).toEqual({
-            directories: [],
+    it("lists a child folder even when the parent has no direct file", () => {
+        expect(projectedDirectoryListing(dashboard, child)).toMatchObject({
             entries: [],
-            path: "team",
+            directories: [{ name: "deep", documentCount: 1, routePath: "/notes/Gespr%C3%A4ch/deep" }],
         });
-    });
-
-    it("leaves the workspace entry document out of the root listing", () => {
-        const root = directoryListing([{ path: ".forma.md", routePath: "/", title: "Home" }, ...entries], "");
-
-        expect(root?.entries.map((item) => item.path)).toEqual(["home.md"]);
-    });
-
-    it("does not treat a document or an unknown path as a directory", () => {
-        expect(directoryListing(entries, "notes/zeta.md")).toBeUndefined();
-        expect(directoryListing(entries, "missing")).toBeUndefined();
-        expect(directoryListing(entries, "note")).toBeUndefined();
     });
 });

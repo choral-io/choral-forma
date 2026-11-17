@@ -12,16 +12,11 @@ const env = import.meta.env as {
 };
 const rpcEndpoint = env.VITE_FORMA_RPC_ENDPOINT;
 
-function readStaticDataBaseUrl(): string {
-    const config = readStaticRuntimeConfig();
-    if (!config?.dataBaseUrl) {
-        throw new Error("Static artifact configuration is missing its data base URL.");
-    }
-    return config.dataBaseUrl;
-}
-
-export const isStaticWorkspaceClient = __FORMA_WORKSPACE_CLIENT__ === "static";
+export const isStaticWorkspaceClient =
+    typeof __FORMA_WORKSPACE_CLIENT__ !== "undefined" && __FORMA_WORKSPACE_CLIENT__ === "static";
 
 export const workspaceClient: WorkspaceClient = isStaticWorkspaceClient
-    ? new StaticWorkspaceClient(readStaticDataBaseUrl())
+    ? new StaticWorkspaceClient(readStaticRuntimeConfig)
     : new RpcWorkspaceClient(rpcEndpoint ?? rootAwareHref(rpcEndpointPath));
+
+export const staticWorkspaceClient = isStaticWorkspaceClient ? (workspaceClient as StaticWorkspaceClient) : undefined;

@@ -1,36 +1,48 @@
 import { describe, expect, it } from "vitest";
 
+import type { DashboardDirectory } from "@/data/workspace-client";
 import { directoryOwners } from "@/features/navigation/directory-owners";
 
 import { directoryBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 
-const page = (path: string, routePath = `/${path.replace(/\.md$/u, "")}`) => ({ path, routePath });
+const directories: DashboardDirectory[] = [
+    { path: "knowledge", routePath: "/knowledge", childDirectoryPaths: ["knowledge/design"], entryPaths: [] },
+    {
+        path: "knowledge/design",
+        routePath: "/knowledge/design",
+        childDirectoryPaths: [],
+        entryPaths: ["knowledge/design/reader.md"],
+    },
+    {
+        path: "team",
+        routePath: "/team",
+        childDirectoryPaths: [],
+        entryPaths: ["team/index.md"],
+        introEntryPath: "team/index.md",
+    },
+    { path: "a b", routePath: "/a%20b", childDirectoryPaths: ["a b/c"], entryPaths: [] },
+];
 
 describe("entryDirectoryBreadcrumb", () => {
-    it("leads through each containing directory to its page; the workspace crumb is home", () => {
-        expect(entryDirectoryBreadcrumb(page("knowledge/design/reader.md"))).toEqual([
+    it("leads through each projected directory to its page", () => {
+        expect(entryDirectoryBreadcrumb({ path: "knowledge/design/reader.md" }, directories, new Map())).toEqual([
             { label: "knowledge", to: "/knowledge" },
             { label: "design", to: "/knowledge/design" },
         ]);
     });
 
     it("has no directory crumbs for a root-level entry", () => {
-        expect(entryDirectoryBreadcrumb(page("README.md"))).toEqual([]);
-        expect(entryDirectoryBreadcrumb(page("/notes.md"))).toEqual([]);
+        expect(entryDirectoryBreadcrumb({ path: "README.md" }, directories, new Map())).toEqual([]);
     });
 
-    it("labels a directory with the title of the document that stands for it, and never links a page to itself", () => {
-        const entries = [
-            { path: "team/index.md", routePath: "/team", title: "Our Team" },
-            { path: "team/alex.md", routePath: "/team/alex", title: "Alex" },
-        ];
-        const owners = directoryOwners(entries);
-
-        expect(entryDirectoryBreadcrumb(page("team/alex.md"), owners)).toEqual([{ label: "Our Team", to: "/team" }]);
-        expect(entryDirectoryBreadcrumb(page("team/index.md", "/team"), owners)).toEqual([]);
+    it("labels the directory from its selected intro even on the intro's own exact file page", () => {
+        const intro = { path: "team/index.md", routePath: "/team/index.md", title: "Our Team" };
+        expect(entryDirectoryBreadcrumb(intro, directories, directoryOwners([intro], directories))).toEqual([
+            { label: "Our Team", to: "/team" },
+        ]);
     });
 
     it("leaves a directory's own name out of its page's breadcrumb", () => {
-        expect(directoryBreadcrumb("a b/c", false)).toEqual([{ label: "a b", to: "/a%20b" }]);
+        expect(directoryBreadcrumb("a b/c", false, directories, new Map())).toEqual([{ label: "a b", to: "/a%20b" }]);
     });
 });

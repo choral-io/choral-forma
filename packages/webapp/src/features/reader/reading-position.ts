@@ -38,6 +38,7 @@ export function useReadingPosition(rootRef: RefObject<HTMLElement | null>, headi
         const scroller = root?.closest<HTMLElement>("main");
         if (!root || !scroller) return;
         const ids = headingKey ? headingKey.split("\n") : [];
+        let resizeFrame: number | undefined;
 
         const measure = () => {
             const readingLine = scroller.getBoundingClientRect().top + readingLineOffset;
@@ -54,12 +55,20 @@ export function useReadingPosition(rootRef: RefObject<HTMLElement | null>, headi
         };
 
         scroller.addEventListener("scroll", measure, { passive: true });
-        const resizeObserver = new ResizeObserver(measure);
+        const resizeObserver = new ResizeObserver(() => {
+            if (resizeFrame !== undefined) return;
+            // Updating the outline can affect layout after a disclosure resizes.
+            resizeFrame = requestAnimationFrame(() => {
+                resizeFrame = undefined;
+                measure();
+            });
+        });
         resizeObserver.observe(root);
         measure();
         return () => {
             scroller.removeEventListener("scroll", measure);
             resizeObserver.disconnect();
+            if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
         };
     }, [headingKey, rootRef]);
 

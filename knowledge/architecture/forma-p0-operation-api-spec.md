@@ -62,6 +62,12 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /-/rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
 
+### Route generation on the HTTP adapter
+
+The HTTP adapter's `workspace.dashboard` result includes an opaque `routeGeneration`, a `routeProjectionVersion`, `canonicalLanguage`, and explicit entry, directory, classification, and View route data. Read `workspace.health`, `file.render` (Markdown or HTML), `file.references`, and `view.render` with optional `expectedRouteGeneration` to bind them to that dashboard. The reader passes the accepted generation on every dependent request and commits the complete read only when all results match.
+
+A failed result carries the current `routeGeneration` and `route.generationMismatch` if the expectation is stale, or `route.unavailable` with preflight causes if routes are blocked. Neither failure carries a stale detail. An independent `workspace.health` request can omit the expectation and read current diagnostics. Existing CLI and editor source operations continue to use their native inputs.
+
 `forma docs list` and `forma docs get <id>` are local CLI documentation surfaces over embedded product docs. They are not workspace operations and do not require JSON-RPC methods in P0.
 
 `SkillsList` reports each skill's `source`, `sourcePath`, and default `projection: section | full`. `SkillsGet` accepts optional `full: true` to return the complete canonical document or configured guideline instead of its default compact section. Generated Markdown uses Agent Skills frontmatter and records canonical provenance as `metadata.forma-source-ref`: `docs:<document-id>` for embedded docs or `workspace:<workspace-relative-path>` for configured guidelines. A source reference never contains an absolute host path and does not imply authorization, privacy, or publication behavior.

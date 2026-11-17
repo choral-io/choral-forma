@@ -1,25 +1,34 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::Uri;
-use forma_core::routes::{RAW_ROUTE_PREFIX, SYSTEM_ROUTE_SEGMENT};
+use forma_core::routes::{
+    RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE, SYSTEM_ROUTE_SEGMENT,
+};
 use forma_core::{
     DiagnosticSeverity, OperationStatus, StaticSiteDiagnostic, StaticSiteEntry, StaticSiteSnapshot,
     StaticSiteView, build_static_site_snapshot_with_root_path,
 };
 use include_dir::Dir;
 use serde::Serialize;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::static_html::{
     PageShellOptions, home_redirect_html, not_found_page, page_shell, public_href, render_pages,
     sitemap_xml,
 };
 
+mod output_preflight;
+
+use output_preflight::{ArtifactOutput, incomplete_output_preflight, validate_artifact_outputs};
+
 const OPERATION: &str = "site.build";
+pub(crate) const STATIC_DATA_SCHEMA_VERSION: u16 = 3;
 /// The artifact directory of the data files, `-/data`, beside the reserved routes.
 const STATIC_DATA_DIR: &str = "-/data";
 const ARTIFACT_MARKER: &str = ".forma-site-artifact";
@@ -48,6 +57,7 @@ pub(crate) struct SiteBuildResult {
     pub output: String,
     pub base_url: String,
     pub root_path: String,
+    pub artifact_id: String,
     pub counts: SiteBuildCounts,
     pub diagnostics: Vec<StaticSiteDiagnostic>,
 }
@@ -73,39 +83,68 @@ struct ValidatedOutput {
 
 #[derive(Debug)]
 struct ArtifactWrite {
+    artifact_id: String,
     assets: usize,
     bytes: u64,
     copied_resources: usize,
     pages: usize,
 }
 
+#[derive(Debug)]
+pub(crate) struct SiteBuildError {
+    pub(crate) message: String,
+    pub(crate) diagnostics: Vec<StaticSiteDiagnostic>,
+}
+
+impl From<String> for SiteBuildError {
+    fn from(message: String) -> Self {
+        Self {
+            message,
+            diagnostics: Vec::new(),
+        }
+    }
+}
+
+impl std::fmt::Display for SiteBuildError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
 pub(crate) fn build_site(
     workspace: &Path,
     options: SiteBuildOptions,
     static_webapp: &Dir<'_>,
-) -> Result<SiteBuildResult, String> {
+) -> Result<SiteBuildResult, SiteBuildError> {
     let workspace = fs::canonicalize(workspace)
         .map_err(|error| format!("site workspace could not be resolved: {error}"))?;
     let snapshot = build_static_site_snapshot_with_root_path(&workspace, &options.root_path)
         .map_err(|error| format!("site snapshot could not be built: {error}"))?;
-    if snapshot.status == OperationStatus::Failed {
-        return Err(snapshot_errors_message(&snapshot));
+    if snapshot.diagnostics.iter().any(|diagnostic| {
+        diagnostic.severity == DiagnosticSeverity::Error
+            && diagnostic.code != ROUTE_STATIC_OUTPUT_CONFLICT_CODE
+    }) {
+        return Err(SiteBuildError {
+            message: snapshot_errors_message(&snapshot),
+            diagnostics: snapshot.diagnostics,
+        });
     }
     let base_url = normalize_base_url(&options.base_url)?;
     let output = validate_output(&workspace, &options.out, &snapshot)?;
-    let staging = staging_path(&output.parent)?;
+    let incomplete = |actual| incomplete_output_preflight(actual, &snapshot.diagnostics);
+    let staging = staging_path(&output.parent).map_err(incomplete)?;
 
     fs::create_dir_all(&output.parent).map_err(|error| {
-        format!(
+        incomplete(format!(
             "site output parent could not be created {}: {error}",
             output.parent.display()
-        )
+        ))
     })?;
     fs::create_dir(&staging).map_err(|error| {
-        format!(
+        incomplete(format!(
             "site staging directory could not be created {}: {error}",
             staging.display()
-        )
+        ))
     })?;
 
     let write = write_artifact(
@@ -138,6 +177,7 @@ pub(crate) fn build_site(
         output: output.target.to_string_lossy().to_string(),
         base_url,
         root_path: options.root_path,
+        artifact_id: write.artifact_id,
         counts: SiteBuildCounts {
             routes: snapshot.summary.routes,
             // Phase 2 deliberately emits only the generic client shell. Crawlable route pages arrive in Phase 3.
@@ -160,49 +200,156 @@ fn write_artifact(
     root_path: &str,
     base_url: &str,
     workspace: &Path,
-) -> Result<ArtifactWrite, String> {
-    let mut bytes = 0_u64;
-    let mut asset_count = 0_usize;
-    let data = StaticDashboardData::from_snapshot(snapshot)?;
-    bytes += write_json(staging, &format!("{STATIC_DATA_DIR}/dashboard.json"), &data)?;
-
+) -> Result<ArtifactWrite, SiteBuildError> {
+    let dashboard = StaticDashboardData::from_snapshot(snapshot)?;
+    let mut data = BTreeMap::new();
+    insert_data(&mut data, "dashboard.json".into(), &dashboard)?;
     for entry in &snapshot.entries {
-        let path = data_path(&format!("{STATIC_DATA_DIR}/entries"), &entry.id)?;
-        bytes += write_json(staging, &path, entry)?;
+        insert_data(&mut data, data_path("entries", &entry.path), entry)?;
         for variant in &entry.variants {
-            let path = data_path(&format!("{STATIC_DATA_DIR}/entries"), &variant.id)?;
-            bytes += write_json(staging, &path, variant)?;
+            insert_data(&mut data, data_path("entries", &variant.path), variant)?;
         }
     }
     for view in &snapshot.views {
-        let path = data_path(&format!("{STATIC_DATA_DIR}/views"), &view.id)?;
-        bytes += write_json(staging, &path, view)?;
+        insert_data(&mut data, data_path("views", &view.config_id), view)?;
+    }
+    for directory in &snapshot.directories {
+        if let Some(source_path) = &directory.directory.intro_entry_path {
+            let entry = snapshot
+                .entries
+                .iter()
+                .find(|entry| &entry.path == source_path)
+                .ok_or_else(|| format!("missing static directory introduction: {source_path}"))?;
+            let mut detail = serde_json::to_value(entry).map_err(|error| error.to_string())?;
+            let object = detail
+                .as_object_mut()
+                .expect("entry serializes as an object");
+            object.insert(
+                "directoryPath".into(),
+                Value::String(directory.directory.path.clone()),
+            );
+            object.insert(
+                "directoryRoutePath".into(),
+                Value::String(directory.directory.route_path.clone()),
+            );
+            object.insert(
+                "markdown".into(),
+                Value::String(directory.intro_markdown.clone().unwrap_or_default()),
+            );
+            object.insert(
+                "html".into(),
+                Value::String(directory.intro_html.clone().unwrap_or_default()),
+            );
+            insert_data(
+                &mut data,
+                data_path("directories", &directory.directory.path),
+                &detail,
+            )?;
+        }
     }
 
     let mut files = collect_embedded_files(static_webapp);
     files.sort_by(|left, right| left.0.cmp(&right.0));
-    let mut embedded_index = None;
-    for (path, contents) in files {
+    let embedded_index = files
+        .iter()
+        .find(|file| file.0 == "index.html")
+        .map_or(Ok(""), |file| std::str::from_utf8(file.1))
+        .map_err(|error| format!("embedded static WebApp index is not UTF-8: {error}"))?;
+    let not_found = not_found_page(
+        &snapshot.workspace.name,
+        &snapshot.workspace.canonical_language,
+    );
+    let routes = snapshot
+        .routes
+        .iter()
+        .map(|route| (route.path.as_str(), route))
+        .collect::<BTreeMap<_, _>>();
+    let redirect_path = format!("{SYSTEM_ROUTE_SEGMENT}/index.html");
+    let support_paths = [
+        redirect_path.as_str(),
+        "sitemap.xml",
+        "robots.txt",
+        "_headers",
+        ARTIFACT_MARKER,
+    ];
+    // The final data directory uses a full SHA-256 segment. Use the same shape during ownership checks.
+    const ID_PLACEHOLDER: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+    let output_data_paths = data
+        .keys()
+        .map(|path| format!("{STATIC_DATA_DIR}/{ID_PLACEHOLDER}/{path}"))
+        .collect::<Vec<_>>();
+    validate_artifact_outputs(
+        staging,
+        snapshot
+            .routes
+            .iter()
+            .map(ArtifactOutput::route)
+            .chain(std::iter::once(ArtifactOutput::generated(
+                &not_found.output_path,
+                "site support file",
+            )))
+            .chain(
+                files
+                    .iter()
+                    .filter(|file| file.0 != "index.html")
+                    .map(|file| ArtifactOutput::generated(&file.0, "WebApp asset")),
+            )
+            .chain(snapshot.resources.iter().map(ArtifactOutput::resource))
+            .chain(
+                support_paths
+                    .into_iter()
+                    .map(|path| ArtifactOutput::generated(path, "site support file")),
+            )
+            .chain(
+                output_data_paths
+                    .iter()
+                    .map(|path| ArtifactOutput::generated(path, "site data file")),
+            ),
+        &snapshot.diagnostics,
+    )?;
+    let pages = render_pages(snapshot, root_path)?;
+    let sitemap_url = format!("{base_url}{}", public_href(root_path, "/sitemap.xml"));
+    let support_contents = [
+        home_redirect_html(root_path, &snapshot.workspace.canonical_language),
+        sitemap_xml(base_url, root_path, &pages),
+        format!(
+            "User-agent: *\nAllow: {}\nSitemap: {sitemap_url}\n",
+            public_href(root_path, "/")
+        ),
+        CLOUDFLARE_STATIC_ASSET_HEADERS.to_string(),
+        "forma-static-site-v1\n".to_string(),
+    ];
+
+    let mut bytes = 0;
+    let mut assets = 0;
+    let mut fingerprint = Sha256::new();
+    fingerprint.update(b"forma-static-artifact-v3");
+    let fingerprint_write =
+        |fingerprint: &mut Sha256, path: &str, contents: &[u8]| -> Result<u64, String> {
+            hash_artifact_record(fingerprint, path, contents);
+            write_bytes(staging, path, contents)
+        };
+    for (path, contents) in &files {
         if path == "index.html" {
-            embedded_index = Some(
-                std::str::from_utf8(contents)
-                    .map_err(|error| format!("embedded static WebApp index is not UTF-8: {error}"))?
-                    .to_string(),
-            );
             continue;
         }
-        let contents = root_embedded_asset(contents, &path, root_path);
-        bytes += write_bytes(staging, &path, &contents)?;
-        asset_count += 1;
+        let contents = root_embedded_asset(contents, path, root_path);
+        bytes += fingerprint_write(&mut fingerprint, path, &contents)?;
+        assets += 1;
     }
-    let embedded_index = embedded_index.unwrap_or_default();
-    let copied_resources = copy_resources(workspace, staging, snapshot, &mut bytes)?;
-    let pages = render_pages(snapshot, root_path)?;
-    for page in &pages {
-        let html = page_shell(PageShellOptions {
+    let copied_resources =
+        copy_resources(workspace, staging, snapshot, &mut bytes, &mut fingerprint)?;
+    for (path, contents) in support_paths.into_iter().zip(&support_contents) {
+        bytes += fingerprint_write(&mut fingerprint, path, contents.as_bytes())?;
+    }
+
+    let render_page = |page: &crate::static_html::StaticPage, artifact_id: &str| {
+        page_shell(PageShellOptions {
+            artifact_id,
+            route: routes.get(page.canonical_route.as_str()).copied(),
             base_url,
-            embedded_index: &embedded_index,
-            noindex: false,
+            embedded_index,
+            noindex: page.output_path == not_found.output_path,
             page,
             root_path,
             workspace_name: &snapshot.workspace.name,
@@ -211,60 +358,76 @@ fn write_artifact(
                 .logo
                 .as_ref()
                 .map(|logo| (logo.public_path.as_str(), logo.alt.as_str())),
-        });
-        bytes += write_bytes(staging, &page.output_path, html.as_bytes())?;
+        })
+    };
+    for page in pages.iter().chain(std::iter::once(&not_found)) {
+        hash_artifact_record(
+            &mut fingerprint,
+            &page.output_path,
+            render_page(page, ID_PLACEHOLDER).as_bytes(),
+        );
     }
-    let not_found = not_found_page(
-        &snapshot.workspace.name,
-        &snapshot.workspace.canonical_language,
-    );
-    let not_found_html = page_shell(PageShellOptions {
-        base_url,
-        embedded_index: &embedded_index,
-        noindex: true,
-        page: &not_found,
-        root_path,
-        workspace_name: &snapshot.workspace.name,
-        workspace_logo: snapshot
-            .workspace
-            .logo
-            .as_ref()
-            .map(|logo| (logo.public_path.as_str(), logo.alt.as_str())),
-    });
-    bytes += write_bytes(staging, &not_found.output_path, not_found_html.as_bytes())?;
-    let home_redirect = home_redirect_html(root_path, &snapshot.workspace.canonical_language);
-    bytes += write_bytes(
-        staging,
-        &format!("{SYSTEM_ROUTE_SEGMENT}/index.html"),
-        home_redirect.as_bytes(),
-    )?;
-    bytes += write_bytes(
-        staging,
-        "sitemap.xml",
-        sitemap_xml(base_url, root_path, &pages).as_bytes(),
-    )?;
-    let sitemap_url = format!("{base_url}{}", public_href(root_path, "/sitemap.xml"));
-    bytes += write_bytes(
-        staging,
-        "robots.txt",
-        format!(
-            "User-agent: *\nAllow: {}\nSitemap: {sitemap_url}\n",
-            public_href(root_path, "/")
-        )
-        .as_bytes(),
-    )?;
-    bytes += write_bytes(
-        staging,
-        "_headers",
-        CLOUDFLARE_STATIC_ASSET_HEADERS.as_bytes(),
-    )?;
-    bytes += write_bytes(staging, ARTIFACT_MARKER, b"forma-static-site-v1\n")?;
+    for (path, content) in &data {
+        let normalized_path = format!("{STATIC_DATA_DIR}/{ID_PLACEHOLDER}/{path}");
+        let serialized = serde_json::to_vec(content).map_err(|error| error.to_string())?;
+        hash_artifact_record(&mut fingerprint, &normalized_path, &serialized);
+    }
+    let artifact_id = sha256_hex(fingerprint.finalize().as_slice());
+
+    for page in pages.iter().chain(std::iter::once(&not_found)) {
+        bytes += write_bytes(
+            staging,
+            &page.output_path,
+            render_page(page, &artifact_id).as_bytes(),
+        )?;
+    }
+    for (path, mut content) in data {
+        let object = content
+            .as_object_mut()
+            .expect("data record serializes as an object");
+        object.insert(
+            "schemaVersion".into(),
+            Value::from(STATIC_DATA_SCHEMA_VERSION),
+        );
+        object.insert("artifactId".into(), Value::String(artifact_id.clone()));
+        bytes += write_json(
+            staging,
+            &format!("{STATIC_DATA_DIR}/{artifact_id}/{path}"),
+            &content,
+        )?;
+    }
     Ok(ArtifactWrite {
-        assets: asset_count,
+        artifact_id,
+        assets,
         bytes,
         copied_resources,
         pages: pages.len() + 2,
     })
+}
+
+fn insert_data(
+    data: &mut BTreeMap<String, Value>,
+    path: String,
+    value: &impl Serialize,
+) -> Result<(), String> {
+    let value = serde_json::to_value(value).map_err(|error| error.to_string())?;
+    match data.entry(path) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(value);
+            Ok(())
+        }
+        std::collections::btree_map::Entry::Occupied(entry) => Err(format!(
+            "static data output has multiple owners: {}",
+            entry.key()
+        )),
+    }
+}
+
+fn hash_artifact_record(fingerprint: &mut Sha256, path: &str, contents: &[u8]) {
+    fingerprint.update((path.len() as u64).to_be_bytes());
+    fingerprint.update(path.as_bytes());
+    fingerprint.update((contents.len() as u64).to_be_bytes());
+    fingerprint.update(Sha256::digest(contents));
 }
 
 fn collect_embedded_files<'a>(directory: &'a Dir<'a>) -> Vec<(String, &'a [u8])> {
@@ -294,6 +457,7 @@ fn copy_resources(
     staging: &Path,
     snapshot: &StaticSiteSnapshot,
     bytes: &mut u64,
+    fingerprint: &mut Sha256,
 ) -> Result<usize, String> {
     let mut outputs = BTreeSet::new();
     for resource in &snapshot.resources {
@@ -322,6 +486,7 @@ fn copy_resources(
         let contents = fs::read(&source).map_err(|error| {
             format!("site resource could not be read {}: {error}", resource.path)
         })?;
+        hash_artifact_record(fingerprint, &expected_output, &contents);
         *bytes += write_bytes(staging, &expected_output, &contents)?;
     }
     Ok(snapshot.resources.len())
@@ -414,12 +579,17 @@ fn write_bytes(value_root: &Path, relative: &str, bytes: &[u8]) -> Result<u64, S
             parent.display()
         )
     })?;
-    fs::write(&target, bytes).map_err(|error| {
-        format!(
-            "site artifact file could not be written {}: {error}",
-            target.display()
-        )
-    })?;
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&target)
+        .and_then(|mut file| file.write_all(bytes))
+        .map_err(|error| {
+            format!(
+                "site artifact file could not be written {}: {error}",
+                target.display()
+            )
+        })?;
     Ok(bytes.len() as u64)
 }
 
@@ -765,9 +935,15 @@ fn valid_authority_port(authority: &str) -> bool {
         .is_none_or(|(_, port)| !port.is_empty() && port.parse::<u16>().is_ok())
 }
 
-fn data_path(prefix: &str, id: &str) -> Result<String, String> {
-    let id = safe_relative_path(id)?;
-    Ok(format!("{prefix}/{}.json", id.to_string_lossy()))
+fn sha256_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn data_path(kind: &str, identity: &str) -> String {
+    format!(
+        "{kind}/{}.json",
+        sha256_hex(Sha256::digest(identity.as_bytes()).as_slice())
+    )
 }
 
 fn safe_relative_path(value: &str) -> Result<PathBuf, String> {
@@ -801,6 +977,9 @@ struct StaticDashboardData<'a> {
     workspace: StaticWorkspace<'a>,
     spaces: &'a [forma_core::StaticSiteSpace],
     taxonomies: &'a [forma_core::StaticSiteTaxonomy],
+    routes: &'a [forma_core::StaticSiteRoute],
+    directories: Vec<StaticDirectorySummary<'a>>,
+    resources: &'a [forma_core::StaticSiteResourceCandidate],
     entries: Vec<StaticEntrySummary<'a>>,
     views: Vec<StaticViewSummary<'a>>,
     summary: forma_core::DiagnosticSummary,
@@ -838,6 +1017,20 @@ struct StaticLogo<'a> {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct StaticDirectorySummary<'a> {
+    path: &'a str,
+    route_path: &'a str,
+    output_path: &'a str,
+    child_directory_paths: &'a [String],
+    entry_paths: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intro_entry_path: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data_path: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StaticEntrySummary<'a> {
     id: &'a str,
     path: &'a str,
@@ -870,6 +1063,9 @@ struct StaticVariantSummary<'a> {
 #[serde(rename_all = "camelCase")]
 struct StaticViewSummary<'a> {
     id: &'a str,
+    config_id: &'a str,
+    public_id: &'a str,
+    source_path: &'a str,
     route_path: &'a str,
     mode: &'a str,
     title: &'a Option<String>,
@@ -882,7 +1078,7 @@ struct StaticViewSummary<'a> {
 impl<'a> StaticDashboardData<'a> {
     fn from_snapshot(snapshot: &'a StaticSiteSnapshot) -> Result<Self, String> {
         Ok(Self {
-            schema_version: snapshot.schema_version,
+            schema_version: STATIC_DATA_SCHEMA_VERSION,
             generator_version: &snapshot.generator_version,
             status: snapshot.status,
             workspace: StaticWorkspace {
@@ -903,6 +1099,27 @@ impl<'a> StaticDashboardData<'a> {
             },
             spaces: &snapshot.spaces,
             taxonomies: &snapshot.taxonomies,
+            routes: &snapshot.routes,
+            directories: snapshot
+                .directories
+                .iter()
+                .map(|directory| {
+                    let directory = &directory.directory;
+                    StaticDirectorySummary {
+                        path: &directory.path,
+                        route_path: &directory.route_path,
+                        output_path: &directory.output_path,
+                        child_directory_paths: &directory.child_directory_paths,
+                        entry_paths: &directory.entry_paths,
+                        intro_entry_path: directory.intro_entry_path.as_deref(),
+                        data_path: directory
+                            .intro_entry_path
+                            .as_ref()
+                            .map(|_| data_path("directories", &directory.path)),
+                    }
+                })
+                .collect(),
+            resources: &snapshot.resources,
             entries: snapshot
                 .entries
                 .iter()
@@ -944,11 +1161,11 @@ impl<'a> StaticEntrySummary<'a> {
                         title: &variant.title,
                         omit_leading_title: variant.omit_leading_title,
                         summary: &variant.summary,
-                        data_path: data_path(&format!("{STATIC_DATA_DIR}/entries"), &variant.id)?,
+                        data_path: data_path("entries", &variant.path),
                     })
                 })
                 .collect::<Result<Vec<_>, String>>()?,
-            data_path: data_path(&format!("{STATIC_DATA_DIR}/entries"), &entry.id)?,
+            data_path: data_path("entries", &entry.path),
         })
     }
 }
@@ -957,13 +1174,16 @@ impl<'a> StaticViewSummary<'a> {
     fn from_view(view: &'a StaticSiteView) -> Result<Self, String> {
         Ok(Self {
             id: &view.id,
+            config_id: &view.config_id,
+            public_id: &view.public_id,
+            source_path: &view.source_path,
             route_path: &view.route_path,
             mode: &view.mode,
             title: &view.title,
             display: &view.display,
             space: &view.space,
             status: view.status,
-            data_path: data_path(&format!("{STATIC_DATA_DIR}/views"), &view.id)?,
+            data_path: data_path("views", &view.config_id),
         })
     }
 }
@@ -977,12 +1197,12 @@ mod tests {
     use super::{activate_artifact_with, data_path, normalize_base_url, safe_relative_path};
 
     #[test]
-    fn site_data_paths_keep_stable_nested_ids() {
-        assert_eq!(
-            data_path("-/data/entries", "notes/a").unwrap(),
-            "-/data/entries/notes/a.json"
-        );
-        assert!(data_path("-/data/entries", "../a").is_err());
+    fn site_data_paths_keep_distinct_complete_identities() {
+        let slash = data_path("entries", "notes/a.md");
+        assert_eq!(slash, data_path("entries", "notes/a.md"));
+        assert_ne!(slash, data_path("entries", "notes--a.md"));
+        assert!(slash.starts_with("entries/"));
+        assert_eq!(slash.split('/').count(), 2);
         assert!(safe_relative_path("/absolute").is_err());
     }
 

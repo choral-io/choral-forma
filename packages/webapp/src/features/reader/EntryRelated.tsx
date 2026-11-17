@@ -1,5 +1,5 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { useId } from "react";
-import { Link } from "react-router";
 
 import type { DashboardEntry, DashboardEntryLink } from "@/data/workspace-client";
 
@@ -85,7 +85,7 @@ function RelationRow({ link }: { link: DashboardEntryLink }) {
         );
     }
 
-    if (!link.targetEntryId || !link.targetRoutePath) {
+    if (!link.targetRoutePath) {
         return <div className={rowClassName}>{content}</div>;
     }
 

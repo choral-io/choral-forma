@@ -1,23 +1,24 @@
 //! The public URL layout that every surface shares.
 //!
-//! Content owns the root namespace: a page or a directory is served at its workspace path, so
-//! `notes/welcome.md` is `/notes/welcome` and the workspace root, whose page is `.forma.md`, is
-//! `/`. Everything Forma adds lives under the single reserved segment `-`: collections at
-//! `/-/browse/<taxonomy>/<term>`, views at `/-/views/<id>`, health, raw files, the RPC endpoint,
-//! and static artifact data. Each position in a URL has exactly one owner, so a configured name
-//! never shadows a system route; the diagnostics here report the few content names that would.
+//! Content uses its exact workspace path, including file extensions. The root `/` remains home.
+//! Collections use `/~` and Forma's features and endpoints use `/-`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
 use crate::config::TaxonomyTermDefinition;
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticSeverity};
 use crate::index::{IndexEntry, IndexView};
 use crate::path::FORMA_CONFIG_PATH;
 
 /// The first path segment that belongs to Forma rather than to content.
 pub const SYSTEM_ROUTE_SEGMENT: &str = "-";
+/// The first path segment for configured logical collections.
+pub const TAXONOMY_ROUTE_SEGMENT: &str = "~";
 /// The collections overview; each taxonomy and term is a segment below it.
-pub const BROWSE_ROUTE_PATH: &str = "/-/browse";
+pub const BROWSE_ROUTE_PATH: &str = "/~";
 /// The views overview; each view is a segment below it.
 pub const VIEWS_ROUTE_PATH: &str = "/-/views";
 /// The workspace health page.
@@ -39,10 +40,9 @@ pub const STATIC_SITE_ROOT_FILES: &[&str] = &[
     ".forma-site-artifact",
 ];
 
-/// The route of an indexed document: its workspace path without the Markdown extension, with an
-/// `index` file standing for its directory.
+/// The route of an indexed document at its exact workspace file path.
 pub fn entry_route_path(path: &str) -> String {
-    format!("/{}", encode_path(&entry_page_path(path)))
+    format!("/{}", encode_path(path))
 }
 
 /// The route of a directory's page; the empty path is the workspace root, `/`.
@@ -71,28 +71,60 @@ pub fn raw_route_path(path: &str) -> String {
     format!("{RAW_ROUTE_PREFIX}/{}", encode_path(path))
 }
 
-/// A document path as its page path: no Markdown extension, and `x/index` as `x`.
-pub(crate) fn entry_page_path(path: &str) -> String {
-    let without_extension = path
-        .strip_suffix(".md")
-        .or_else(|| path.strip_suffix(".mdx"))
-        .unwrap_or(path);
-    without_extension
-        .strip_suffix("/index")
-        .filter(|value| !value.is_empty())
-        .unwrap_or(without_extension)
-        .to_string()
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteDirectory {
+    pub path: String,
+    pub route_path: String,
+    pub output_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intro_entry_path: Option<String>,
+    pub child_directory_paths: Vec<String>,
+    pub entry_paths: Vec<String>,
 }
 
-/// Every directory that holds one of the paths, by its path from the workspace root.
-pub(crate) fn directory_paths<'a>(paths: impl IntoIterator<Item = &'a str>) -> BTreeSet<String> {
-    paths
-        .into_iter()
-        .flat_map(|path| {
-            let segments = path.split('/').collect::<Vec<_>>();
-            (1..segments.len())
-                .map(move |length| segments[..length].join("/"))
-                .collect::<Vec<_>>()
+pub(crate) fn route_directories(entries: &[IndexEntry]) -> Vec<RouteDirectory> {
+    let mut directories = BTreeMap::<&str, RouteDirectory>::new();
+    for entry in entries {
+        for path in std::iter::once(&entry.path).chain(entry.variants.iter().map(|v| &v.path)) {
+            let mut child = path.as_str();
+            let mut file = true;
+            while let Some((parent, name)) = child.rsplit_once('/') {
+                let directory = directories.entry(parent).or_insert_with(|| {
+                    let route_path = directory_route_path(parent);
+                    RouteDirectory {
+                        path: parent.to_string(),
+                        output_path: route_output_path(&route_path),
+                        route_path,
+                        intro_entry_path: None,
+                        child_directory_paths: Vec::new(),
+                        entry_paths: Vec::new(),
+                    }
+                });
+                if file {
+                    directory.entry_paths.push(child.to_string());
+                    if path == &entry.path
+                        && (name == "index.md"
+                            || (name == "index.mdx" && directory.intro_entry_path.is_none()))
+                    {
+                        directory.intro_entry_path = Some(path.clone());
+                    }
+                } else {
+                    directory.child_directory_paths.push(child.to_string());
+                }
+                child = parent;
+                file = false;
+            }
+        }
+    }
+    directories
+        .into_values()
+        .map(|mut directory| {
+            directory.entry_paths.sort();
+            directory.entry_paths.dedup();
+            directory.child_directory_paths.sort();
+            directory.child_directory_paths.dedup();
+            directory
         })
         .collect()
 }
@@ -129,7 +161,62 @@ pub(crate) fn route_output_path(route_path: &str) -> String {
     }
 }
 
+/// Normalize an unprefixed request pathname without interpreting encoded path separators
+/// as hierarchy. Only typed logical identifier positions can carry such characters.
+pub fn canonical_route_path(pathname: &str) -> Option<String> {
+    if pathname == "/" {
+        return Some("/".to_string());
+    }
+    if pathname.contains(['?', '#', '\\']) {
+        return None;
+    }
+    let path = pathname.strip_prefix('/')?;
+    let path = path.strip_suffix('/').unwrap_or(path);
+    let segments = path
+        .split('/')
+        .map(|segment| percent_decoded(segment, true))
+        .collect::<Option<Vec<_>>>()?;
+    for (index, segment) in segments.iter().enumerate() {
+        if invalid_route_segment(segment) {
+            return None;
+        }
+        let logical = (segments[0] == TAXONOMY_ROUTE_SEGMENT && matches!(index, 1 | 2))
+            || (index == 2 && segments[0] == SYSTEM_ROUTE_SEGMENT && segments[1] == "views");
+        if !logical && segment.contains(['/', '\\', '\0']) {
+            return None;
+        }
+    }
+    let encoded = segments
+        .iter()
+        .map(|segment| percent_encode_segment(segment))
+        .collect::<Vec<_>>()
+        .join("/");
+    Some(format!("/{encoded}"))
+}
+
 pub(crate) fn decode_public_path_once(path: &str) -> String {
+    percent_decoded(path, false).unwrap_or_else(|| path.to_string())
+}
+
+/// Decode authored Markdown URI path segments without introducing separators or dot segments.
+/// A malformed escape preserves its original segment, as in the WebApp reader.
+pub(crate) fn decode_markdown_uri_path(path: &str) -> Option<String> {
+    let segments = path
+        .split('/')
+        .map(|segment| {
+            let decoded = percent_decoded(segment, true).unwrap_or_else(|| segment.to_string());
+            if decoded.contains(['/', '\\'])
+                || (decoded != segment && matches!(decoded.as_str(), "." | ".."))
+            {
+                return None;
+            }
+            Some(decoded)
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(segments.join("/"))
+}
+
+fn percent_decoded(path: &str, strict: bool) -> Option<String> {
     let bytes = path.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -144,10 +231,13 @@ pub(crate) fn decode_public_path_once(path: &str) -> String {
             index += 3;
             continue;
         }
+        if strict && bytes[index] == b'%' {
+            return None;
+        }
         decoded.push(bytes[index]);
         index += 1;
     }
-    String::from_utf8(decoded).unwrap_or_else(|_| path.to_string())
+    String::from_utf8(decoded).ok()
 }
 
 fn hex_value(byte: u8) -> Option<u8> {
@@ -159,158 +249,332 @@ fn hex_value(byte: u8) -> Option<u8> {
     }
 }
 
-/// The public id of a view in a static artifact: the last segment of its path id.
-pub(crate) fn public_view_id(view: &IndexView) -> String {
-    view.id
-        .rsplit('/')
-        .next()
-        .unwrap_or(view.id.as_str())
-        .to_string()
+#[derive(Default)]
+pub(crate) struct ViewRouteAllocation {
+    pub ids: BTreeMap<String, String>,
+    diagnostics: Vec<Diagnostic>,
 }
 
-/// Diagnostic code for a document whose route lands in the reserved `-` segment.
+pub(crate) fn allocate_view_routes(views: &[IndexView]) -> ViewRouteAllocation {
+    allocate_view_routes_with(views, |id| {
+        Sha256::digest(id.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    })
+}
+
+fn allocate_view_routes_with(
+    views: &[IndexView],
+    digest: impl Fn(&str) -> String,
+) -> ViewRouteAllocation {
+    struct Derived<'a> {
+        view: &'a IndexView,
+        base: &'a str,
+        hash: String,
+        length: usize,
+    }
+
+    let mut allocation = ViewRouteAllocation::default();
+    let mut by_identity = BTreeMap::<&str, BTreeMap<&str, &IndexView>>::new();
+    for view in views {
+        by_identity
+            .entry(&view.id)
+            .or_default()
+            .insert(&view.path, view);
+    }
+    let mut by_base = BTreeMap::<String, Vec<(&IndexView, &str)>>::new();
+    for (identity, definitions) in by_identity {
+        if definitions.len() > 1 {
+            let paths = definitions.into_keys().collect::<Vec<_>>();
+            allocation.diagnostics.push(
+                Diagnostic::error(
+                    ROUTE_COLLISION_CODE,
+                    "Multiple definitions share a View configuration identity.",
+                )
+                .with_path(paths[0])
+                .with_actual(format!("View `{identity}`: {}", paths.join(", ")))
+                .with_expected(
+                    "rename or remove definitions so each View has a unique configuration identity",
+                ),
+            );
+            continue;
+        }
+        let view = definitions
+            .into_values()
+            .next()
+            .expect("a View has a definition");
+        let base = identity.rsplit('/').next().unwrap_or(identity);
+        if invalid_route_segment(base) {
+            allocation
+                .diagnostics
+                .push(invalid_segment_diagnostic("View", base).with_path(view.path.clone()));
+        } else {
+            by_base
+                .entry(base.to_ascii_lowercase())
+                .or_default()
+                .push((view, base));
+        }
+    }
+
+    let mut natural_names = BTreeMap::new();
+    let mut derived = Vec::new();
+    for group in by_base.values() {
+        if let [(view, base)] = group.as_slice() {
+            natural_names.insert(base.to_ascii_lowercase(), view.path.as_str());
+            allocation.ids.insert(view.id.clone(), (*base).to_string());
+        } else {
+            derived.extend(group.iter().map(|&(view, base)| Derived {
+                view,
+                base,
+                hash: digest(&view.id),
+                length: 12,
+            }));
+        }
+    }
+    while !derived.is_empty() {
+        let mut candidates = BTreeMap::<String, Vec<usize>>::new();
+        let mut names = Vec::with_capacity(derived.len());
+        for (index, item) in derived.iter().enumerate() {
+            let candidate = format!("{}--{}", item.base, &item.hash[..item.length]);
+            candidates
+                .entry(candidate.to_ascii_lowercase())
+                .or_default()
+                .push(index);
+            names.push(candidate);
+        }
+        let mut retry = false;
+        let mut failures = Vec::new();
+        for (key, group) in candidates {
+            if group.len() == 1 && !natural_names.contains_key(&key) {
+                // Keep unconstrained candidates in the comparison set until every other
+                // candidate is final. A longer digest can match one of them.
+                continue;
+            }
+            if group.iter().any(|&index| derived[index].length < 64) {
+                for &index in &group {
+                    derived[index].length = (derived[index].length + 4).min(64);
+                }
+                retry = true;
+            } else {
+                let paths = group
+                    .iter()
+                    .map(|&index| derived[index].view.path.as_str())
+                    .chain(natural_names.get(&key).copied())
+                    .collect::<BTreeSet<_>>();
+                failures.push(
+                    Diagnostic::error(
+                        ROUTE_COLLISION_CODE,
+                        "View routes remain ambiguous after the full digest.",
+                    )
+                    .with_actual(format!(
+                        "route `{}`: {}",
+                        view_route_path(&key),
+                        paths.into_iter().collect::<Vec<_>>().join(", ")
+                    ))
+                    .with_expected("rename or move a conflicting View definition"),
+                );
+            }
+        }
+        if retry {
+            // A later candidate may collide with one that is already fixed at its full
+            // length. Do not report final failures until all extension rounds settle.
+            continue;
+        }
+        allocation.diagnostics.extend(failures);
+        let mut counts = BTreeMap::<String, usize>::new();
+        for name in &names {
+            *counts.entry(name.to_ascii_lowercase()).or_default() += 1;
+        }
+        for (item, name) in derived.into_iter().zip(names) {
+            let key = name.to_ascii_lowercase();
+            if !natural_names.contains_key(&key) && counts[&key] == 1 {
+                allocation.ids.insert(item.view.id.clone(), name);
+            }
+        }
+        break;
+    }
+    allocation
+}
+
+/// A content route occupies one of the two reserved top-level namespaces.
 pub const ROUTE_RESERVED_CODE: &str = "route.reserved";
-/// Diagnostic code for a document route segment or View, taxonomy, or term id that cannot be a URL segment.
+/// A source path or logical identifier cannot be represented as a valid route segment.
 pub const ROUTE_INVALID_SEGMENT_CODE: &str = "route.invalidSegment";
-/// Diagnostic code for two sources served at the same route.
+/// Distinct owners have the same canonical route or configuration identity.
 pub const ROUTE_COLLISION_CODE: &str = "route.collision";
-/// Diagnostic code for routes a static artifact cannot hold apart. Workspace checks report it as
-/// a warning, since a local server still serves them; static publication treats it as an error.
+/// Some configured route sources could not be enumerated or read.
+pub const ROUTE_PREFLIGHT_INCOMPLETE_CODE: &str = "route.preflightIncomplete";
+/// A static export cannot safely publish this output path or keep its owners apart.
 pub const ROUTE_STATIC_OUTPUT_CONFLICT_CODE: &str = "route.staticOutputConflict";
+
+pub(crate) fn route_preflight_incomplete(actual: impl Into<String>) -> Diagnostic {
+    Diagnostic::error(
+        ROUTE_PREFLIGHT_INCOMPLETE_CODE,
+        "Could not enumerate every workspace route source.",
+    )
+    .with_actual(actual)
+    .with_expected("readable workspace configuration, directories and documents")
+}
+
+pub fn is_blocking_route_diagnostic(diagnostic: &Diagnostic) -> bool {
+    diagnostic.severity == DiagnosticSeverity::Error
+        && matches!(
+            diagnostic.code.as_str(),
+            ROUTE_RESERVED_CODE
+                | ROUTE_INVALID_SEGMENT_CODE
+                | ROUTE_COLLISION_CODE
+                | ROUTE_PREFLIGHT_INCOMPLETE_CODE
+        )
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct RouteOwner {
+    label: String,
+    source: Option<String>,
+}
 
 struct RouteSource {
     path: String,
-    /// The workspace source, when the route comes from one, so the diagnostic points at a file.
-    source: Option<String>,
-    label: String,
+    owner: RouteOwner,
 }
 
-/// Reports the routes that cannot be served as the workspace names them: documents in the reserved
-/// `-` segment, invalid URL segments, two sources on one route, and
-/// routes a static artifact would write over one another.
+impl RouteSource {
+    fn new(path: impl Into<String>, label: impl Into<String>, source: Option<&str>) -> Self {
+        Self {
+            path: path.into(),
+            owner: RouteOwner {
+                label: label.into(),
+                source: source.map(str::to_string),
+            },
+        }
+    }
+}
+
+/// Check canonical ownership and the generic static artifact layout from the same discovery.
 pub(crate) fn route_diagnostics(
     entries: &[IndexEntry],
     views: &[IndexView],
     taxonomies: &BTreeMap<String, serde_yml::Value>,
     terms: &BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
 ) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    let mut routes = vec![RouteSource {
-        path: "/".to_string(),
-        source: Some(FORMA_CONFIG_PATH.to_string()),
-        label: "the workspace home".to_string(),
-    }];
+    let allocation = allocate_view_routes(views);
+    let mut diagnostics = allocation.diagnostics;
+    let mut routes = vec![RouteSource::new(
+        "/",
+        "the workspace home",
+        Some(FORMA_CONFIG_PATH),
+    )];
     for path in [BROWSE_ROUTE_PATH, VIEWS_ROUTE_PATH, HEALTH_ROUTE_PATH] {
-        routes.push(RouteSource {
-            path: path.to_string(),
-            source: None,
-            label: format!("the system page {path}"),
-        });
+        routes.push(RouteSource::new(
+            path,
+            format!("the system page {path}"),
+            None,
+        ));
     }
 
-    let document_paths = entries
-        .iter()
-        .flat_map(|entry| {
-            std::iter::once(entry.path.as_str())
-                .chain(entry.variants.iter().map(|variant| variant.path.as_str()))
-        })
-        .collect::<Vec<_>>();
-    for path in &document_paths {
+    let document_paths = entries.iter().flat_map(|entry| {
+        std::iter::once(entry.path.as_str())
+            .chain(entry.variants.iter().map(|variant| variant.path.as_str()))
+    });
+    for path in document_paths {
         let route = entry_route_path(path);
-        if route.split('/').nth(1) == Some(SYSTEM_ROUTE_SEGMENT) {
-            diagnostics.push(
-                Diagnostic::error(
-                    ROUTE_RESERVED_CODE,
-                    "Document route is inside the segment reserved for Forma's own pages.",
-                )
-                .with_path(path.to_string())
-                .with_actual(format!("route {route}"))
-                .with_expected(format!(
-                    "a top-level name other than `{SYSTEM_ROUTE_SEGMENT}`; rename the file or directory, or exclude it"
-                )),
-            );
+        if let Some(diagnostic) = reserved_content_diagnostic(path) {
+            diagnostics.push(diagnostic);
             continue;
         }
-        if route.split('/').skip(1).any(invalid_route_segment) {
+        if canonical_route_path(&route).is_none() {
             diagnostics.push(
                 Diagnostic::error(
                     ROUTE_INVALID_SEGMENT_CODE,
                     "Document route contains an invalid URL path segment.",
                 )
-                .with_path(path.to_string())
+                .with_path(path)
                 .with_actual(format!("route `{route}`"))
-                .with_expected("no empty, `.`, or `..` segments; rename or exclude the file"),
+                .with_expected("valid file path segments; rename or exclude the file"),
             );
             continue;
         }
-        routes.push(RouteSource {
-            path: route,
-            source: Some(path.to_string()),
-            label: format!("document {path}"),
-        });
+        routes.push(RouteSource::new(
+            route,
+            format!("document {path}"),
+            Some(path),
+        ));
     }
-    let page_routes = routes
-        .iter()
-        .map(|route| route.path.clone())
-        .collect::<BTreeSet<_>>();
-    for directory in directory_paths(
-        document_paths
-            .iter()
-            .copied()
-            .filter(|path| path.split('/').next() != Some(SYSTEM_ROUTE_SEGMENT)),
-    ) {
-        let route = directory_route_path(&directory);
-        if !page_routes.contains(&route) {
-            routes.push(RouteSource {
-                path: route,
-                source: None,
-                label: format!("directory {directory}/"),
-            });
+
+    for directory in route_directories(entries) {
+        if reserved_content_namespace(&directory.path).is_none()
+            && canonical_route_path(&directory.route_path).is_some()
+        {
+            routes.push(RouteSource::new(
+                directory.route_path,
+                format!("directory {}/", directory.path),
+                Some(&directory.path),
+            ));
         }
     }
 
     for view in views {
-        let id = public_view_id(view);
-        if invalid_route_segment(&id) {
-            diagnostics.push(invalid_segment_diagnostic("View", &id).with_path(view.path.clone()));
-            continue;
+        if let Some(id) = allocation.ids.get(&view.id) {
+            routes.push(RouteSource::new(
+                view_route_path(id),
+                format!("view {}", view.path),
+                Some(&view.path),
+            ));
         }
-        routes.push(RouteSource {
-            path: view_route_path(&id),
-            source: Some(view.path.clone()),
-            label: format!("view {}", view.path),
-        });
     }
 
     for taxonomy_id in taxonomies.keys() {
-        if invalid_route_segment(taxonomy_id) {
+        let valid_taxonomy = !invalid_route_segment(taxonomy_id);
+        if valid_taxonomy {
+            routes.push(RouteSource::new(
+                taxonomy_route_path(taxonomy_id),
+                format!("taxonomy {taxonomy_id}"),
+                None,
+            ));
+        } else {
             diagnostics.push(invalid_segment_diagnostic("Taxonomy", taxonomy_id));
-            continue;
         }
-        routes.push(RouteSource {
-            path: taxonomy_route_path(taxonomy_id),
-            source: None,
-            label: format!("taxonomy {taxonomy_id}"),
-        });
         for term_id in terms.get(taxonomy_id).into_iter().flat_map(BTreeMap::keys) {
             if invalid_route_segment(term_id) {
                 diagnostics.push(invalid_segment_diagnostic(
                     "Term",
                     &format!("{taxonomy_id}/{term_id}"),
                 ));
-                continue;
+            } else if valid_taxonomy {
+                routes.push(RouteSource::new(
+                    taxonomy_term_route_path(taxonomy_id, term_id),
+                    format!("term {term_id:?} in taxonomy {taxonomy_id:?}"),
+                    None,
+                ));
             }
-            routes.push(RouteSource {
-                path: taxonomy_term_route_path(taxonomy_id, term_id),
-                source: None,
-                label: format!("term {taxonomy_id}/{term_id}"),
-            });
         }
     }
 
     diagnostics.extend(collision_diagnostics(&routes));
     diagnostics.extend(static_output_diagnostics(&routes));
     diagnostics
+}
+
+fn reserved_content_namespace(path: &str) -> Option<&str> {
+    path.split('/')
+        .next()
+        .filter(|segment| matches!(*segment, SYSTEM_ROUTE_SEGMENT | TAXONOMY_ROUTE_SEGMENT))
+}
+
+pub(crate) fn reserved_content_diagnostic(path: &str) -> Option<Diagnostic> {
+    let namespace = reserved_content_namespace(path)?;
+    Some(
+        Diagnostic::error(
+            ROUTE_RESERVED_CODE,
+            "Document route is inside a reserved top-level namespace.",
+        )
+        .with_path(path)
+        .with_actual(format!("route {}", entry_route_path(path)))
+        .with_expected(format!(
+            "a top-level segment other than `{namespace}`; rename or exclude the file"
+        )),
+    )
 }
 
 fn invalid_route_segment(id: &str) -> bool {
@@ -326,116 +590,126 @@ fn invalid_segment_diagnostic(kind: &str, id: &str) -> Diagnostic {
     .with_expected("an id other than an empty string, `.`, or `..`")
 }
 
-fn collision_diagnostics(routes: &[RouteSource]) -> Vec<Diagnostic> {
-    let mut seen = BTreeMap::<&str, &RouteSource>::new();
-    let mut diagnostics = Vec::new();
-    for route in routes {
-        let Some(existing) = seen.insert(route.path.as_str(), route) else {
-            continue;
-        };
-        let mut diagnostic = Diagnostic::error(
-            ROUTE_COLLISION_CODE,
-            "Two sources are served at the same route.",
-        )
-        .with_actual(format!(
-            "{} and {} are both at {}",
-            existing.label, route.label, route.path
-        ))
-        .with_expected("one source per route; rename or exclude one of them");
-        if let Some(source) = route.source.as_ref().or(existing.source.as_ref()) {
-            diagnostic = diagnostic.with_path(source.clone());
-        }
-        diagnostics.push(diagnostic);
-    }
-    diagnostics
+fn describe_owners<'a>(owners: impl IntoIterator<Item = &'a RouteOwner>) -> String {
+    owners
+        .into_iter()
+        .map(|owner| owner.label.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
-/// Routes a static artifact cannot hold apart: output paths that differ only in case, and an
-/// output file standing where another route needs a directory, such as a page named
-/// `index.html` or a root page named after a file the artifact keeps at its root.
-fn static_output_diagnostics(routes: &[RouteSource]) -> Vec<Diagnostic> {
-    struct Owner<'a> {
-        label: String,
-        source: Option<&'a str>,
-    }
-    // The home route writes the root `index.html`; the other root files belong to the artifact.
-    let mut outputs = STATIC_SITE_ROOT_FILES
-        .iter()
-        .filter(|file| **file != "index.html")
-        .map(|file| {
-            (
-                file.to_ascii_lowercase(),
-                Owner {
-                    label: format!("the artifact's root file {file}"),
-                    source: None,
-                },
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    let mut diagnostics = Vec::new();
-    let mut seen_routes = BTreeSet::new();
+fn collision_diagnostics(routes: &[RouteSource]) -> Vec<Diagnostic> {
+    let mut groups = BTreeMap::<&str, BTreeSet<&RouteOwner>>::new();
     for route in routes {
-        if !seen_routes.insert(route.path.as_str()) {
-            continue;
-        }
+        groups.entry(&route.path).or_default().insert(&route.owner);
+    }
+    groups
+        .into_iter()
+        .filter(|(_, owners)| owners.len() > 1)
+        .map(|(path, owners)| {
+            let mut diagnostic = Diagnostic::error(
+                ROUTE_COLLISION_CODE,
+                "Distinct owners share one canonical route.",
+            )
+            .with_actual(format!(
+                "route `{path}`: {}",
+                describe_owners(owners.iter().copied())
+            ))
+            .with_expected("one owner per route; rename, move, or exclude a conflicting source");
+            if let Some(source) = owners.iter().find_map(|owner| owner.source.as_deref()) {
+                diagnostic = diagnostic.with_path(source);
+            }
+            diagnostic
+        })
+        .collect()
+}
+
+/// Validate decoded artifact paths before they are used as filesystem paths.
+fn safe_artifact_output(output: &str) -> bool {
+    !output.contains(['\\', '\0'])
+        && output
+            .split('/')
+            .all(|segment| !invalid_route_segment(segment))
+}
+
+fn static_output_diagnostics(routes: &[RouteSource]) -> Vec<Diagnostic> {
+    let mut outputs = BTreeMap::<String, BTreeSet<RouteOwner>>::new();
+    for file in STATIC_SITE_ROOT_FILES
+        .iter()
+        .copied()
+        .filter(|file| *file != "index.html")
+    {
+        outputs
+            .entry(file.to_ascii_lowercase())
+            .or_default()
+            .insert(RouteOwner {
+                label: format!("the artifact's root file {file}"),
+                source: None,
+            });
+    }
+    let mut diagnostics = Vec::new();
+    for route in routes {
         let output = route_output_path(&route.path);
-        let key = output.to_ascii_lowercase();
-        if let Some(owner) = outputs.get(&key) {
+        if !safe_artifact_output(&output) {
             diagnostics.push(static_conflict(
-                route,
-                owner.label.as_str(),
-                owner.source,
-                format!("both write {output}"),
+                format!(
+                    "`{output}` is not a safe output path for {}",
+                    route.owner.label
+                ),
+                [&route.owner],
             ));
         } else {
-            outputs.insert(
-                key,
-                Owner {
-                    label: route.label.clone(),
-                    source: route.source.as_deref(),
-                },
-            );
+            outputs
+                .entry(output.to_ascii_lowercase())
+                .or_default()
+                .insert(route.owner.clone());
         }
     }
-    let by_output = routes
-        .iter()
-        .map(|route| (route_output_path(&route.path).to_ascii_lowercase(), route))
-        .collect::<BTreeMap<_, _>>();
-    for (file, owner) in &outputs {
-        let directory = format!("{file}/");
-        let Some((nested, route)) = by_output
-            .range(directory.clone()..)
-            .next()
-            .filter(|(key, _)| key.starts_with(&directory))
-        else {
-            continue;
-        };
-        diagnostics.push(static_conflict(
-            route,
-            owner.label.as_str(),
-            owner.source,
-            format!("{file} is a file, so {nested} cannot be written inside it"),
-        ));
+
+    for (file, owners) in &outputs {
+        if owners.len() > 1 {
+            diagnostics.push(static_conflict(
+                format!("`{file}` is shared by {}", describe_owners(owners)),
+                owners,
+            ));
+        }
+        let prefix = format!("{file}/");
+        let nested = outputs
+            .range(prefix.clone()..)
+            .take_while(|(path, _)| path.starts_with(&prefix))
+            .collect::<Vec<_>>();
+        if !nested.is_empty() {
+            let descendants = nested
+                .iter()
+                .flat_map(|(_, owners)| owners.iter())
+                .collect::<BTreeSet<_>>();
+            diagnostics.push(static_conflict(
+                format!(
+                    "`{file}` is a file for {} and a required directory for {}",
+                    describe_owners(owners),
+                    describe_owners(descendants.iter().copied())
+                ),
+                owners.iter().chain(descendants),
+            ));
+        }
     }
     diagnostics
 }
 
-fn static_conflict(
-    route: &RouteSource,
-    other: &str,
-    other_source: Option<&str>,
+fn static_conflict<'a>(
     actual: String,
+    owners: impl IntoIterator<Item = &'a RouteOwner>,
 ) -> Diagnostic {
     let mut diagnostic = Diagnostic::warning(
         ROUTE_STATIC_OUTPUT_CONFLICT_CODE,
-        "A static site cannot hold these routes apart.",
+        "A static site cannot safely publish these route outputs.",
     )
-    .with_actual(format!("{} and {other}: {actual}", route.label))
+    .with_actual(actual)
     .with_expected(
-        "names that differ in more than case and are not `index.html`; rename one of them",
+        "rename or exclude a conflicting source to give each static path one safe owner",
     );
-    if let Some(source) = route.source.as_deref().or(other_source) {
-        diagnostic = diagnostic.with_path(source.to_string());
+    if let Some(source) = owners.into_iter().find_map(|owner| owner.source.as_deref()) {
+        diagnostic = diagnostic.with_path(source);
     }
     diagnostic
 }
@@ -519,18 +793,15 @@ mod tests {
 
     #[test]
     fn content_owns_the_root_and_forma_owns_the_reserved_segment() {
-        assert_eq!(entry_route_path("notes/welcome.md"), "/notes/welcome");
-        assert_eq!(entry_route_path("notes/index.md"), "/notes");
-        assert_eq!(entry_route_path("index.md"), "/index");
-        assert_eq!(entry_route_path("a b/100%.mdx"), "/a%20b/100%25");
+        assert_eq!(entry_route_path("notes/welcome.md"), "/notes/welcome.md");
+        assert_eq!(entry_route_path("notes/index.md"), "/notes/index.md");
+        assert_eq!(entry_route_path("index.md"), "/index.md");
+        assert_eq!(entry_route_path("a b/100%.mdx"), "/a%20b/100%25.mdx");
         assert_eq!(directory_route_path(""), "/");
         assert_eq!(directory_route_path("notes/deep"), "/notes/deep");
         assert_eq!(view_route_path("board"), "/-/views/board");
-        assert_eq!(taxonomy_route_path("browse"), "/-/browse/browse");
-        assert_eq!(
-            taxonomy_term_route_path("areas", "a/b"),
-            "/-/browse/areas/a%2Fb"
-        );
+        assert_eq!(taxonomy_route_path("browse"), "/~/browse");
+        assert_eq!(taxonomy_term_route_path("areas", "a/b"), "/~/areas/a%2Fb");
         assert_eq!(
             raw_route_path("assets/logo 1.svg"),
             "/-/raw/assets/logo%201.svg"
@@ -556,7 +827,11 @@ mod tests {
 
     #[test]
     fn reports_documents_inside_the_reserved_segment() {
-        let diagnostics = diagnose(&["-/browse.md", "-.md", "notes/-.md"], &[], &[]);
+        let diagnostics = diagnose(
+            &["-/browse.md", "~/areas.md", "-.md", "~.md", "notes/-.md"],
+            &[],
+            &[],
+        );
 
         assert_eq!(
             codes(&diagnostics),
@@ -566,7 +841,11 @@ mod tests {
                     DiagnosticSeverity::Error,
                     Some("-/browse.md")
                 ),
-                (ROUTE_RESERVED_CODE, DiagnosticSeverity::Error, Some("-.md")),
+                (
+                    ROUTE_RESERVED_CODE,
+                    DiagnosticSeverity::Error,
+                    Some("~/areas.md")
+                ),
             ]
         );
     }
@@ -604,54 +883,188 @@ mod tests {
     }
 
     #[test]
-    fn reports_two_documents_on_one_route() {
-        let diagnostics = diagnose(&["team.md", "team/index.md"], &[], &[]);
+    fn requests_canonicalize_one_encoded_segment_at_a_time() {
+        for (request, canonical) in [
+            ("/", "/"),
+            ("/notes/%74opic%2emd/", "/notes/topic.md"),
+            ("/notes/a%2520b.mdx", "/notes/a%2520b.mdx"),
+            ("/%7e/areas/a%2fb", "/~/areas/a%2Fb"),
+            ("/~/areas/a%252Fb", "/~/areas/a%252Fb"),
+            ("/-/views/a%2Fb", "/-/views/a%2Fb"),
+        ] {
+            assert_eq!(canonical_route_path(request).as_deref(), Some(canonical));
+        }
+        for invalid in [
+            "//",
+            "/notes//topic.md",
+            "/notes/topic.md//",
+            "/notes/%2Ftopic.md",
+            "/notes/%5Ctopic.md",
+            "/notes/%00topic.md",
+            "/notes/%2e/topic.md",
+            "/notes/%2e%2e/topic.md",
+            "/notes/%ff.md",
+            "/notes/%2.md",
+        ] {
+            assert_eq!(canonical_route_path(invalid), None, "{invalid}");
+        }
+    }
 
+    #[test]
+    fn file_directory_and_intro_paths_remain_distinct() {
+        let entries = [
+            entry("team.md"),
+            entry("team/index.mdx"),
+            entry("team/index.md"),
+            entry("team/notes.md/deep.md"),
+        ];
+        let directories = route_directories(&entries);
         assert_eq!(
-            codes(&diagnostics),
-            vec![(
-                ROUTE_COLLISION_CODE,
-                DiagnosticSeverity::Error,
-                Some("team/index.md")
-            )]
+            &directories[0],
+            &RouteDirectory {
+                path: "team".into(),
+                route_path: "/team".into(),
+                output_path: "team/index.html".into(),
+                intro_entry_path: Some("team/index.md".into()),
+                child_directory_paths: vec!["team/notes.md".into()],
+                entry_paths: vec!["team/index.md".into(), "team/index.mdx".into()],
+            }
         );
+        assert_eq!(directories[1].route_path, "/team/notes.md");
+        assert!(diagnose(&["team.md", "team/index.md", "team/index.mdx"], &[], &[]).is_empty());
+    }
+
+    #[test]
+    fn view_routes_are_order_independent_with_case_folded_basenames() {
+        let mut views = [
+            view(".forma/views/Daily.md"),
+            view(".forma/alternate/daily.md"),
+            view(".forma/views/100%#special.md"),
+        ];
+        let first = allocate_view_routes(&views);
+        views.reverse();
+        let reversed = allocate_view_routes(&views);
+        assert!(first.diagnostics.is_empty());
+        assert_eq!(first.ids, reversed.ids);
+        assert_eq!(first.ids[".forma/views/Daily"], "Daily--274145cb0a22");
+        assert_eq!(first.ids[".forma/alternate/daily"], "daily--2145c0d64f7f");
+        assert_eq!(first.ids[".forma/views/100%#special"], "100%#special");
+    }
+
+    #[test]
+    fn view_route_digests_extend_past_natural_names_and_other_prefixes() {
+        let views = [
+            view("first/board.md"),
+            view("second/board.md"),
+            view("third/board--aaaaaaaaaaaa.md"),
+        ];
+        let allocation = allocate_view_routes_with(&views, |id| {
+            format!(
+                "aaaaaaaaaaaa{}",
+                if id.starts_with("first") {
+                    "b".repeat(52)
+                } else {
+                    "c".repeat(52)
+                }
+            )
+        });
+        assert!(allocation.diagnostics.is_empty());
+        assert_eq!(allocation.ids["first/board"], "board--aaaaaaaaaaaabbbb");
+        assert_eq!(allocation.ids["second/board"], "board--aaaaaaaaaaaacccc");
         assert_eq!(
-            diagnostics[0].actual.as_deref(),
-            Some("document team.md and document team/index.md are both at /team")
+            allocation.ids["third/board--aaaaaaaaaaaa"],
+            "board--aaaaaaaaaaaa"
         );
     }
 
     #[test]
-    fn warns_about_routes_a_static_artifact_cannot_hold_apart() {
+    fn full_view_digest_exhaustion_reports_every_owner_together() {
+        let views = [
+            view("first/board.md"),
+            view("second/board.md"),
+            view("third/board.md"),
+        ];
+        let allocation = allocate_view_routes_with(&views, |_| "a".repeat(64));
+        assert!(allocation.ids.is_empty());
+        assert_eq!(allocation.diagnostics.len(), 1);
+        let diagnostic = &allocation.diagnostics[0];
+        assert!(is_blocking_route_diagnostic(diagnostic));
+        assert!(
+            diagnostic
+                .actual
+                .as_deref()
+                .unwrap()
+                .ends_with("first/board.md, second/board.md, third/board.md")
+        );
+    }
+
+    #[test]
+    fn static_outputs_conflicts_group_every_owner_and_keep_logical_routes() {
         let diagnostics = diagnose(
             &[
                 "Notes/a.md",
                 "notes/b.md",
-                "guides/index.html.md",
-                "404.html.md",
-                "index.html.md",
+                "guides/index.html/doc.md",
+                "404.html/doc.md",
+                "index.html/doc.md",
+                "manual/Guide.md",
+                "manual/guide.md/child.md",
             ],
             &[],
-            &[("areas", &["index.html"])],
+            &[
+                ("areas", &["index.html", "a/b", "a%2Fb", "../escape"]),
+                ("areas/a", &["b"]),
+            ],
         );
-
         let conflicts = diagnostics
             .iter()
             .map(|diagnostic| {
                 assert_eq!(diagnostic.code, ROUTE_STATIC_OUTPUT_CONFLICT_CODE);
                 assert_eq!(diagnostic.severity, DiagnosticSeverity::Warning);
-                diagnostic.actual.clone().unwrap_or_default()
+                diagnostic.actual.as_deref().unwrap()
             })
             .collect::<Vec<_>>();
-        assert_eq!(
-            conflicts,
-            vec![
-                "directory notes/ and directory Notes/: both write notes/index.html",
-                "term areas/index.html and taxonomy areas: -/browse/areas/index.html is a file, so -/browse/areas/index.html/index.html cannot be written inside it",
-                "document 404.html.md and the artifact's root file 404.html: 404.html is a file, so 404.html/index.html cannot be written inside it",
-                "document guides/index.html.md and directory guides/: guides/index.html is a file, so guides/index.html/index.html cannot be written inside it",
-                "document index.html.md and the workspace home: index.html is a file, so index.html/index.html cannot be written inside it",
-            ]
-        );
+        for (path, owners) in [
+            (
+                "notes/index.html",
+                &["directory Notes/", "directory notes/"][..],
+            ),
+            ("~/areas/index.html", &["taxonomy areas", "index.html"][..]),
+            (
+                "404.html",
+                &[
+                    "directory 404.html/",
+                    "document 404.html/doc.md",
+                    "the artifact's root file 404.html",
+                ][..],
+            ),
+            (
+                "guides/index.html",
+                &["directory guides/", "directory guides/index.html/"][..],
+            ),
+            (
+                "index.html",
+                &["the workspace home", "directory index.html/"][..],
+            ),
+            (
+                "manual/guide.md/index.html",
+                &["directory manual/guide.md/", "document manual/Guide.md"][..],
+            ),
+            (
+                "~/areas/a/b/index.html",
+                &[
+                    "term \"a/b\" in taxonomy \"areas\"",
+                    "term \"b\" in taxonomy \"areas/a\"",
+                ][..],
+            ),
+            ("~/areas/../escape/index.html", &["term \"../escape\""][..]),
+        ] {
+            assert!(
+                conflicts.iter().any(|conflict| conflict.contains(path)
+                    && owners.iter().all(|owner| conflict.contains(owner))),
+                "{path}: {conflicts:#?}"
+            );
+        }
+        assert!(!conflicts.iter().any(|conflict| conflict.contains("a%2Fb")));
     }
 }

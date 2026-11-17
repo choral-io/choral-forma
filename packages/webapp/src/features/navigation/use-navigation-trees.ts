@@ -12,7 +12,10 @@ import { describeDuplicateSiblings } from "./navigation-tree";
  * document; language variants are reached from the document itself.
  */
 export function useNavigationTrees(dashboard: WorkspaceDashboard) {
-    const files = useMemo(() => buildFileTree(canonicalEntries(dashboard.entries)), [dashboard.entries]);
+    const files = useMemo(
+        () => buildFileTree(canonicalEntries(dashboard.entries), dashboard.directories),
+        [dashboard.directories, dashboard.entries],
+    );
     // Configuration-derived navigation: taxonomies and their terms, then the Views group.
     const workspace = useMemo(
         () =>

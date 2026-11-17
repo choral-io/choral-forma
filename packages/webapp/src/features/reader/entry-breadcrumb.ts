@@ -1,7 +1,6 @@
-import type { DashboardEntry } from "@/data/workspace-client";
+import type { DashboardDirectory, DashboardEntry } from "@/data/workspace-client";
 import { directoryLabel } from "@/features/navigation/directory-owners";
 import type { WorkspaceBreadcrumb } from "@/features/workspace/WorkspaceRouteFrame";
-import { directoryRoutePath } from "@/lib/workspace-routes";
 
 type DirectoryOwners = ReadonlyMap<string, Pick<DashboardEntry, "title">>;
 
@@ -11,12 +10,11 @@ type DirectoryOwners = ReadonlyMap<string, Pick<DashboardEntry, "title">>;
  * not link to itself as one of its own ancestors.
  */
 export function entryDirectoryBreadcrumb(
-    entry: Pick<DashboardEntry, "path" | "routePath">,
-    owners: DirectoryOwners = new Map(),
+    entry: Pick<DashboardEntry, "path">,
+    directories: readonly DashboardDirectory[],
+    owners: DirectoryOwners,
 ): WorkspaceBreadcrumb[] {
-    return directoryBreadcrumb(entry.path.split("/").slice(0, -1).join("/"), true, owners).filter(
-        (crumb) => crumb.to !== entry.routePath,
-    );
+    return directoryBreadcrumb(entry.path.split("/").slice(0, -1).join("/"), true, directories, owners);
 }
 
 /**
@@ -27,12 +25,14 @@ export function entryDirectoryBreadcrumb(
 export function directoryBreadcrumb(
     path: string,
     includeSelf: boolean,
-    owners: DirectoryOwners = new Map(),
+    directories: readonly DashboardDirectory[],
+    owners: DirectoryOwners,
 ): WorkspaceBreadcrumb[] {
     const segments = path.split("/").filter((segment) => segment.length > 0);
     const ancestors = includeSelf ? segments : segments.slice(0, -1);
-    return ancestors.map((_, index) => {
+    return ancestors.flatMap((_, index) => {
         const ancestorPath = segments.slice(0, index + 1).join("/");
-        return { label: directoryLabel(owners, ancestorPath), to: directoryRoutePath(ancestorPath) };
+        const directory = directories.find((candidate) => candidate.path === ancestorPath);
+        return directory ? [{ label: directoryLabel(owners, ancestorPath), to: directory.routePath }] : [];
     });
 }

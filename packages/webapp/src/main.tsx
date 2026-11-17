@@ -27,6 +27,11 @@ async function mountApplication() {
             await prepareStaticEnhancement(window.location.pathname);
         } catch (error) {
             console.warn("Static enhancement was skipped; the generated page remains available.", error);
+            const notice = document.createElement("p");
+            notice.className = "alert alert-warning alert-soft";
+            notice.setAttribute("role", "status");
+            notice.textContent = "Interactive navigation could not load. Refresh to try again.";
+            rootElement.prepend(notice);
             return;
         }
     }

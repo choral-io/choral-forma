@@ -4,7 +4,6 @@ import { trimRoutePathname } from "./static-runtime";
 import type { DashboardEntry, WorkspaceDashboard } from "./workspace-client";
 
 export interface DashboardEntryTarget {
-    entryId: string;
     summary: DashboardEntry;
 }
 
@@ -31,26 +30,35 @@ export function resolveDashboardEntryTarget(
     routePath: string,
 ): DashboardEntryTarget | undefined {
     const canonical = dashboard.entries.find((entry) => entry.routePath === routePath);
-    if (canonical) return { entryId: canonical.id, summary: canonical };
+    if (canonical) return { summary: canonical };
 
     for (const entry of dashboard.entries) {
         const variant = entry.variants.find((candidate) => candidate.routePath === routePath);
-        if (!variant?.id) continue;
-        const title = variant.title?.trim();
-        return {
-            entryId: variant.id,
-            summary: {
-                ...entry,
-                id: variant.id,
-                kind: variant.kind,
-                path: variant.path,
-                routePath: variant.routePath,
-                rawPath: variant.rawPath,
-                title: title === undefined || title === "" ? variant.path : title,
-                omitLeadingTitle: variant.omitLeadingTitle ?? false,
-                summary: variant.summary ?? entry.summary,
-            },
-        };
+        if (variant) return { summary: variantSummary(entry, variant) };
     }
     return undefined;
+}
+
+export function dashboardEntryByPath(dashboard: WorkspaceDashboard, path: string): DashboardEntry | undefined {
+    for (const entry of dashboard.entries) {
+        if (entry.path === path) return entry;
+        const variant = entry.variants.find((candidate) => candidate.path === path);
+        if (variant) return variantSummary(entry, variant);
+    }
+    return undefined;
+}
+
+function variantSummary(entry: DashboardEntry, variant: DashboardEntry["variants"][number]): DashboardEntry {
+    const title = variant.title?.trim();
+    return {
+        ...entry,
+        id: variant.id ?? entry.id,
+        kind: variant.kind,
+        path: variant.path,
+        routePath: variant.routePath,
+        rawPath: variant.rawPath,
+        title: title === undefined || title.length === 0 ? variant.path : title,
+        omitLeadingTitle: variant.omitLeadingTitle ?? false,
+        summary: variant.summary ?? entry.summary,
+    };
 }

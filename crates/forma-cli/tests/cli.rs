@@ -244,6 +244,13 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         )
         .unwrap();
     }
+    std::fs::create_dir_all(root.join("notes/a")).unwrap();
+    for (path, title) in [
+        ("notes/a--b.md", "Flat identity"),
+        ("notes/a/b.md", "Nested identity"),
+    ] {
+        std::fs::write(root.join(path), format!("# {title}\n")).unwrap();
+    }
     std::fs::write(
         root.join("notes/static-site.zh-hans.md"),
         "---\nkind: note\ntitle: 静态站点\nsummary: 本地化静态页面。\n---\n\n# 静态站点\n\n本地化正文。\n",
@@ -298,20 +305,17 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert_eq!(result["counts"]["copiedResources"], 5);
     assert!(root.join("dist/site/index.html").is_file());
     assert!(
-        root.join("dist/site/notes/static-site/index.html")
+        root.join("dist/site/notes/static-site.md/index.html")
             .is_file()
     );
     assert!(
-        root.join("dist/site/notes/static-site.zh-hans/index.html")
+        root.join("dist/site/notes/static-site.zh-hans.md/index.html")
             .is_file()
     );
     assert!(root.join("dist/site/-/views/index.html").is_file());
     assert!(root.join("dist/site/-/views/notes/index.html").is_file());
-    assert!(root.join("dist/site/-/browse/index.html").is_file());
-    assert!(
-        root.join("dist/site/-/browse/spaces/notes/index.html")
-            .is_file()
-    );
+    assert!(root.join("dist/site/~/index.html").is_file());
+    assert!(root.join("dist/site/~/spaces/notes/index.html").is_file());
     assert!(root.join("dist/site/404.html").is_file());
     assert!(root.join("dist/site/sitemap.xml").is_file());
     assert!(root.join("dist/site/robots.txt").is_file());
@@ -327,7 +331,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
             );
         } else {
             assert!(
-                name == "-" || name == "notes",
+                name == "-" || name == "~" || name == "notes",
                 "unexpected root directory {name}"
             );
         }
@@ -350,23 +354,55 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
             "{path}"
         );
     }
-    assert!(root.join("dist/site/notes/with space/index.html").is_file());
-    assert!(root.join("dist/site/notes/你好/index.html").is_file());
-    assert!(root.join("dist/site/notes/100%/index.html").is_file());
-    assert!(root.join("dist/site/-/raw/assets/logo.svg").is_file());
-    assert!(!root.join("dist/site/-/raw/assets/decoy.svg").exists());
-    assert!(root.join("dist/site/-/data/dashboard.json").is_file());
     assert!(
-        root.join("dist/site/-/data/entries/notes--static-site.json")
+        root.join("dist/site/notes/with space.md/index.html")
             .is_file()
     );
-    let dashboard = std::fs::read_to_string(root.join("dist/site/-/data/dashboard.json")).unwrap();
+    assert!(root.join("dist/site/notes/你好.md/index.html").is_file());
+    assert!(root.join("dist/site/notes/100%.md/index.html").is_file());
+    assert!(root.join("dist/site/-/raw/assets/logo.svg").is_file());
+    assert!(!root.join("dist/site/-/raw/assets/decoy.svg").exists());
+    let artifact_id = result["artifactId"].as_str().unwrap();
+    assert_eq!(artifact_id.len(), 64);
+    let data_root = root.join("dist/site/-/data").join(artifact_id);
+    let dashboard = std::fs::read_to_string(data_root.join("dashboard.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&dashboard).unwrap();
+    assert_eq!(manifest["schemaVersion"], 3);
+    assert_eq!(manifest["artifactId"], artifact_id);
+    let entry_detail = manifest["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["path"] == "notes/static-site.md")
+        .unwrap();
+    let detail: Value = serde_json::from_slice(
+        &std::fs::read(data_root.join(entry_detail["dataPath"].as_str().unwrap())).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(detail["artifactId"], artifact_id);
+    assert_eq!(detail["routePath"], "/notes/static-site.md");
+    let mut exact_references = manifest["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry["path"].as_str(),
+                Some("notes/a--b.md" | "notes/a/b.md")
+            )
+        });
+    let flat = exact_references.next().unwrap();
+    let nested = exact_references.next().unwrap();
+    assert_ne!(flat["dataPath"], nested["dataPath"]);
+    assert_ne!(flat["routePath"], nested["routePath"]);
     assert!(!dashboard.contains(root.to_string_lossy().as_ref()));
     assert!(!dashboard.contains("/rpc"));
     let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
     assert!(index.contains(r#"<script data-forma-static-workspace type="application/json">"#));
     assert!(!index.contains("window.__FORMA_STATIC_WORKSPACE__"));
-    assert!(index.contains(r#""dataBaseUrl":"/preview/-/data""#));
+    assert!(index.contains(&format!(r#""dataBaseUrl":"/preview/-/data/{artifact_id}""#)));
+    assert!(index.contains(r#""dataSchemaVersion":3"#));
+    assert!(index.contains(r#""runtimeVersion":1"#));
     assert!(index.contains(r#""baseUrl":"https://example.test""#));
     assert!(index.contains(r#""rootPath":"/preview""#));
     assert!(index.contains("The workspace root body is present."));
@@ -375,9 +411,9 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(index.contains(r#"src="/preview/-/raw/assets/diagram%20space.svg""#));
     assert!(index.contains(r#"src="/preview/-/raw/assets/%E5%9B%BE.svg""#));
     assert!(index.contains(r#"src="/preview/-/raw/assets/100%25.svg""#));
-    assert!(index.contains(r#"href="/preview/notes/with%20space""#));
-    assert!(index.contains(r#"href="/preview/notes/%E4%BD%A0%E5%A5%BD""#));
-    assert!(index.contains(r#"href="/preview/notes/100%25""#));
+    assert!(index.contains(r#"href="/preview/notes/with%20space.md""#));
+    assert!(index.contains(r#"href="/preview/notes/%E4%BD%A0%E5%A5%BD.md""#));
+    assert!(index.contains(r#"href="/preview/notes/100%25.md""#));
     assert!(index.contains(r#"<html lang="en">"#));
     let redirect = std::fs::read_to_string(root.join("dist/site/-/index.html")).unwrap();
     assert!(redirect.contains(r#"http-equiv="refresh" content="0; url=/preview/""#));
@@ -387,13 +423,13 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(health.contains(">Health</h1>"));
     assert!(health.contains("Check status: Passed"));
     assert!(health.contains("<li>Warnings: 0</li>"));
-    assert!(health.contains(r#""dataBaseUrl":"/preview/-/data""#));
+    assert!(health.contains(&format!(r#""dataBaseUrl":"/preview/-/data/{artifact_id}""#)));
     let headers = std::fs::read_to_string(root.join("dist/site/_headers")).unwrap();
     assert!(headers.contains("Content-Security-Policy: default-src 'self'"));
     assert!(headers.contains("script-src 'self'"));
     assert!(!headers.contains("script-src 'self' 'unsafe-inline'"));
     let entry_html =
-        std::fs::read_to_string(root.join("dist/site/notes/static-site/index.html")).unwrap();
+        std::fs::read_to_string(root.join("dist/site/notes/static-site.md/index.html")).unwrap();
     assert!(entry_html.contains(r#"id="details""#));
     assert!(entry_html.contains("The neutral homepage body is present."));
     assert!(entry_html.contains("<div data-forma-app-root>"));
@@ -404,7 +440,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     }
     assert!(entry_html.contains(r#"<header class="flex flex-col gap-3" id="entry-top-">"#));
     let variant_html =
-        std::fs::read_to_string(root.join("dist/site/notes/static-site.zh-hans/index.html"))
+        std::fs::read_to_string(root.join("dist/site/notes/static-site.zh-hans.md/index.html"))
             .unwrap();
     assert!(variant_html.contains("本地化正文"));
     assert!(variant_html.contains(r#"<html lang="zh-Hans">"#));
@@ -425,8 +461,8 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         std::fs::read_to_string(root.join("dist/site/-/views/graph/index.html")).unwrap();
     assert!(graph_html.contains(">Nodes</h2>"));
     let sitemap = std::fs::read_to_string(root.join("dist/site/sitemap.xml")).unwrap();
-    assert!(sitemap.contains("https://example.test/preview/notes/static-site"));
-    assert!(sitemap.contains("https://example.test/preview/-/browse"));
+    assert!(sitemap.contains("https://example.test/preview/notes/static-site.md"));
+    assert!(sitemap.contains("https://example.test/preview/~"));
     assert!(sitemap.contains("https://example.test/preview/-/health"));
     assert!(!sitemap.contains("https://example.test/preview/-</loc>"));
     assert!(!sitemap.contains("https://example.test/preview/-/</loc>"));
@@ -511,17 +547,41 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     );
     assert!(!root.join("dist/site/stale.txt").exists());
     assert_eq!(
-        std::fs::read_to_string(root.join("dist/site/-/data/dashboard.json")).unwrap(),
+        std::fs::read_to_string(data_root.join("dashboard.json")).unwrap(),
         dashboard
     );
     assert_eq!(tree_digest(&root.join("dist/site")), first_digest);
     assert_eq!(std::fs::read_to_string(&entry).unwrap(), source);
 
+    // The published resource bytes are part of the build identity.
+    std::fs::write(
+        root.join("assets/diagram.svg"),
+        "<svg><title>Updated diagram</title></svg>",
+    )
+    .unwrap();
+    let changed = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--root-path",
+            "/preview",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(changed.status.success());
+    let changed: Value = serde_json::from_slice(&changed.stdout).unwrap();
+    assert_ne!(changed["artifactId"], artifact_id);
+    assert!(!data_root.exists());
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
-fn site_build_writes_directory_pages_that_no_page_serves() {
+fn site_build_keeps_directories_and_exact_index_documents_distinct() {
     let root = fixture_root("site-build-directories");
     std::fs::create_dir_all(&root).unwrap();
     copy_starter_workspace(&root);
@@ -567,22 +627,20 @@ fn site_build_writes_directory_pages_that_no_page_serves() {
     let notes = read("notes/index.html");
     assert!(notes.contains("<title>notes · "), "{notes}");
     assert!(notes.contains("href=\"/preview/notes/deep\""), "{notes}");
-    // A folder served by its own page links to that page and takes its title.
     assert!(
         notes.contains("href=\"/preview/notes/guide\">Guide Overview</a>"),
         "{notes}"
     );
     assert!(read("notes/deep/index.html").contains("Inner"));
     let guide = read("notes/guide/index.html");
-    assert!(
-        guide.contains("data-static-entry-id"),
-        "the guide folder keeps its index page"
-    );
-    assert!(guide.contains(r#"href="/preview/notes/guide/setup">Setup</a>"#));
+    assert!(guide.contains(r#"href="/preview/notes/guide/index.md">notes/guide/index.md</a>"#));
+    assert!(read("notes/guide/index.md/index.html").contains("data-static-entry-id"));
+    assert!(guide.contains(r#"href="/preview/notes/guide/setup.md">Setup</a>"#));
     assert!(!guide.contains(r#"href="/preview/notes/guide""#));
     let quick_start = read("notes/quick start/index.html");
-    assert!(quick_start.contains(">Quick Start Overview</h1>"));
-    assert!(quick_start.contains(r#"href="/preview/notes/quick%20start/basics">Basics</a>"#));
+    assert!(quick_start.contains(">quick start</h1>"));
+    assert!(read("notes/quick start.md/index.html").contains(">Quick Start Overview</h1>"));
+    assert!(quick_start.contains(r#"href="/preview/notes/quick%20start/basics.md">Basics</a>"#));
     // Home is the root directory's page, so it lists the root folders too.
     let home = read("index.html");
     assert!(home.contains("href=\"/preview/notes\""), "{home}");
@@ -619,10 +677,224 @@ fn site_build_keeps_entry_aliases_out_of_resource_inventory() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let html = std::fs::read_to_string(root.join("dist/site/notes/intro/index.html")).unwrap();
-    assert!(html.contains("/preview/notes/source.txt#details"), "{html}");
+    let html = std::fs::read_to_string(root.join("dist/site/notes/intro.md/index.html")).unwrap();
+    assert!(
+        html.contains("/preview/notes/source.txt/index.md#details"),
+        "{html}"
+    );
     assert!(!root.join("dist/site/-/raw/notes/source.txt").exists());
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn site_build_preflights_output_filesystem_equivalence_and_preserves_prior_artifact() {
+    use forma_core::routes::taxonomy_term_route_path;
+    use std::fs;
+    use std::io::ErrorKind;
+
+    let root = fixture_root("site-output-equivalence");
+    copy_starter_workspace(&root);
+    let output = root.join("dist/site");
+    let build = || {
+        let mut command = forma(&root);
+        command.args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+        ]);
+        command
+    };
+    let first = build().arg("--json").output().unwrap();
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stdout)
+    );
+
+    let pairs = [["é", "e\u{301}"], ["Ångström", "ångström"]];
+    let equivalent = pairs.map(|[first, second]| {
+        let probe = root.join("dist/probe");
+        fs::create_dir(&probe).unwrap();
+        fs::create_dir(probe.join(first)).unwrap();
+        let equivalent = match fs::create_dir(probe.join(second)) {
+            Ok(()) => false,
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => true,
+            Err(error) => panic!("output fixture probe failed: {error}"),
+        };
+        fs::remove_dir_all(probe).unwrap();
+        equivalent
+    });
+    let declare_term = |offset, id: &str| {
+        fs::write(root.join(format!(".forma/spaces/output-term-{offset}.md")), format!(
+            "---\nschemaVersion: 1\nkind: term\nid: {}\ntaxonomy: spaces\ntitle: Output term {offset}\n---\n",
+            serde_json::to_string(id).unwrap()
+        )).unwrap();
+    };
+    for (offset, id) in pairs.into_iter().flatten().enumerate() {
+        declare_term(offset, id);
+    }
+
+    let check = forma(&root).args(["check", "--json"]).output().unwrap();
+    assert!(
+        check.status.success(),
+        "{}",
+        String::from_utf8_lossy(&check.stdout)
+    );
+    let result: Value = serde_json::from_slice(&check.stdout).unwrap();
+    assert_eq!(result["status"], "passed", "{result}");
+
+    fs::write(output.join("sentinel.txt"), "previous artifact").unwrap();
+    let previous = tree_digest(&output);
+    let unicode_build = build().arg("--json").output().unwrap();
+    let unicode_result: Value = serde_json::from_slice(&unicode_build.stdout).unwrap();
+    let assert_owners = |result: &Value, pair: [&str; 2]| {
+        assert!(
+            result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| {
+                    diagnostic["code"] == "route.staticOutputConflict"
+                        && diagnostic["actual"].as_str().is_some_and(|actual| {
+                            pair.iter()
+                                .all(|id| actual.contains(&taxonomy_term_route_path("spaces", id)))
+                        })
+                }),
+            "missing both owners for {pair:?}: {result}"
+        );
+    };
+    if equivalent.into_iter().any(|value| value) {
+        assert!(!unicode_build.status.success());
+        for (pair, equivalent) in pairs.into_iter().zip(equivalent) {
+            if equivalent {
+                assert_owners(&unicode_result, pair);
+            }
+        }
+        assert_eq!(tree_digest(&output), previous);
+    } else {
+        assert!(unicode_build.status.success(), "{unicode_result}");
+        for (offset, id) in pairs.into_iter().flatten().enumerate() {
+            let html =
+                fs::read_to_string(output.join("~/spaces").join(id).join("index.html")).unwrap();
+            assert!(html.contains(&format!("Output term {offset}")), "{id}");
+            assert!(
+                html.contains(&taxonomy_term_route_path("spaces", id)),
+                "{id}"
+            );
+        }
+    }
+
+    // A portable file/directory overlap must not hide the filesystem-only groups.
+    declare_term(4, "index.html/child");
+    let encoded_prefix_owners = ["/~/A%CC%8Angstr%C3%B6m", "/~/%C3%85ngstr%C3%B6m"];
+    let prefix_ids = ["A\u{30a}ngström", "Ångström/index.html"];
+    for (offset, id) in prefix_ids.into_iter().enumerate() {
+        fs::write(root.join(format!(".forma/spaces/output-taxonomy-{offset}.md")), format!(
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: {}\nmode: multiple\ntitle: Output taxonomy {offset}\n---\n",
+            serde_json::to_string(id).unwrap()
+        )).unwrap();
+    }
+    let prefix_probe = root.join("dist/prefix-probe");
+    fs::create_dir(&prefix_probe).unwrap();
+    fs::create_dir(prefix_probe.join("A\u{30a}ngström")).unwrap();
+    let prefix_equivalent = match fs::create_dir(prefix_probe.join("Ångström")) {
+        Ok(()) => false,
+        Err(error) if error.kind() == ErrorKind::AlreadyExists => true,
+        Err(error) => panic!("prefix fixture probe failed: {error}"),
+    };
+    fs::remove_dir_all(prefix_probe).unwrap();
+    let previous = tree_digest(&output);
+    let overlap = build().arg("--json").output().unwrap();
+    assert!(!overlap.status.success());
+    let overlap_result: Value = serde_json::from_slice(&overlap.stdout).unwrap();
+    assert!(
+        overlap_result["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| {
+                diagnostic["code"] == "route.staticOutputConflict"
+                    && diagnostic["actual"]
+                        .as_str()
+                        .is_some_and(|actual| actual.contains("index.html/child"))
+            }),
+        "{overlap_result}"
+    );
+    for (pair, equivalent) in pairs.into_iter().zip(equivalent) {
+        if equivalent {
+            assert_owners(&overlap_result, pair);
+        }
+    }
+    if prefix_equivalent {
+        assert!(
+            overlap_result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| {
+                    diagnostic["code"] == "route.staticOutputConflict"
+                        && diagnostic["actual"].as_str().is_some_and(|actual| {
+                            actual.contains(encoded_prefix_owners[0])
+                                && actual
+                                    .contains(&format!("{}%2Findex.html", encoded_prefix_owners[1]))
+                        })
+                }),
+            "{overlap_result}"
+        );
+    }
+    assert_eq!(tree_digest(&output), previous);
+    let text = build().output().unwrap();
+    assert!(!text.status.success());
+    let diagnostics = String::from_utf8(text.stderr).unwrap();
+    for (pair, equivalent) in pairs.into_iter().zip(equivalent) {
+        if equivalent {
+            for id in pair {
+                assert!(
+                    diagnostics.contains(&taxonomy_term_route_path("spaces", id)),
+                    "{diagnostics}"
+                );
+            }
+        }
+    }
+
+    let long_id = "x".repeat(1024);
+    let limit_probe = root.join("dist/limit-probe");
+    fs::create_dir(&limit_probe).unwrap();
+    let name_exceeds_limit = fs::create_dir(limit_probe.join(&long_id)).is_err();
+    fs::remove_dir_all(limit_probe).unwrap();
+    if name_exceeds_limit {
+        declare_term(5, &long_id);
+        let incomplete = build().arg("--json").output().unwrap();
+        assert!(!incomplete.status.success());
+        let result: Value = serde_json::from_slice(&incomplete.stdout).unwrap();
+        assert!(
+            result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| {
+                    diagnostic["code"] == "route.preflightIncomplete"
+                        && diagnostic["actual"]
+                            .as_str()
+                            .is_some_and(|actual| actual.contains(&long_id))
+                }),
+            "{result}"
+        );
+        assert!(
+            result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| { diagnostic["code"] == "route.staticOutputConflict" }),
+            "{result}"
+        );
+        assert_eq!(tree_digest(&output), previous);
+    }
+    assert_eq!(fs::read_dir(root.join("dist")).unwrap().count(), 1);
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

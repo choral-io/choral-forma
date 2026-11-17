@@ -1,5 +1,5 @@
+import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { useEffect, useRef } from "react";
-import { Link } from "react-router";
 
 import type { DashboardViewProjection, DashboardViewProjectionItem } from "@/data/workspace-client";
 import { cn } from "@/lib/utils";

@@ -61,6 +61,93 @@ describe("resolveReaderLink", () => {
         ).toBe("/notes/target?mode=reader#scope");
     });
 
+    it("resolves bare relative author links beside the source before the workspace root", () => {
+        const guides = [
+            { path: "guide.md", routePath: "/guide.md" },
+            { path: "notes/guide.md", routePath: "/notes/guide.md" },
+        ];
+        expect(resolveReaderLink("guide?keep=1&keep=2#scope", "notes/source.md", guides).href).toBe(
+            "/notes/guide.md?keep=1&keep=2#scope",
+        );
+        expect(resolveReaderLink("/guide.md#scope", "notes/source.md", guides).href).toBe("/guide.md#scope");
+    });
+
+    it("resolves a unique managed multi-segment author suffix and preserves query and fragment", () => {
+        const href = "guides/target.md?x=1&tag=a&tag=b#section";
+        const target = { path: "notes/guides/target.md", routePath: "/notes/guides/target.md" };
+        expect(resolveReaderLink(href, "notes/sub/source.md", [target]).href).toBe(
+            "/notes/guides/target.md?x=1&tag=a&tag=b#section",
+        );
+    });
+
+    it("preserves a normalized short path for explicitly relative author links", () => {
+        const href = "../guides/target.md?x=1#section";
+        const path = "archive/notes/guides/target.md";
+        expect(resolveReaderLink(href, "notes/sub/source.md", [{ path, routePath: `/${path}` }]).href).toBe(
+            "/archive/notes/guides/target.md?x=1#section",
+        );
+    });
+
+    it("prefers nearer exact paths and workspace paths before trying a short path", () => {
+        const targetPaths = [
+            "notes/sub/guides/near.md",
+            "guides/near.md",
+            "notes/guides/near.md",
+            "notes/guides/workspace.md",
+            "guides/workspace.md",
+        ];
+        const entries = targetPaths.map((path) => ({ path, routePath: `/${path}` }));
+        const resolve = (href: string) => resolveReaderLink(href, "notes/sub/source.md", entries).href;
+
+        expect(resolve("guides/near?x=1#section")).toBe("/notes/sub/guides/near.md?x=1#section");
+        expect(resolve("guides/workspace.md?x=1#section")).toBe("/guides/workspace.md?x=1#section");
+        expect(resolve("/guides/near.md?x=1#section")).toBe("/guides/near.md?x=1#section");
+    });
+
+    it("does not choose among ambiguous or unqualified suffix candidates", () => {
+        const targetPaths = [
+            "notes/guides/target.md",
+            "archive/guides/target.md",
+            "archive/notes/sub/guides/target.md",
+            "archive/deep/guides/unqualified.md",
+            "archive/guides/other.mdx",
+            "target.md",
+        ];
+        const entries = targetPaths.map((path) => ({ path, routePath: `/${path}` }));
+        const resolve = (href: string) => resolveReaderLink(href, "notes/sub/source.md", entries).href;
+
+        expect(resolve("guides/target.md?x=1#section")).toBe("guides/target.md?x=1#section");
+        expect(resolve("guides/unqualified.md?x=1#section")).toBe("guides/unqualified.md?x=1#section");
+        expect(resolve("guides/other.md?x=1#section")).toBe("guides/other.md?x=1#section");
+        expect(resolve("/guides/other.mdx?x=1#section")).toBe("/guides/other.mdx?x=1#section");
+        expect(resolve("../../../target.md?x=1#section")).toBe("../../../target.md?x=1#section");
+    });
+
+    it("distinguishes exact files, explicit directory links, and URI-encoded literal percent escapes", () => {
+        const documents = [
+            { path: "notes/guide.md", routePath: "/notes/guide.md" },
+            { path: "notes/guide/index.mdx", routePath: "/notes/guide/index.mdx" },
+            { path: "notes/literal/slash.md", routePath: "/notes/literal/slash.md" },
+            { path: "notes/literal%2Fslash.md", routePath: "/notes/literal%252Fslash.md" },
+        ];
+        const directories = [{ path: "notes/guide", routePath: "/notes/guide" }];
+        const resolve = (href: string) =>
+            resolveReaderLink(href, "notes/source.md", documents, "/notes/source.md", "workspace", directories).href;
+        expect(resolve("./guide")).toBe("/notes/guide.md");
+        expect(resolve("./guide/?keep=1&keep=2#title")).toBe("/notes/guide?keep=1&keep=2#title");
+        expect(resolve("./guide/index.mdx#title")).toBe("/notes/guide/index.mdx#title");
+        expect(resolve("./literal%2Fslash.md")).toBe("./literal%2Fslash.md");
+        expect(resolve("./literal%252Fslash.md")).toBe("/notes/literal%252Fslash.md");
+    });
+
+    it("keeps a resource-like indexed directory without an intro on its directory route", () => {
+        const path = "notes/magazine.txt";
+        const dirs = [{ path, routePath: `/${path}` }];
+        expect(
+            resolveReaderLink("./magazine.txt?x=1#section", "notes/source.md", [], undefined, "workspace", dirs).href,
+        ).toBe("/notes/magazine.txt?x=1#section");
+    });
+
     it("resolves a View's source link to the selected language variant's public route", () => {
         expect(
             resolveReaderLink("/notes/target.zh-hans.md#scope", ".forma/views/catalog.md", [

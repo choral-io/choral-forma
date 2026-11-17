@@ -1,5 +1,5 @@
 import type { DashboardTaxonomy, DashboardView } from "@/data/workspace-client";
-import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath, viewsRoutePath } from "@/lib/workspace-routes";
+import { encodeRouteSegment, viewsRoutePath } from "@/lib/workspace-routes";
 
 import type { NavigationNode } from "./navigation-tree";
 
@@ -15,15 +15,15 @@ export function buildCollectionTree(taxonomies: readonly DashboardTaxonomy[]): N
         label: taxonomy.title,
         name: taxonomy.id,
         title: taxonomy.description || undefined,
-        to: taxonomyRoutePath(taxonomy.id),
+        to: taxonomy.routePath,
         display: taxonomy.display,
         children: taxonomy.terms.map((term) => ({
-            id: `term:${taxonomy.id}/${term.id}`,
+            id: termNodeId(taxonomy.id, term.id),
             kind: "term",
             label: term.title,
             name: term.id,
             title: term.description || undefined,
-            to: taxonomyTermRoutePath(taxonomy.id, term.id),
+            to: term.routePath,
             display: term.display,
         })),
     }));
@@ -42,12 +42,12 @@ export function buildViewTree(views: readonly DashboardView[]): NavigationNode[]
             label: "Views",
             to: viewsRoutePath,
             children: views.map((view) => ({
-                id: `view:${view.id}`,
+                id: `view:${view.configId}`,
                 kind: "view",
                 label: view.title,
-                name: view.id,
+                name: view.configId,
                 title: view.description || undefined,
-                to: viewRoutePath(view.id),
+                to: view.routePath,
                 viewKind: view.kind,
             })),
         },
@@ -64,10 +64,14 @@ export function collectionIdsContaining(taxonomies: readonly DashboardTaxonomy[]
         for (const term of taxonomy.terms) {
             if (!term.entries.some((entry) => entry.path === entryPath)) continue;
             ids.add(`taxonomy:${taxonomy.id}`);
-            ids.add(`term:${taxonomy.id}/${term.id}`);
+            ids.add(termNodeId(taxonomy.id, term.id));
         }
     }
     return ids;
+}
+
+function termNodeId(taxonomyId: string, termId: string) {
+    return `term:${encodeRouteSegment(taxonomyId)}/${encodeRouteSegment(termId)}`;
 }
 
 export interface EntryClassification {
@@ -90,7 +94,7 @@ export function entryClassifications(
     return taxonomies.flatMap((taxonomy) => {
         const terms = taxonomy.terms
             .filter((term) => term.entries.some((entry) => entry.path === entryPath))
-            .map((term) => ({ key: term.id, title: term.title, to: taxonomyTermRoutePath(taxonomy.id, term.id) }));
+            .map((term) => ({ key: term.id, title: term.title, to: term.routePath }));
         return terms.length > 0 ? [{ key: taxonomy.id, taxonomyTitle: taxonomy.title, terms }] : [];
     });
 }

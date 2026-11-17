@@ -1,29 +1,26 @@
 import { ListTree } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { useLocation } from "react-router";
 
-import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
-import { canonicalRoutePath, resolveDashboardEntryTarget } from "@/data/static-route-target";
-import type { DashboardEntry } from "@/data/workspace-client";
-import { createWorkspaceDashboardContext } from "@/data/workspace-client";
-import { workspaceClient } from "@/data/workspace-client-source";
+import { canonicalRoutePath, dashboardEntryByPath, resolveDashboardEntryTarget } from "@/data/static-route-target";
+import type { DashboardDirectory, DashboardEntry, WorkspaceDashboard } from "@/data/workspace-client";
 import { DirectoryContents, DirectoryPage } from "@/features/browse/DirectoryPage";
 import { PagesList } from "@/features/browse/PagesList";
 import { recentlyUpdatedEntries } from "@/features/browse/recent-entries";
 import { entryClassifications } from "@/features/navigation/collection-tree";
-import { directoryListing, listingCounts } from "@/features/navigation/directory-listing";
+import { listingCounts, projectedDirectoryListing } from "@/features/navigation/directory-listing";
 import { directoryOwners } from "@/features/navigation/directory-owners";
 import { navigationSiblings } from "@/features/navigation/navigation-tree";
 import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
+import { useWorkspacePage } from "@/features/workspace/use-workspace-page";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { canonicalEntries, canonicalEntryFor, canonicalEntryRoutePath } from "@/lib/entry-languages";
 import { cn } from "@/lib/utils";
-import { directoryPathFromRoutePath } from "@/lib/workspace-routes";
 
-import { entryDirectoryBreadcrumb } from "./entry-breadcrumb";
+import { directoryBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
 import { EntryPage } from "./EntryPage";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
@@ -37,39 +34,23 @@ export function EntryRoute() {
     return <EntryRouteContent routePath={canonicalRoutePath(location.pathname)} />;
 }
 
-function EntryRouteContent({
-    entryId: entryIdOverride,
-    routePath,
-    summaryOverride,
-}: {
-    entryId?: string;
-    routePath: string;
-    summaryOverride?: DashboardEntry;
-}) {
+function EntryRouteContent({ routePath }: { routePath: string }) {
     const dashboard = useWorkspaceDashboard();
-    const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
+    const { entry: detail } = useWorkspacePage();
     const { files: filesTree } = useNavigationTrees(dashboard);
-    const owners = useMemo(() => directoryOwners(canonicalEntries(dashboard.entries)), [dashboard.entries]);
+    const owners = useMemo(
+        () => directoryOwners(canonicalEntries(dashboard.entries), dashboard.directories),
+        [dashboard],
+    );
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
-    const target = summaryOverride ? undefined : resolveDashboardEntryTarget(dashboard, routePath);
-    const summaryEntry = summaryOverride ?? target?.summary;
-    const entryId = entryIdOverride ?? target?.entryId;
-    const preparedEntry = readPreparedStaticEnhancement()?.entry;
-    const [entryDetail, setEntryDetail] = useState<
-        | {
-              entry: DashboardEntry;
-              routePath: string;
-          }
-        | undefined
-    >(() =>
-        preparedEntry?.routePath === routePath
-            ? { entry: preparedEntry.detail, routePath: preparedEntry.routePath }
-            : undefined,
-    );
-    const entry = entryDetail?.routePath === routePath ? entryDetail.entry : summaryEntry;
-    const isEntryDetailLoading = entryDetail?.routePath !== routePath;
+    const directory = dashboard.directories.find((candidate) => candidate.routePath === routePath);
+    const summaryEntry = directory?.introEntryPath
+        ? dashboardEntryByPath(dashboard, directory.introEntryPath)
+        : resolveDashboardEntryTarget(dashboard, routePath)?.summary;
+    const entry = detail ?? summaryEntry;
+    const isEntryDetailLoading = !detail && entry?.body.length === 0;
     const outline = entry ? getEntryOutline(entry.body) : [];
     // A language variant stands in the tree's place of the document it belongs to.
     const treeRoutePath = canonicalEntryRoutePath(dashboard.entries, routePath);
@@ -85,47 +66,8 @@ function EntryRouteContent({
     }
 
     useEffect(() => {
-        if (!summaryEntry || !entryId || entryDetail?.routePath === routePath) {
-            return;
-        }
-
-        void prewarmMarkdownHighlighter();
-        let cancelled = false;
-        workspaceClient
-            .getEntry(entryId, dashboardContext)
-            .then((result) => {
-                if (!cancelled) {
-                    setEntryDetail({ entry: result, routePath });
-                }
-            })
-            .catch((error: unknown) => {
-                console.warn("Page detail failed to load.", error);
-                if (!cancelled) {
-                    setEntryDetail({
-                        entry: {
-                            ...summaryEntry,
-                            diagnostics: [
-                                ...(summaryEntry.diagnostics ?? []),
-                                {
-                                    severity: "warning",
-                                    code: "entry-detail-load-failed",
-                                    message:
-                                        error instanceof Error
-                                            ? error.message
-                                            : "Page detail failed to load from the workspace backend.",
-                                    path: summaryEntry.path,
-                                },
-                            ],
-                        },
-                        routePath,
-                    });
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [dashboardContext, entryDetail?.routePath, entryId, routePath, summaryEntry]);
+        if (entry) void prewarmMarkdownHighlighter();
+    }, [entry]);
 
     useEffect(() => {
         const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");
@@ -148,10 +90,8 @@ function EntryRouteContent({
         }
     }, [routePath]);
 
-    // A page route that no document owns names a directory, or nothing.
-    const directoryPath = directoryPathFromRoutePath(routePath);
     if (!entry) {
-        if (directoryPath !== undefined) return <DirectoryPage path={directoryPath} />;
+        if (directory) return <DirectoryPage directory={directory} />;
         return (
             <WorkspaceRouteFrame title="Not found">
                 <EmptyPage />
@@ -180,7 +120,13 @@ function EntryRouteContent({
             }
             reading
             // Home is the workspace crumb itself, so it has no ancestors to show.
-            breadcrumb={routePath === "/" ? [] : entryDirectoryBreadcrumb(entry, owners)}
+            breadcrumb={
+                routePath === "/"
+                    ? []
+                    : directory
+                      ? directoryBreadcrumb(directory.path, false, dashboard.directories, owners)
+                      : entryDirectoryBreadcrumb(entry, dashboard.directories, owners)
+            }
         >
             <EntryPage
                 // Home leads the Files tree but is not part of any reading sequence.
@@ -188,12 +134,8 @@ function EntryRouteContent({
                 afterBody={
                     routePath === "/" ? (
                         <RecentlyUpdated entries={dashboard.entries} homePath={entry.path} />
-                    ) : directoryPath ? (
-                        <OwnedDirectory
-                            directoryPath={directoryPath}
-                            entries={dashboard.entries}
-                            entryPath={entry.path}
-                        />
+                    ) : directory ? (
+                        <OwnedDirectory directory={directory} dashboard={dashboard} />
                     ) : undefined
                 }
                 canonicalLanguage={dashboard.canonicalLanguage}
@@ -221,25 +163,10 @@ function EntryRouteContent({
     );
 }
 
-/**
- * A document served at a directory's route, such as its `index` file, keeps the directory's
- * listing reachable below the document itself.
- */
-function OwnedDirectory({
-    directoryPath,
-    entries,
-    entryPath,
-}: {
-    directoryPath: string;
-    entries: DashboardEntry[];
-    entryPath: string;
-}) {
+/** The directory listing remains available alongside its selected introduction. */
+function OwnedDirectory({ directory, dashboard }: { directory: DashboardDirectory; dashboard: WorkspaceDashboard }) {
     const headingId = useId();
-    const listing = directoryListing(
-        canonicalEntries(entries).filter((candidate) => candidate.path !== entryPath),
-        directoryPath,
-    );
-    if (!listing || (listing.directories.length === 0 && listing.entries.length === 0)) return null;
+    const listing = projectedDirectoryListing(dashboard, directory);
 
     return (
         <section aria-labelledby={headingId} className="flex flex-col gap-3 border-t border-base-300 pt-8">
