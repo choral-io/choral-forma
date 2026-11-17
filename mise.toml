@@ -83,3 +83,8 @@ depends = ["check:pnpm", "test:pnpm", "check:rust", "check:zed", "test:rust"]
 description = "Run real WebApp and static Markdown browser regressions (requires playwright-cli and installed browser)"
 depends = ["build:pnpm"]
 run = "cargo build --locked --bin forma && node scripts/markdown-browser-regression.mjs"
+
+[tasks."test:site:cloudflare"]
+description = "Build the production static site and verify it with the local Cloudflare runtime and isolated Chromium (requires playwright-cli and installed Chromium)"
+depends = ["build:pnpm"]
+run = "cargo build --locked --bin forma && node scripts/site-cloudflare-regression.mjs"

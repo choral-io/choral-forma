@@ -383,7 +383,9 @@ test("binds release and deployment recovery paths to the exact source", async ()
     const deployCommands = stepRunCommandsForTest(job(ci, "deploy-site")).join("\n");
     assert.equal(deployCommands.match(/git\/ref\/heads\/main/gu)?.length, 2);
     assert.match(deployCommands, /current_main.*GITHUB_SHA/su);
-    assert.match(deployCommands, /\.forma-source-sha/u);
+    assert.match(deployCommands, /site-cloudflare-regression\.mjs --verify-only/u);
+    const verifySite = await readFile(new URL("../scripts/site-cloudflare-regression.mjs", import.meta.url), "utf8");
+    assert.match(verifySite, /-\/\.forma-source-sha/u);
 });
 
 test("uses floating major tags for every remote action", async () => {
@@ -418,7 +420,9 @@ test("retains the complete CI, site, extension, and Zed gates", async () => {
     for (const command of ["config inspect --json", "check --json", "workspace health --json", "site build"]) {
         assert.ok(siteCommands.includes(command), `site CI must retain ${command}`);
     }
-    const siteUpload = job(ci, "site").steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+    const siteUpload = job(ci, "site").steps.find(
+        (step) => step.uses?.startsWith("actions/upload-artifact@") && step.with?.name === "forma-static-site",
+    );
     assert.deepEqual(
         {
             hidden: siteUpload?.with?.["include-hidden-files"],

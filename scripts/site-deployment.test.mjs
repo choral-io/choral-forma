@@ -85,12 +85,32 @@ test("binds the named static artifact to the current remote main commit", () => 
     assert.equal(commands.match(/git\/ref\/heads\/main/gu)?.length, 2);
     assert.match(commands, /current_main.*GITHUB_SHA/su);
     assert.match(buildCommands, /"\$\{site\}\/-\/\.forma-source-sha"/u);
-    assert.match(commands, /< dist\/site\/-\/\.forma-source-sha\)/u);
+    assert.match(commands, /site-cloudflare-regression\.mjs --verify-only/u);
+    assert.doesNotMatch(commands, /(?:cargo build|site build|pnpm build)/u);
     assert.match(commands, /pnpm install --frozen-lockfile/u);
     assert.match(commands, /pnpm site:deploy/u);
-    const download = deploy.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
-    assert.equal(download?.with?.name, "forma-static-site");
-    assert.equal(download?.with?.path, "dist/site");
+    const downloads = deploy.steps.filter((step) => step.uses?.startsWith("actions/download-artifact@"));
+    assert.deepEqual(
+        downloads.map((step) => step.with?.name),
+        ["forma-static-site", "forma-static-site-verification"],
+    );
+    assert.equal(downloads[0]?.with?.path, "dist/site");
+    const gate = build.steps.findIndex((step) => step.run?.includes("site-cloudflare-regression.mjs"));
+    const reports = build.steps.findIndex((step) => step.with?.name === "forma-static-site-verification");
+    const upload = build.steps.findIndex((step) => step.with?.name === "forma-static-site");
+    assert(gate >= 0 && gate < reports && reports < upload);
+    assert.equal(build.steps[reports].with["if-no-files-found"], "error");
+    assert.equal(build.steps[gate].if, undefined);
+    assert.equal(build.steps[gate]["continue-on-error"], undefined);
+    assert.match(
+        build.steps[gate].run,
+        /--forma-bin.*--artifact-dir.*--source-sha.*--config.*--playwright-cli.*--chromium-executable.*--report/su,
+    );
+    const verify = deploy.steps.findIndex((step) => step.run?.includes("--verify-only"));
+    const publish = deploy.steps.findIndex((step) => step.run?.includes("pnpm site:deploy"));
+    assert(verify >= 0 && verify < publish);
+    assert.equal(deploy.steps[verify]["continue-on-error"], undefined);
+    assert.equal(deploy.steps[verify].if, deploy.steps[publish].if);
 });
 
 test("keeps Cloudflare credentials in environment secrets", () => {

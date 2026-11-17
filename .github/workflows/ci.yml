@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           site="${GITHUB_WORKSPACE}/dist/site"
           result="${RUNNER_TEMP}/site-build.json"
-          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact -/data/dashboard.json; do
+          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact; do
             test -f "${site}/${file}"
           done
           node --input-type=module - "${result}" <<'NODE'
@@ -126,17 +126,50 @@ jobs:
           grep -F "Content-Security-Policy: default-src 'self'" "${site}/_headers"
           grep -F "script-src 'self'" "${site}/_headers"
           digest() {
-            (cd "${site}" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
+            (cd "$1" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
           }
-          first_digest="$(digest)"
+          first_digest="$(digest "${site}")"
+          repeat="${RUNNER_TEMP}/forma-static-repeat"
           "${GITHUB_WORKSPACE}/target/debug/forma" site build \
-            --out dist/site \
+            --out "${repeat}" \
             --base-url https://forma.choral.io \
             --json > "${RUNNER_TEMP}/site-build-repeat.json"
-          test "${first_digest}" = "$(digest)"
+          test "${first_digest}" = "$(digest "${repeat}")"
           echo "treeDigest=${first_digest}" >> "${GITHUB_STEP_SUMMARY}"
           echo "artifactFiles=$(find "${site}" -type f | wc -l | tr -d ' ')" >> "${GITHUB_STEP_SUMMARY}"
           printf '%s\n' "${GITHUB_SHA}" > "${site}/-/.forma-source-sha"
+
+      - name: Install pinned Playwright CLI and Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools_dir="${RUNNER_TEMP}/forma-site-browser-tools"
+          npm install --prefix "${tools_dir}" --no-audit --no-fund @playwright/cli@0.1.24
+          "${tools_dir}/node_modules/.bin/playwright" install --with-deps chromium
+          chromium="$(node -p 'require(process.argv[1]).chromium.executablePath()' "${tools_dir}/node_modules/playwright")"
+          test -x "${chromium}"
+          echo "FORMA_SITE_PLAYWRIGHT_CLI=${tools_dir}/node_modules/.bin/playwright-cli" >> "${GITHUB_ENV}"
+          echo "FORMA_SITE_CHROMIUM=${chromium}" >> "${GITHUB_ENV}"
+
+      - name: Verify static site on local Cloudflare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/site-cloudflare-regression.mjs \
+            --forma-bin "${GITHUB_WORKSPACE}/target/debug/forma" \
+            --artifact-dir "${GITHUB_WORKSPACE}/dist/site" \
+            --source-sha "${GITHUB_SHA}" \
+            --config "${GITHUB_WORKSPACE}/wrangler.jsonc" \
+            --playwright-cli "${FORMA_SITE_PLAYWRIGHT_CLI}" \
+            --chromium-executable "${FORMA_SITE_CHROMIUM}" \
+            --report "${RUNNER_TEMP}/forma-static-site-verification.json"
+
+      - name: Upload static site verification report
+        uses: actions/upload-artifact@v7
+        with:
+          name: forma-static-site-verification
+          path: ${{ runner.temp }}/forma-static-site-verification.json
+          if-no-files-found: error
 
       - name: Upload static site artifact
         uses: actions/upload-artifact@v7
@@ -423,17 +456,23 @@ jobs:
           name: forma-static-site
           path: dist/site
 
+      - name: Download static site verification report
+        if: steps.source.outputs.superseded != 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: forma-static-site-verification
+          path: ${{ runner.temp }}/forma-static-site-verification
+
       - name: Verify source-bound static artifact
         if: steps.source.outputs.superseded != 'true'
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact -/.forma-source-sha -/data/dashboard.json; do
-            test -f "dist/site/${file}"
-          done
-          test "$(tr -d '\r\n' < dist/site/-/.forma-source-sha)" = "${GITHUB_SHA}"
-          echo "sourceCommit=${GITHUB_SHA}" >> "${GITHUB_STEP_SUMMARY}"
-          echo "artifactFiles=$(find dist/site -type f | wc -l | tr -d ' ')" >> "${GITHUB_STEP_SUMMARY}"
+          node scripts/site-cloudflare-regression.mjs --verify-only \
+            --artifact-dir "${GITHUB_WORKSPACE}/dist/site" \
+            --source-sha "${GITHUB_SHA}" \
+            --config "${GITHUB_WORKSPACE}/wrangler.jsonc" \
+            --report "${RUNNER_TEMP}/forma-static-site-verification/forma-static-site-verification.json"
 
       - name: Deploy static assets to Cloudflare
         if: steps.source.outputs.superseded != 'true'
