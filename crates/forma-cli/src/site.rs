@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::Uri;
@@ -603,18 +603,38 @@ fn validate_output(
     }
     if out
         .components()
-        .any(|component| matches!(component, Component::ParentDir))
+        .any(|component| component.as_os_str() == "..")
     {
         return Err("site output path must not contain `..`".to_string());
+    }
+    if !out.is_absolute()
+        && (out.has_root() || matches!(out.components().next(), Some(Component::Prefix(_))))
+    {
+        return Err("site output path must be fully qualified or workspace-relative".to_string());
     }
     let target = if out.is_absolute() {
         normalize_absolute_path(out)?
     } else {
         normalize_absolute_path(&workspace.join(out))?
     };
-    if target == Path::new("/") {
+    let Some(parent) = target.parent() else {
         return Err("site output path must not be the filesystem root".to_string());
-    }
+    };
+    let existing_parent = existing_output_ancestor(parent)?;
+    let target_exists = path_exists(&target)?;
+    let existing = if target_exists {
+        ensure_existing_target_is_safe(&target)?;
+        &target
+    } else {
+        existing_parent
+    };
+    // Compare the physical prefix so ordinary Windows paths and canonical verbatim paths agree.
+    let resolved = fs::canonicalize(existing)
+        .map_err(|error| format!("site output path could not be resolved: {error}"))?;
+    let suffix = target
+        .strip_prefix(existing)
+        .map_err(|error| error.to_string())?;
+    let target = resolved.join(suffix);
     let repository = repository_root(workspace);
     if target == workspace || workspace.starts_with(&target) {
         return Err("site output path must not be the workspace root or an ancestor".to_string());
@@ -624,9 +644,18 @@ fn validate_output(
     {
         return Err("site output path must not be the repository root or an ancestor".to_string());
     }
-    for protected in [".git", ".forma", ".agents", ".worktrees"] {
-        let protected = workspace.join(protected);
-        if target == protected || target.starts_with(&protected) {
+    let first_workspace_component = target
+        .strip_prefix(workspace)
+        .ok()
+        .and_then(|relative| relative.components().next());
+    for name in [".git", ".forma", ".agents", ".worktrees"] {
+        let protected = workspace.join(name);
+        if target.starts_with(&protected)
+            || cfg!(windows)
+                && first_workspace_component.is_some_and(|component| {
+                    component.as_os_str().eq_ignore_ascii_case(OsStr::new(name))
+                })
+        {
             return Err(format!(
                 "site output path must not be inside protected workspace state: {}",
                 protected.display()
@@ -645,15 +674,11 @@ fn validate_output(
         .parent()
         .ok_or_else(|| "site output path must have a parent directory".to_string())?
         .to_path_buf();
-    ensure_existing_ancestors_are_not_symlinks(&parent)?;
-    if path_exists(&target)? {
-        ensure_existing_target_is_safe(&target)?;
-        if !target.join(ARTIFACT_MARKER).is_file() {
-            return Err(format!(
-                "existing site output is not owned by Forma (missing {ARTIFACT_MARKER}): {}",
-                target.display()
-            ));
-        }
+    if target_exists && !target.join(ARTIFACT_MARKER).is_file() {
+        return Err(format!(
+            "existing site output is not owned by Forma (missing {ARTIFACT_MARKER}): {}",
+            target.display()
+        ));
     }
     Ok(ValidatedOutput { target, parent })
 }
@@ -678,13 +703,34 @@ fn normalize_absolute_path(path: &Path) -> Result<PathBuf, String> {
     if !path.is_absolute() {
         return Err("site output path could not be made absolute".to_string());
     }
-    let mut normalized = PathBuf::new();
+    let mut normalized = path.ancestors().last().unwrap_or(path).to_path_buf();
     for component in path.components() {
         match component {
-            Component::RootDir => normalized.push(Path::new("/")),
-            Component::Normal(segment) => normalized.push(segment),
-            Component::CurDir => {}
-            Component::ParentDir | Component::Prefix(_) => {
+            Component::RootDir | Component::CurDir => {}
+            Component::Prefix(prefix)
+                if matches!(
+                    prefix.kind(),
+                    Prefix::Disk(_)
+                        | Prefix::VerbatimDisk(_)
+                        | Prefix::UNC(_, _)
+                        | Prefix::VerbatimUNC(_, _)
+                ) => {}
+            Component::Prefix(_) => {
+                return Err("site output path uses an unsupported filesystem namespace".to_string());
+            }
+            Component::Normal(segment) if segment == "." => {}
+            Component::Normal(segment) if segment != ".." => {
+                if cfg!(windows)
+                    && (segment.to_string_lossy().contains([':', '/'])
+                        || segment.to_string_lossy().ends_with([' ', '.']))
+                {
+                    return Err(
+                        "site output path contains an invalid Windows path component".to_string(),
+                    );
+                }
+                normalized.push(segment);
+            }
+            Component::ParentDir | Component::Normal(_) => {
                 return Err("site output path must not contain traversal components".to_string());
             }
         }
@@ -692,37 +738,35 @@ fn normalize_absolute_path(path: &Path) -> Result<PathBuf, String> {
     Ok(normalized)
 }
 
-fn ensure_existing_ancestors_are_not_symlinks(path: &Path) -> Result<(), String> {
-    let mut current = PathBuf::from("/");
-    for component in path.components() {
-        if !matches!(component, Component::Normal(_)) {
-            continue;
-        }
-        current.push(component.as_os_str());
-        let metadata = match fs::symlink_metadata(&current) {
+fn existing_output_ancestor(path: &Path) -> Result<&Path, String> {
+    let ancestors: Vec<_> = path.ancestors().collect();
+    let mut existing = None;
+    for ancestor in ancestors.into_iter().rev() {
+        let metadata = match fs::symlink_metadata(ancestor) {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == io::ErrorKind::NotFound => break,
             Err(error) => {
                 return Err(format!(
                     "site output path could not be inspected {}: {error}",
-                    current.display()
+                    ancestor.display()
                 ));
             }
         };
         if metadata.file_type().is_symlink() {
             return Err(format!(
                 "site output path must not traverse a symbolic link: {}",
-                current.display()
+                ancestor.display()
             ));
         }
         if !metadata.is_dir() {
             return Err(format!(
                 "site output parent is not a directory: {}",
-                current.display()
+                ancestor.display()
             ));
         }
+        existing = Some(ancestor);
     }
-    Ok(())
+    existing.ok_or_else(|| "site output path has no accessible ancestor".to_string())
 }
 
 fn ensure_existing_target_is_safe(target: &Path) -> Result<(), String> {
@@ -1195,6 +1239,45 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{activate_artifact_with, data_path, normalize_base_url, safe_relative_path};
+
+    #[cfg(windows)]
+    #[test]
+    fn normalizes_windows_volume_paths_without_accepting_traversal() {
+        use std::path::Path;
+
+        use super::normalize_absolute_path;
+
+        for path in [
+            r"C:\folder\site",
+            r"\\?\C:\folder\site",
+            r"\\server\share\folder\site",
+            r"\\?\UNC\server\share\folder\site",
+        ] {
+            let path = Path::new(path);
+            assert_eq!(normalize_absolute_path(path).unwrap(), path);
+        }
+        for root in [
+            r"C:\",
+            r"\\?\C:\",
+            r"\\server\share",
+            r"\\?\UNC\server\share",
+        ] {
+            assert!(
+                normalize_absolute_path(Path::new(root))
+                    .unwrap()
+                    .parent()
+                    .is_none()
+            );
+        }
+        for path in [
+            r"C:\folder\..\site",
+            r"\\?\C:\folder\..\site",
+            r"C:folder",
+            r"\folder",
+        ] {
+            assert!(normalize_absolute_path(Path::new(path)).is_err(), "{path}");
+        }
+    }
 
     #[test]
     fn site_data_paths_keep_distinct_complete_identities() {

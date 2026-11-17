@@ -121,9 +121,9 @@ jobs:
         if: steps.existing.outputs.present != 'true' && runner.os == 'Windows'
         shell: pwsh
         run: |
-          cargo test --release --locked -p forma-cli --lib --target ${{ matrix.target }} a_probe_name_cannot_reinterpret_its_parent_directory
+          cargo test --release --locked -p forma-cli --lib --target ${{ matrix.target }} site::
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --release --locked -p forma-cli --test cli --target ${{ matrix.target }} site_build_preflights_output_filesystem_equivalence_and_preserves_prior_artifact
+          cargo test --release --locked -p forma-cli --test cli --target ${{ matrix.target }} site_build_
 
       - name: Test self-update contract in the Linux GNU baseline
         if: steps.existing.outputs.present != 'true' && endsWith(matrix.target, '-unknown-linux-gnu')

@@ -927,6 +927,62 @@ fn site_build_preflights_output_filesystem_equivalence_and_preserves_prior_artif
 }
 
 #[test]
+fn site_build_accepts_native_absolute_and_workspace_relative_output_paths() {
+    let root = fixture_root("site-build-native-output");
+    copy_starter_workspace(&root);
+    let workspace = std::fs::canonicalize(&root).unwrap();
+    let build = |destination: &Path| {
+        forma(&root)
+            .args(["site", "build", "--out"])
+            .arg(destination)
+            .args(["--base-url", "https://example.test", "--json"])
+            .output()
+            .unwrap()
+    };
+    let relative = Path::new("dist/site");
+    let absolute = workspace.join(relative);
+    for destination in [relative, absolute.as_path()] {
+        let output = build(destination);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert!(absolute.join("index.html").is_file());
+    }
+    #[cfg(windows)]
+    {
+        let output = build(&root.join(relative));
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        let protected = build(&root.join(".FORMA").join("site"));
+        assert!(!protected.status.success());
+        assert!(String::from_utf8_lossy(&protected.stdout).contains("protected workspace state"));
+    }
+
+    let filesystem_root = workspace.ancestors().last().unwrap();
+    for (destination, expected) in [
+        (workspace.as_path(), "workspace root"),
+        (filesystem_root, "filesystem root"),
+        (Path::new("dist/../site"), "must not contain `..`"),
+    ] {
+        let output = build(destination);
+        assert!(!output.status.success(), "{}", destination.display());
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains(expected),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+    assert!(!root.join("site").exists());
+    assert!(!root.join(".forma/site").exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn site_build_rejects_workspace_root_as_output() {
     let root = fixture_root("site-build-unsafe-output");
     std::fs::create_dir_all(&root).unwrap();
@@ -1068,6 +1124,61 @@ fn site_build_rejects_a_parent_symlink_without_touching_the_referent() {
         "must survive"
     );
 
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(referent).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn site_build_rejects_an_output_junction_and_its_children() {
+    let root = fixture_root("site-build-output-junction");
+    let referent = fixture_root("site-build-output-junction-referent");
+    copy_starter_workspace(&root);
+    std::fs::create_dir_all(&referent).unwrap();
+    std::fs::write(referent.join("sentinel.txt"), "must survive").unwrap();
+    let junction = root.join("junction");
+    let created = Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$ErrorActionPreference = 'Stop'; New-Item -ItemType Junction -Path $env:FORMA_TEST_JUNCTION -Target $env:FORMA_TEST_JUNCTION_TARGET | Out-Null",
+        ])
+        .env("FORMA_TEST_JUNCTION", &junction)
+        .env("FORMA_TEST_JUNCTION_TARGET", &referent)
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    for (destination, expected) in [
+        ("junction", "must not be a symbolic link"),
+        ("junction/site", "must not traverse a symbolic link"),
+    ] {
+        let output = forma(&root)
+            .args([
+                "site",
+                "build",
+                "--out",
+                destination,
+                "--base-url",
+                "https://example.test",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{destination}");
+        let response = String::from_utf8_lossy(&output.stdout);
+        assert!(response.contains(expected), "{response}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(referent.join("sentinel.txt")).unwrap(),
+        "must survive"
+    );
+    assert!(!referent.join("site").exists());
+    std::fs::remove_dir(junction).unwrap();
     std::fs::remove_dir_all(root).unwrap();
     std::fs::remove_dir_all(referent).unwrap();
 }
