@@ -388,6 +388,23 @@ test("binds release and deployment recovery paths to the exact source", async ()
     assert.match(verifySite, /-\/\.forma-source-sha/u);
 });
 
+test("runs the four reader browser regressions once with the static-site browser tools", async () => {
+    const source = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+    const ci = parseWorkflow(source, "ci.yml");
+    const command = "node scripts/run-reader-browser-regressions.mjs";
+    const steps = Object.values(ci.jobs).flatMap((definition) => definition.steps ?? []);
+    assert.equal(steps.filter((step) => step.run?.includes(command)).length, 1);
+    const siteSteps = job(ci, "site").steps;
+    const reader = siteSteps.findIndex((step) => step.run === command);
+    const install = siteSteps.findIndex(
+        (step) => step.run?.includes("FORMA_SITE_PLAYWRIGHT_CLI=") && step.run.includes("FORMA_SITE_CHROMIUM="),
+    );
+    const cloudflare = siteSteps.findIndex((step) => step.run?.includes("scripts/site-cloudflare-regression.mjs"));
+    assert.ok(install >= 0 && install < reader && reader < cloudflare);
+    assert.equal(siteSteps[reader]["continue-on-error"], undefined);
+    assert.equal(siteSteps[reader].if, undefined);
+});
+
 test("uses floating major tags for every remote action", async () => {
     for (const name of ["ci.yml", "release-cli-build.yml", "release-vscode-build.yml", "release.yml"]) {
         const source = await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8");

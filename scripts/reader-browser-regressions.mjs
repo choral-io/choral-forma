@@ -1,9 +1,16 @@
+import { observeReader, sectionHeading } from "./reader-browser-diagnostics.mjs";
+import { checkSection } from "./reader-section-probe.mjs";
+
 export const readerBrowserChecks = [
     "reader section: duplicate fragment target rejected on direct and refresh",
     "reader section: clipped heading rejected on direct and refresh",
     "reader diagnostics: captures the URL at each focus attempt",
     "reader diagnostics: attributes requests across documents and reloads",
 ];
+
+export function readerBrowserRegressionSource() {
+    return `async page => (${readerBrowserRegressions})(page, ${JSON.stringify(readerBrowserChecks)}, ${checkSection}, ${observeReader}, ${sectionHeading})`;
+}
 
 /** Runs in Playwright's isolated browser runner. All fixture requests are intercepted. */
 export async function readerBrowserRegressions(page, checks, checkSection, observe, sectionHeading) {
@@ -47,14 +54,14 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
         },
     );
     const sections = [
-        '<aside id="section">Wrong fragment owner</aside>' +
-            reader('<div style="height:1200px"></div>' + heading, "height:250px;overflow:auto"),
+        // Keep the heading visible so only fragment ownership can reject this landing.
+        '<aside id="section">Wrong fragment owner</aside>' + normal,
         reader(
             heading.replace("<h2 ", '<h2 style="position:absolute;top:240px" '),
             "position:relative;height:100px;overflow:clip",
         ),
     ];
-    const testCases = sections.map((badBody) => async () => {
+    const testCases = sections.map((badBody, index) => async () => {
         for (const phase of ["direct", "refresh"]) {
             let documents = 0;
             await fixture(
@@ -69,6 +76,57 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
                     assert(
                         error?.message.startsWith(`${phase}: `) && error.message.includes("Timeout"),
                         `${phase}: offscreen or misdirected section passed or failed for another reason: ${error?.message}`,
+                    );
+                    if (index === 0) {
+                        const { landing } = JSON.parse(error.message.split("\nDiagnostics: ")[1]);
+                        assert(
+                            landing.fragment === "section" &&
+                                landing.fragmentTarget?.tag === "ASIDE" &&
+                                landing.fragmentTarget.id === "section" &&
+                                landing.nativeTarget?.tag === "ASIDE" &&
+                                landing.fragmentTarget.bounds.height > 0 &&
+                                landing.expectedHeading?.tag === "H2" &&
+                                landing.expectedHeading.id === "section" &&
+                                landing.expectedHeading.bounds.height > 0 &&
+                                landing.fragmentTarget.bounds.bottom <= landing.expectedHeading.bounds.top &&
+                                landing.expectedHeading.bounds.bottom <= 600 &&
+                                landing.expectedMatches === 1,
+                            `${phase}: missing fragment owner or visible expected heading: ${JSON.stringify(landing)}`,
+                        );
+                    }
+                },
+            );
+        }
+        if (index !== 0) return;
+        for (const removed of [false, true]) {
+            await fixture(
+                () => ({ body: '<aside id="section">Only fragment owner</aside>' + reader(removed ? heading : "") }),
+                async (current) => {
+                    current.setDefaultTimeout(800);
+                    if (removed) {
+                        const waitForFunction = current.waitForFunction.bind(current);
+                        current.waitForFunction = async (...args) => {
+                            // Detach after the probe acquires its heading and before its geometry check.
+                            await current.locator("main h2").evaluate((target) => target.remove());
+                            return waitForFunction(...args);
+                        };
+                    }
+                    const error = await section(current).then(
+                        () => null,
+                        (error) => error,
+                    );
+                    assert(
+                        error?.message.startsWith("direct: ") &&
+                            error.cause?.message.includes("Timeout") &&
+                            error.cause.message.includes(removed ? "waitForFunction" : "locator.waitFor"),
+                        "Unavailable heading must preserve the original browser failure",
+                    );
+                    const { landing } = JSON.parse(error.message.split("\nDiagnostics: ")[1]);
+                    assert(
+                        landing.fragmentTarget?.tag === "ASIDE" &&
+                            landing.expectedHeading === null &&
+                            landing.expectedMatches === 0,
+                        `Missing heading was not reported: ${JSON.stringify(landing)}`,
                     );
                 },
             );

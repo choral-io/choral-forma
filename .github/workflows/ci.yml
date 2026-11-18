@@ -151,6 +151,9 @@ jobs:
           echo "FORMA_SITE_PLAYWRIGHT_CLI=${tools_dir}/node_modules/.bin/playwright-cli" >> "${GITHUB_ENV}"
           echo "FORMA_SITE_CHROMIUM=${chromium}" >> "${GITHUB_ENV}"
 
+      - name: Verify reader browser regressions
+        run: node scripts/run-reader-browser-regressions.mjs
+
       - name: Verify static site on local Cloudflare runtime
         shell: bash
         run: |

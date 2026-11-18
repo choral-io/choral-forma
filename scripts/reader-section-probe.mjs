@@ -5,10 +5,10 @@ import { observeReader, sectionHeading } from "./reader-browser-diagnostics.mjs"
 export async function checkSection(page, url, id, name, observe, heading, timeout = 10_000) {
     const snapshot = await observe(page);
     for (const phase of ["direct", "refresh"]) {
+        const section = heading(page, id, name);
         try {
             const response = phase === "direct" ? await page.goto(url) : await page.reload();
             if (!response?.ok()) throw new Error(`Document returned ${response?.status()}`);
-            const section = heading(page, id, name);
             await section.waitFor();
             const target = await section.elementHandle();
             try {
@@ -57,7 +57,39 @@ export async function checkSection(page, url, id, name, observe, heading, timeou
             }
             if (page.url() !== url) throw new Error(`Unexpected URL ${page.url()}`);
         } catch (error) {
-            throw new Error(`${phase}: ${error.message}\nDiagnostics: ${JSON.stringify(await snapshot(id))}`);
+            const [diagnostics, landing] = await Promise.all([
+                snapshot(id).catch((error) => ({ captureError: error.message })),
+                section
+                    .evaluateAll((headings) => {
+                        function describe(element) {
+                            return element
+                                ? {
+                                      id: element.id,
+                                      tag: element.tagName,
+                                      html: element.outerHTML.slice(0, 300),
+                                      bounds: element.getBoundingClientRect().toJSON(),
+                                  }
+                                : null;
+                        }
+                        let fragment = location.hash.slice(1);
+                        try {
+                            fragment = decodeURIComponent(fragment);
+                        } catch {
+                            // Retain malformed fragments for the failure report.
+                        }
+                        return {
+                            fragment,
+                            fragmentTarget: describe(fragment ? document.getElementById(fragment) : null),
+                            nativeTarget: describe(document.querySelector(":target")),
+                            expectedHeading: describe(headings[0]),
+                            expectedMatches: headings.length,
+                        };
+                    })
+                    .catch((error) => ({ captureError: error.message })),
+            ]);
+            throw new Error(`${phase}: ${error.message}\nDiagnostics: ${JSON.stringify({ ...diagnostics, landing })}`, {
+                cause: error,
+            });
         }
     }
     return { direct: true, refresh: true, url, name };
