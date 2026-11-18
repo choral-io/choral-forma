@@ -70,15 +70,19 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
                 }),
                 async (current) => {
                     const error = await section(current).then(
-                        () => null,
+                        () => {
+                            throw new Error(`${phase}: section probe unexpectedly passed`);
+                        },
                         (error) => error,
                     );
-                    assert(
-                        error?.message.startsWith(`${phase}: `) && error.message.includes("Timeout"),
-                        `${phase}: offscreen or misdirected section passed or failed for another reason: ${error?.message}`,
-                    );
+                    const reason = error instanceof Error ? error.message : String(error);
+                    if (!reason.startsWith(`${phase}: `) || !reason.includes("Timeout")) {
+                        throw new Error(`${phase}: section probe failed with an unexpected error: ${reason}`, {
+                            cause: error,
+                        });
+                    }
                     if (index === 0) {
-                        const { landing } = JSON.parse(error.message.split("\nDiagnostics: ")[1]);
+                        const { landing } = JSON.parse(reason.split("\nDiagnostics: ")[1]);
                         assert(
                             landing.fragment === "section" &&
                                 landing.fragmentTarget?.tag === "ASIDE" &&
