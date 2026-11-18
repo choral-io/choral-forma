@@ -7,12 +7,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import {
+    downloadIdleTimeoutMs,
+    downloadTimeoutMs,
     expectedReleaseAssetNames,
     parsePublishedChecksum,
     RELEASE_REPOSITORY,
     releaseVersionFromTag,
     sha256File,
     validateReleaseMetadata,
+    withIdleTimeout,
 } from "./release-verification.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -22,7 +25,6 @@ const { build } = extensionRequire("esbuild");
 const { readVSIXPackage } = extensionRequire("@vscode/vsce/out/zip.js");
 const MAX_PAYLOAD_BYTES = 128 * 1024 * 1024;
 const MAX_CHECKSUM_BYTES = 8 * 1024;
-const DOWNLOAD_TIMEOUT_MS = 120_000;
 
 const tag = process.argv[2];
 
@@ -52,7 +54,9 @@ async function verifyRelease(releaseTag) {
         const target = managedModule.resolveManagedCliTarget(process.platform, process.arch);
         const release = await fetchRelease(releaseTag);
         const assets = validateReleaseMetadata(release, releaseTag);
-        const downloader = managedModule.createFetchDownloader();
+        // Each download has an overall deadline for its size and fails early once it stops receiving data.
+        const fetchWithIdleTimeout = withIdleTimeout(globalThis.fetch, downloadIdleTimeoutMs());
+        const downloader = managedModule.createFetchDownloader(fetchWithIdleTimeout);
 
         const vsixName = `forma-${version}.vsix`;
         const payloadNames = expectedReleaseAssetNames(version).filter((name) => !name.endsWith(".sha256"));
@@ -84,10 +88,14 @@ async function verifyRelease(releaseTag) {
         assertEqual(publishedManifest.version, version, "VSIX version");
         assertEqual(publishedManifest.engines?.vscode, extensionManifest.engines?.vscode, "VSIX VS Code engine");
 
+        // The managed installation downloads the host binary and its checksum within one deadline.
         const installation = await managedModule.installManagedCli({
             version,
             globalStorage: join(scratch, "managed-storage"),
-            timeoutMs: DOWNLOAD_TIMEOUT_MS,
+            fetch: fetchWithIdleTimeout,
+            timeoutMs: downloadTimeoutMs(
+                (assets.get(target.assetName)?.size ?? 0) + (assets.get(`${target.assetName}.sha256`)?.size ?? 0),
+            ),
         });
         if (installation.reused) throw new Error("Managed installation unexpectedly reused an existing binary.");
         assertEqual(installation.assetName, target.assetName, "managed CLI asset");
@@ -155,7 +163,7 @@ async function downloadAsset(downloader, assets, name, destination, maxBytes) {
     await downloader({
         url: asset.browser_download_url,
         destination,
-        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+        signal: AbortSignal.timeout(downloadTimeoutMs(asset.size)),
         maxBytes,
     });
 }
