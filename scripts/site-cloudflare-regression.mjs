@@ -28,6 +28,8 @@ import { parseArgs, promisify } from "node:util";
 
 import ts from "typescript";
 
+import { observeReader, sectionHeading } from "./reader-browser-diagnostics.mjs";
+
 import {
     runStaticNavigationFailureScenarios,
     staticNavigationBrowserAssertions,
@@ -519,7 +521,7 @@ async function browserProbe(context, origin, name, data, samples, fixture) {
     const browserInputs = { origin, samples, fixture, base: data.config.dataBaseUrl, root: data.config.rootPath };
     await writeFile(
         outputPath,
-        `async (page) => { return (${browserChecks.toString()})(page, ${JSON.stringify(browserInputs)}, ${runStaticNavigationFailureScenarios.toString()}); }`,
+        `async (page) => { return (${browserChecks.toString()})(page, ${JSON.stringify(browserInputs)}, ${runStaticNavigationFailureScenarios.toString()}, ${observeReader}, ${sectionHeading}); }`,
     );
     const invoke = async (args, cleanup = false) => {
         try {
@@ -559,7 +561,13 @@ async function browserProbe(context, origin, name, data, samples, fixture) {
     }
 }
 
-async function browserChecks(page, { origin, samples, fixture, base, root }, runNavigationScenarios) {
+async function browserChecks(
+    page,
+    { origin, samples, fixture, base, root },
+    runNavigationScenarios,
+    observe,
+    headingForSection,
+) {
     let assertions = 0;
     function expect(condition, diagnostic) {
         if (!condition) throw new Error(diagnostic);
@@ -587,19 +595,24 @@ async function browserChecks(page, { origin, samples, fixture, base, root }, run
             !(await page.locator("[data-static-fallback]").count()),
             `Static fallback survived enhancement: ${probe.path}`,
         );
-        const heading = page.locator("main h1").first();
-        await heading.waitFor({ state: "visible", timeout: 12_000 });
+        const main = page.locator("[data-enhancement-ready] main");
         if (["entry", "view", "taxonomy", "taxonomyTerm"].includes(probe.target.kind)) {
-            expect(
-                (await heading.innerText()).trim() === initialHeading,
-                `Enhanced content identity differs: ${probe.path}`,
-            );
+            await main
+                .getByRole("heading", { level: 1, name: initialHeading, exact: true })
+                .and(main.locator("h1").first())
+                .waitFor({ timeout: 12_000 });
+        } else {
+            await main.locator("h1").first().waitFor({ timeout: 12_000 });
         }
     }
+    const enhancedSnapshot = await observe(page);
+    let snapshot = enhancedSnapshot;
     try {
         const staticPage = await withoutJavaScript.newPage();
+        const initialSnapshot = await observe(staticPage);
         for (const probe of samples) {
             const url = origin + probe.path + "?keep=1&keep=2";
+            snapshot = initialSnapshot;
             const response = await staticPage.goto(url);
             expect(
                 response.status() === 200 && (await staticPage.locator("[data-static-fallback]").count()) === 1,
@@ -613,6 +626,7 @@ async function browserChecks(page, { origin, samples, fixture, base, root }, run
                 `Static refresh failed ${probe.path}`,
             );
             assertions += 1;
+            snapshot = enhancedSnapshot;
             await page.goto(url);
             await currentTarget(probe, initialHeading);
             expect(new URL(page.url()).search === "?keep=1&keep=2", `Canonical route lost the query: ${probe.path}`);
@@ -625,6 +639,7 @@ async function browserChecks(page, { origin, samples, fixture, base, root }, run
             const home = origin + (root === "/" ? "/" : root);
             const target = root === "/" ? fixture.target : root + fixture.target;
             const url = origin + target + "?keep=1&keep=2#fixture-section";
+            snapshot = initialSnapshot;
             await staticPage.goto(url);
             expect(
                 await staticPage.evaluate(() => document.querySelector(":target")?.id === "fixture-section"),
@@ -639,9 +654,9 @@ async function browserChecks(page, { origin, samples, fixture, base, root }, run
                 "Static link click did not retain the explicit query and fragment",
             );
             assertions += 1;
+            snapshot = enhancedSnapshot;
             await page.goto(url);
-            await page.locator("[data-enhancement-ready]").waitFor();
-            await page.locator("#fixture-section").waitFor({ state: "attached", timeout: 12_000 });
+            await headingForSection(page, "fixture-section", "Fixture Section").waitFor({ timeout: 12_000 });
             expect(
                 await page.evaluate(
                     () => location.hash === "#fixture-section" && !!document.getElementById("fixture-section"),
@@ -649,11 +664,13 @@ async function browserChecks(page, { origin, samples, fixture, base, root }, run
                 "Direct enhancement did not retain the fragment target",
             );
             assertions += 1;
-            assertions += await runNavigationScenarios(page, { origin, base, root, fixture });
+            assertions += await runNavigationScenarios(page, { origin, base, root, fixture }, observe);
         }
         expect(rpcRequests.length === 0, `Static enhancement attempted RPC: ${rpcRequests.join(", ")}`);
         // CLI result formatting is human-oriented. This line supplies a machine-readable completion sentinel.
         return `FORMA_CHECKS_${assertions}_${Buffer.from(await browser.version()).toString("hex")}`;
+    } catch (error) {
+        throw new Error(`${error.message}\nDiagnostics: ${JSON.stringify(await snapshot())}`, { cause: error });
     } finally {
         await withoutJavaScript.close();
     }

@@ -1,5 +1,5 @@
 /** Runs against real WebApp/static hosts; serialized into playwright-cli's isolated runner. */
-export async function markdownBrowserScenarios(page, options) {
+export async function markdownBrowserScenarios(page, options, observeReader) {
     const assert = (condition, message) => {
         if (!condition) throw new Error(message);
     };
@@ -7,7 +7,14 @@ export async function markdownBrowserScenarios(page, options) {
     const sourceCases = {};
     const browser = page.context().browser();
     const isWebKit = browser.browserType().name() === "webkit";
+    const observers = new WeakMap();
+    async function observedPage(context) {
+        const current = await context.newPage();
+        observers.set(current, await observeReader(current));
+        return current;
+    }
     const failure = async (current, name, error, diagnostics = {}) => {
+        const navigation = await observers.get(current)(error.expectedId);
         let screenshotError;
         try {
             await current.screenshot({
@@ -18,15 +25,6 @@ export async function markdownBrowserScenarios(page, options) {
         } catch (captureError) {
             screenshotError = captureError.message;
         }
-        const navigation = await current
-            .evaluate(() => ({
-                active: document.activeElement?.outerHTML.slice(0, 500),
-                documentFocused: document.hasFocus(),
-                target: document
-                    .getElementById("forma-heading-hidden-interaction-heading")
-                    ?.parentElement?.outerHTML.slice(0, 1200),
-            }))
-            .catch(() => undefined);
         throw new Error(
             `${error.stack ?? error}\nDiagnostics: ${JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation })}`,
         );
@@ -41,7 +39,7 @@ export async function markdownBrowserScenarios(page, options) {
             for (const surface of host.name === "static" ? ["initial", "enhanced"] : ["rpc"]) {
                 const label = `${surface} ${host.root || "/"}: exact routes and query/fragment`;
                 const context = await browser.newContext({ javaScriptEnabled: surface !== "initial" });
-                const current = await context.newPage();
+                const current = await observedPage(context);
                 const base = host.origin + host.root;
                 let dashboardReads = 0;
                 let mixed = false;
@@ -153,17 +151,12 @@ export async function markdownBrowserScenarios(page, options) {
                 { timeout: 3000 },
             );
         } catch (error) {
-            const position = await current
-                .evaluate((id) => {
-                    const reference = document.getElementById(id);
-                    return {
-                        reference: reference?.getBoundingClientRect().toJSON(),
-                        reader: reference?.closest("main")?.getBoundingClientRect().toJSON(),
-                        shellScrollTop: reference?.closest("[data-workspace-shell]")?.scrollTop,
-                    };
-                }, id)
-                .catch(() => undefined);
-            throw new Error(`${label}: ${error.message} ${JSON.stringify(position)}`, { cause: error });
+            const failure = new Error(
+                `${label}: ${error.message}; expected ${JSON.stringify({ id, fragment, search, foldCount })}`,
+                { cause: error },
+            );
+            failure.expectedId = id;
+            throw failure;
         }
     };
     const rawSource = async (current, host, noScript = false) => {
@@ -374,7 +367,7 @@ export async function markdownBrowserScenarios(page, options) {
         const completed = [];
         for (const host of options.hosts) {
             const context = await browser.newContext({ javaScriptEnabled: !options.noScript });
-            const current = await context.newPage();
+            const current = await observedPage(context);
             const errors = [],
                 consoleErrors = [],
                 failedRequests = [];
@@ -514,9 +507,10 @@ export async function markdownBrowserScenarios(page, options) {
     const directoryPage = async (current, host, noScript = false) => {
         const response = await current.goto(`${host.origin}${host.root}/notes/sidebar/`);
         assert(response?.status() === 200, `${host.name}: directory page status ${response?.status()}`);
-        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
-        const heading = noScript ? current.locator("main h1") : current.locator("main h1").first();
-        assert((await heading.textContent())?.trim() === "sidebar", `${host.name}: directory page heading`);
+        await current
+            .locator(noScript ? "main" : "[data-enhancement-ready] main")
+            .getByRole("heading", { level: 1, name: "sidebar", exact: true })
+            .waitFor();
         assert(
             (await current.locator('main a[href$="/notes/sidebar/nested"]').count()) > 0,
             `${host.name}: directory page folder link`,
@@ -1687,7 +1681,7 @@ export async function markdownBrowserScenarios(page, options) {
             javaScriptEnabled: !options.noScript,
             viewport: { width: 1280, height: 900 },
         });
-        const current = await context.newPage();
+        const current = await observedPage(context);
         const errors = [];
         const consoleErrors = [];
         const failedRequests = [];
@@ -1898,7 +1892,7 @@ export async function markdownBrowserScenarios(page, options) {
     }
     const host = options.hosts.find((host) => host.name === "static");
     const context = await browser.newContext({ javaScriptEnabled: false });
-    const current = await context.newPage();
+    const current = await observedPage(context);
     try {
         await current.goto(`${host.origin}${host.root}/notes/images.md/`);
         assert(

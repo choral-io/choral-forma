@@ -1,7 +1,7 @@
 export const staticNavigationBrowserAssertions = 24;
 
 /** Runs in Playwright's isolated browser runner against the generated fixture. */
-export async function runStaticNavigationFailureScenarios(parentPage, { origin, root, base, fixture }) {
+export async function runStaticNavigationFailureScenarios(parentPage, { origin, root, base, fixture }, observe) {
     let assertions = 0;
     const assert = (condition, message) => {
         if (!condition) throw new Error(message);
@@ -25,10 +25,11 @@ export async function runStaticNavigationFailureScenarios(parentPage, { origin, 
         if (response.url() === entryRequest) detailStatus.push({ phase, status: response.status() });
     };
     const onPageError = (error) => pageErrors.push(error.message);
-    let page;
+    let page, snapshot;
     async function newPage() {
         await page?.close();
         page = await parentPage.context().newPage();
+        snapshot = await observe(page);
         page.setDefaultTimeout(10_000);
         page.on("request", onRequest);
         page.on("response", onResponse);
@@ -358,7 +359,7 @@ export async function runStaticNavigationFailureScenarios(parentPage, { origin, 
             }))
             .catch(() => undefined);
         throw new Error(
-            `${phase}: ${error.message}\n${JSON.stringify({ url: page?.url(), diagnostics, detailStatus, pageErrors })}`,
+            `${phase}: ${error.message}\n${JSON.stringify({ url: page?.url(), diagnostics, detailStatus, pageErrors, reader: await snapshot?.() })}`,
             { cause: error },
         );
     } finally {

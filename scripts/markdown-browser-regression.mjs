@@ -10,6 +10,9 @@ import { describeBrowserEvidenceError, writeBrowserEvidence } from "./markdown-b
 import { markdownBrowserPhases, parseMarkdownBrowserPhase } from "./markdown-browser-protocol.mjs";
 import { markdownBrowserScenarios } from "./markdown-browser-scenarios.mjs";
 import { markdownMermaidGeometry } from "./markdown-mermaid-geometry.mjs";
+import { observeReader, sectionHeading } from "./reader-browser-diagnostics.mjs";
+import { readerBrowserChecks, readerBrowserRegressions } from "./reader-browser-regressions.mjs";
+import { checkSection } from "./reader-section-probe.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const execute = promisify(execFile);
@@ -719,15 +722,22 @@ try {
             ]),
         ),
     });
+    phases.push({
+        name: "reader-test-regressions",
+        mode: "reader-test-regressions",
+        expectedSourceCases: {},
+        expectedResults: readerBrowserChecks,
+    });
     const completedPhases = [];
     for (const phase of phases) {
         abort.signal.throwIfAborted();
         const scenario = join(temporary, `scenarios-${phase.name}.js`);
         const run = phase.mode === "mermaid-geometry" ? markdownMermaidGeometry : markdownBrowserScenarios;
-        await writeFile(
-            scenario,
-            `async page => (${run.toString()})(page, ${JSON.stringify({ ...options, ...phase })})`,
-        );
+        const source =
+            phase.mode === "reader-test-regressions"
+                ? `async page => (${readerBrowserRegressions})(page, ${JSON.stringify(readerBrowserChecks)}, ${checkSection}, ${observeReader}, ${sectionHeading})`
+                : `async page => (${run})(page, ${JSON.stringify({ ...options, ...phase })}${run === markdownBrowserScenarios ? `, ${observeReader}` : ""})`;
+        await writeFile(scenario, source);
         const output = await command(
             cli,
             [`-s=${session}`, "run-code", `--filename=${scenario}`],
