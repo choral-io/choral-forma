@@ -36,21 +36,75 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
     const reader = (content, style = "") =>
         `<div data-enhancement-ready><main style="${style}">${content}</main></div>`;
     const normal = reader(heading);
-    const section = (current) =>
-        checkSection(
-            current,
-            origin + "/guide?tag=one&tag=two#section",
-            "section",
-            "Project Setup",
-            observe,
-            sectionHeading,
-            800,
+    const section = (current, through, locate = sectionHeading) =>
+        checkSection(current, origin + "/guide?tag=one&tag=two#section", "section", "Project Setup", observe, locate, {
+            timeout: 800,
+            through,
+        });
+    async function expectSectionTimeout(current, phase, step, locate) {
+        const failure = await section(current, phase, locate).then(
+            () => {
+                throw new Error(`${phase}: section probe unexpectedly passed`);
+            },
+            (error) => error,
         );
+        if (failure?.phase !== phase || failure.step !== step || !failure.timedOut) {
+            const cause = failure?.cause ?? failure;
+            const reason = cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
+            const context = failure?.step ? ` during ${failure.step}` : "";
+            throw new Error(
+                `${failure?.phase ?? phase}: section probe failed with an unexpected error${context}: ${reason}`,
+                { cause: failure },
+            );
+        }
+        return failure.landing;
+    }
+    async function expectClippedHeading(current, phase, locate) {
+        const landing = await expectSectionTimeout(current, phase, "geometry", locate);
+        assert(
+            landing.fragment === "section" &&
+                landing.ownsFragment &&
+                landing.expectedHeading?.tag === "H2" &&
+                landing.expectedHeading.id === "section" &&
+                landing.expectedHeading.bounds.height > 0 &&
+                landing.readerClip?.overflowY === "clip" &&
+                landing.expectedHeading.bounds.top >= landing.readerClip.bottom,
+            `${phase}: geometry timeout did not show a clipped fragment heading: ${JSON.stringify(landing)}`,
+        );
+        return landing;
+    }
+    function changeHeadingAfterMiss(change, options) {
+        let changed = false;
+        return (page, id, name) => {
+            const locator = sectionHeading(page, id, name);
+            const evaluateAll = locator.evaluateAll.bind(locator);
+            locator.evaluateAll = async (...args) => {
+                const result = await evaluateAll(...args);
+                if (result === false && !changed) {
+                    changed = true;
+                    await evaluateAll(change, options);
+                }
+                return result;
+            };
+            return locator;
+        };
+    }
     await fixture(
         () => ({ body: normal }),
         async (current) => {
             const result = await section(current);
             assert(result.direct && result.refresh, "Visible heading should pass on direct and refresh");
+        },
+    );
+    let directLoads = 0;
+    await fixture(
+        (pathname) => {
+            if (pathname === "/guide") directLoads++;
+            return { body: normal };
+        },
+        async (current) => {
+            const result = await section(current, "direct");
+            assert(result.direct && !result.refresh && directLoads === 1, "Direct-only probe must stop before refresh");
         },
     );
     const sections = [
@@ -69,20 +123,10 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
                     body: phase === "refresh" && pathname === "/guide" && documents++ === 0 ? normal : badBody,
                 }),
                 async (current) => {
-                    const error = await section(current).then(
-                        () => {
-                            throw new Error(`${phase}: section probe unexpectedly passed`);
-                        },
-                        (error) => error,
-                    );
-                    const reason = error instanceof Error ? error.message : String(error);
-                    if (!reason.startsWith(`${phase}: `) || !reason.includes("Timeout")) {
-                        throw new Error(`${phase}: section probe failed with an unexpected error: ${reason}`, {
-                            cause: error,
-                        });
-                    }
-                    if (index === 0) {
-                        const { landing } = JSON.parse(reason.split("\nDiagnostics: ")[1]);
+                    if (index !== 0) {
+                        await expectClippedHeading(current, phase);
+                    } else {
+                        const landing = await expectSectionTimeout(current, phase, "geometry");
                         assert(
                             landing.fragment === "section" &&
                                 landing.fragmentTarget?.tag === "ASIDE" &&
@@ -101,31 +145,113 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
                 },
             );
         }
-        if (index !== 0) return;
+        if (index !== 0) {
+            for (const phase of ["direct", "refresh"]) {
+                for (const visible of [true, false]) {
+                    let documents = 0;
+                    await fixture(
+                        (pathname) => ({
+                            body: phase === "refresh" && pathname === "/guide" && documents++ === 0 ? normal : badBody,
+                        }),
+                        async (current) => {
+                            const locate = changeHeadingAfterMiss(([original], visible) => {
+                                const replacement = original.cloneNode(true);
+                                replacement.dataset.remountedHeading = "";
+                                if (visible) original.closest("main").style.height = "400px";
+                                original.replaceWith(replacement);
+                            }, visible);
+                            if (visible) {
+                                const result = await section(current, phase, locate);
+                                assert(result[phase], `${phase}: visible replacement did not land`);
+                            } else {
+                                const landing = await expectClippedHeading(current, phase, locate);
+                                assert(
+                                    landing.expectedHeading?.html.includes("data-remounted-heading") &&
+                                        landing.fragmentTarget?.html.includes("data-remounted-heading"),
+                                    `${phase}: missing clipped replacement in the failure snapshot`,
+                                );
+                            }
+                            const fits = await current
+                                .locator("main h2[data-remounted-heading]")
+                                .evaluate((heading) => {
+                                    const bounds = heading.getBoundingClientRect();
+                                    const readerBounds = heading.closest("main").getBoundingClientRect();
+                                    return bounds.top >= readerBounds.top && bounds.bottom <= readerBounds.bottom;
+                                });
+                            assert(fits === visible, `${phase}: replacement must have the intended visibility`);
+                        },
+                    );
+                }
+                let documents = 0;
+                await fixture(
+                    (pathname) => ({
+                        body: phase === "refresh" && pathname === "/guide" && documents++ === 0 ? normal : badBody,
+                    }),
+                    async (current) => {
+                        const remove = changeHeadingAfterMiss(([original]) => original.remove());
+                        const error = await expectClippedHeading(current, phase, remove).then(
+                            () => null,
+                            (error) => error,
+                        );
+                        assert(
+                            error?.message.startsWith(
+                                `${phase}: geometry timeout did not show a clipped fragment heading`,
+                            ) && (await current.locator("main h2").count()) === 0,
+                            `${phase}: a heading that disappeared was accepted as clipped`,
+                        );
+                    },
+                );
+            }
+            for (const failureStep of ["heading", "geometry"]) {
+                await fixture(
+                    () => ({ body: failureStep === "heading" ? reader("") : badBody }),
+                    async (current) => {
+                        current.setDefaultTimeout(800);
+                        const locate = (page, id, name) => {
+                            const locator = sectionHeading(page, id, name);
+                            if (failureStep !== "geometry") return locator;
+                            const evaluateAll = locator.evaluateAll.bind(locator);
+                            let first = true;
+                            locator.evaluateAll = (...args) => {
+                                if (first) {
+                                    first = false;
+                                    throw new TypeError("Injected TimeoutPolicy failure");
+                                }
+                                return evaluateAll(...args);
+                            };
+                            return locator;
+                        };
+                        const error = await expectSectionTimeout(current, "direct", "geometry", locate).then(
+                            () => null,
+                            (error) => error,
+                        );
+                        const reason =
+                            failureStep === "heading"
+                                ? "TimeoutError: locator.waitFor"
+                                : "TypeError: Injected TimeoutPolicy failure";
+                        assert(
+                            error?.message.startsWith(
+                                `direct: section probe failed with an unexpected error during ${failureStep}: ${reason}`,
+                            ),
+                            `Expected the actual ${failureStep} failure, received ${error?.message ?? "a passing result"}`,
+                        );
+                    },
+                );
+            }
+            return;
+        }
         for (const removed of [false, true]) {
             await fixture(
                 () => ({ body: '<aside id="section">Only fragment owner</aside>' + reader(removed ? heading : "") }),
                 async (current) => {
                     current.setDefaultTimeout(800);
-                    if (removed) {
-                        const waitForFunction = current.waitForFunction.bind(current);
-                        current.waitForFunction = async (...args) => {
-                            // Detach after the probe acquires its heading and before its geometry check.
-                            await current.locator("main h2").evaluate((target) => target.remove());
-                            return waitForFunction(...args);
-                        };
-                    }
-                    const error = await section(current).then(
-                        () => null,
-                        (error) => error,
+                    const locate = removed ? changeHeadingAfterMiss(([original]) => original.remove()) : sectionHeading;
+                    const landing = await expectSectionTimeout(
+                        current,
+                        "direct",
+                        removed ? "geometry" : "heading",
+                        locate,
                     );
-                    assert(
-                        error?.message.startsWith("direct: ") &&
-                            error.cause?.message.includes("Timeout") &&
-                            error.cause.message.includes(removed ? "waitForFunction" : "locator.waitFor"),
-                        "Unavailable heading must preserve the original browser failure",
-                    );
-                    const { landing } = JSON.parse(error.message.split("\nDiagnostics: ")[1]);
                     assert(
                         landing.fragmentTarget?.tag === "ASIDE" &&
                             landing.expectedHeading === null &&
