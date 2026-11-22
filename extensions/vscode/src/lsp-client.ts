@@ -85,7 +85,7 @@ function createFormaLanguageClient(context: FormaLspRuntimeContext, output: vsco
 }
 
 class LanguageClientAdapter implements FormaLspClient {
-    private readonly stateSubscription: vscode.Disposable;
+    private readonly stateSubscription: ReturnType<LanguageClient["onDidChangeState"]>;
     private disposed = false;
 
     constructor(

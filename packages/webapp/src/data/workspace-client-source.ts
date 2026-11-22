@@ -19,4 +19,5 @@ export const workspaceClient: WorkspaceClient = isStaticWorkspaceClient
     ? new StaticWorkspaceClient(readStaticRuntimeConfig)
     : new RpcWorkspaceClient(rpcEndpoint ?? rootAwareHref(rpcEndpointPath));
 
-export const staticWorkspaceClient = isStaticWorkspaceClient ? (workspaceClient as StaticWorkspaceClient) : undefined;
+export const staticWorkspaceClient =
+    isStaticWorkspaceClient && workspaceClient instanceof StaticWorkspaceClient ? workspaceClient : undefined;

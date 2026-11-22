@@ -35,7 +35,8 @@ const subset = await subsetFont(
     Object.values(expectedCodepoints)
         .map((codepoint) => String.fromCodePoint(codepoint))
         .join(""),
-    { targetFormat: "woff2" },
+    // CSS selects the glyphs by codepoint, so this subset does not need Lucide's ligature substitutions.
+    { targetFormat: "woff2", dropTables: ["GSUB"] },
 );
 
 await mkdir(path.dirname(outputPath), { recursive: true });
