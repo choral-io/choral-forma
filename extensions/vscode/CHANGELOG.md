@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.3.0
+
+- Ship alongside Forma CLI 0.3.0. The local WebApp and exported sites use `.index.md` for directory introductions and keep exact URLs for regular `index.md` and `index.mdx` documents.
+- Show and copy the workspace-relative directory path on directory pages. Place child folders and documents at the authored content placeholder.
+- Rebuild existing static sites and use WebApp and CLI versions from the same release when upgrading. See the [0.3.0 migration notes](https://github.com/choral-io/choral-forma/blob/main/knowledge/releases/forma-v0.3.0.md#directory-migration).
+
 ## 0.2.0
 
 - Raise the minimum supported VS Code version to 1.134.0 under the rolling 90-day support policy. Upgrade older editors to install the next Forma release.

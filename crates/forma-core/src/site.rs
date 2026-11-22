@@ -3,6 +3,7 @@
 //! This module freezes logical routes and artifact paths, but it does not write
 //! files, copy resource candidates, or rewrite rendered HTML URLs.
 
+use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -1254,7 +1255,10 @@ fn static_reference_href(
     );
     let resolve_fragment = |fragment: &str, path: &str| {
         resolve_heading_fragment(fragment, entry_headings_by_path.get(path), |targets| {
-            let document = read_document(source, path).ok()?;
+            let document = match source.runtime().directory_sources.get(path) {
+                Some(directory) => Cow::Borrowed(&directory.document),
+                None => Cow::Owned(read_document(source, path).ok()?),
+            };
             // Route rewrites affect the labels of wiki links inside headings. Render
             // the same labels without consulting target heading metadata recursively.
             let markdown = static_markdown(
@@ -3947,14 +3951,14 @@ mod tests {
         .unwrap();
         fs::write(
             root.join("content/guides/intro.md"),
-            "# Intro\n\n[Directory](./related/?mode=1#Heading)\n\n[[related|Related file]]\n\n\
+            "# Intro\n\n[Directory](./related/?mode=1#Heading)\n\n[Directory title](./related/#Directory%20introduction)\n\n[[related|Related file]]\n\n\
              [Exact directory](./one.md)\n\n[Double extension file](./one.md.md)\n",
         )
         .unwrap();
         fs::create_dir_all(root.join("content/guides/related")).unwrap();
         fs::write(
             root.join("content/guides/related/.index.md"),
-            "# Directory introduction\n\n## Heading\n\n[Query](?mode=1#Heading)\n\n[File](./index.md#Heading)\n",
+            "# Directory introduction\n\n## Heading\n\n[Query](?mode=1#Heading)\n\n[Current title](#Directory%20introduction)\n\n[File](./index.md#Heading)\n",
         )
         .unwrap();
         fs::write(
@@ -4028,7 +4032,22 @@ mod tests {
             "{}",
             source.html
         );
+        assert!(
+            source.html.contains(
+                r#"href="/preview/content/guides/related#forma-heading-directory-introduction""#
+            ),
+            "{}",
+            source.html
+        );
         let html = directory.intro_html.as_ref().unwrap();
+        assert!(
+            html.contains(r#"id="forma-heading-directory-introduction""#),
+            "{html}"
+        );
+        assert!(
+            html.contains(r##"href="#forma-heading-directory-introduction""##),
+            "{html}"
+        );
         assert!(
             html.contains("href=\"/preview/content/guides/related?mode=1#heading\""),
             "{html}"

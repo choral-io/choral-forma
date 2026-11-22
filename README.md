@@ -159,7 +159,7 @@ forma docs list
 
 ## Installing Forma
 
-The versioned examples below target the `v0.2.0` release. Use them once that tag is published. Until then, install a version listed in [GitHub Releases](https://github.com/choral-io/choral-forma/releases) or build the candidate from source.
+The versioned examples below target the `v0.3.0` release. Use them once that tag is published. Until then, install a version listed in [GitHub Releases](https://github.com/choral-io/choral-forma/releases) or build the candidate from source.
 
 P0 releases are distributed as GitHub Release artifacts. Release builds embed the built WebApp assets into the Rust binary, so end users do not need Node.js, pnpm, Vite, or another frontend runtime to run `forma serve`.
 
@@ -190,13 +190,13 @@ These assets let editor extensions acquire the exact coordinated Forma version w
 Unix-like systems:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh -s -- v0.2.0
+curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh -s -- v0.3.0
 ```
 
 Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/choral-io/choral-forma/main/install.ps1 -UseBasicParsing).Content)) -Version v0.2.0
+& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/choral-io/choral-forma/main/install.ps1 -UseBasicParsing).Content)) -Version v0.3.0
 ```
 
 During Public Preview, install a pinned release tag so the CLI and editor extensions remain on the same coordinated version. Update the tag in these examples before publishing each preview release.
@@ -215,7 +215,7 @@ To update after interactive confirmation, or to select an exact release:
 
 ```sh
 forma self-update
-forma self-update 0.2.0
+forma self-update 0.3.0
 ```
 
 Use `--yes` only after a noninteractive workflow has obtained approval. Same-version replacement additionally requires `--reinstall`; installing an older exact version additionally requires `--allow-downgrade`. Explicit invocation and confirmation authorize Forma to replace the running executable. If mise, WinGet, an editor, or another package manager manages the installation, prefer that manager's update lifecycle instead.
@@ -228,8 +228,8 @@ Forma release assets are also intended to work with mise's GitHub backend:
 # Installing from GitHub Releases requires internet access. If the current
 # environment is sandboxed without network access, run these install steps
 # outside the sandbox, then use the installed shim from sandboxed sessions.
-mise use github:choral-io/choral-forma@0.2.0
-mise install github:choral-io/choral-forma@0.2.0
+mise use github:choral-io/choral-forma@0.3.0
+mise install github:choral-io/choral-forma@0.3.0
 forma --version
 ```
 
@@ -237,10 +237,10 @@ A project or user config can declare the same tool:
 
 ```toml
 [tools]
-"github:choral-io/choral-forma" = "0.2.0"
+"github:choral-io/choral-forma" = "0.3.0"
 ```
 
-Mise normally autodetects the matching GitHub Release asset from OS and architecture. During Public Preview, pin the release version to preserve the coordinated CLI and editor-extension contract. GitHub release tags use the `v0.2.0` form, while mise normalizes the GitHub backend tool version to `0.2.0`. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
+Mise normally autodetects the matching GitHub Release asset from OS and architecture. During Public Preview, pin the release version to preserve the coordinated CLI and editor-extension contract. GitHub release tags use the `v0.3.0` form, while mise normalizes the GitHub backend tool version to `0.3.0`. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
 
 After installation, verify that the CLI is available:
 
@@ -287,7 +287,7 @@ Use the local Forma config as the active project workspace context:
 - `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
 - `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
-For project context, start from the configured Forma workspace: product direction in [knowledge/product/product-direction.md](knowledge/product/product-direction.md), current release candidate state in [knowledge/releases/forma-v0.2.0.md](knowledge/releases/forma-v0.2.0.md), and current delivery state through `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`. Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
+For project context, start from the configured Forma workspace: product direction in [knowledge/product/product-direction.md](knowledge/product/product-direction.md), current release candidate state in [knowledge/releases/forma-v0.3.0.md](knowledge/releases/forma-v0.3.0.md), and current delivery state through `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`. Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
 
 ## Commit Messages
 
