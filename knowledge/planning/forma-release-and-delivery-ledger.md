@@ -94,14 +94,14 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.39         | [[releases/forma-v0.1.39]]         | Released Markdown navigation/callouts, Mermaid/Graph inspection, native editor race fixes and browser regressions. |
 | v0.1.40         | [[releases/forma-v0.1.40]]         | Released Markdown P1, safe native disclosures, resource-link compatibility and regression reliability.             |
 | v0.2.0          | [[releases/forma-v0.2.0]]          | Released exact reader URLs, shared route validation, verified static deployment and VS Code 1.134 support.         |
+| v0.3.0          | [[releases/forma-v0.3.0]]          | Released directory introductions, listing placement, copyable paths, and coordinated CLI and VS Code updates.      |
 
 ## Current Delivery Cutline
 
 - **Temporal View delivery complete:** [[planning/temporal-view-release-plan]] records Calendar/Gantt delivery and accepted limitations. All four related Tasks are done; [[releases/forma-v0.1.37]] records completed publication and verification.
 
-- **Current released baseline:** [[releases/forma-v0.2.0]]. Its record contains the reader URL migration, exact-source CI and site deployment, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known boundaries.
-- **Current release candidate:** [[releases/forma-v0.3.0]] records the planned directory migration, client compatibility, and candidate gates.
-- **Previous released baseline:** [[releases/forma-v0.1.40]] records Markdown formulae and inline syntax, safe native disclosures, resource-link compatibility and regression reliability.
+- **Current released baseline:** [[releases/forma-v0.3.0]] records the directory migration, client compatibility, exact-source CI and site deployment, GitHub Release, Marketplace publication, and CLI installation verification.
+- **Previous released baseline:** [[releases/forma-v0.2.0]] records the reader URL migration, shared route validation, verified static deployment, and VS Code 1.134 support.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
