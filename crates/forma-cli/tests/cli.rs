@@ -614,6 +614,18 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
     let root = fixture_root("site-build-directories");
     std::fs::create_dir_all(&root).unwrap();
     copy_starter_workspace(&root);
+    let config_path = root.join(".forma/spaces/notes.md");
+    let config = std::fs::read_to_string(&config_path)
+        .unwrap()
+        .replace("\r\n", "\n");
+    std::fs::write(
+        &config_path,
+        config.replace(
+            "  - \"notes/**/*.md\"\n",
+            "  - \"notes/**/*.md\"\n  - \"notes/**/*.mdx\"\n",
+        ),
+    )
+    .unwrap();
     for (path, title) in [
         ("notes/deep/inner.md", "Inner"),
         ("notes/guide/index.md", "Guide Overview"),
@@ -630,6 +642,12 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
         )
         .unwrap();
     }
+    std::fs::create_dir_all(root.join("notes/mdx-only")).unwrap();
+    std::fs::write(
+        root.join("notes/mdx-only/index.mdx"),
+        "---\ntitle: MDX Overview\nsummary: Directory with one MDX document.\n---\n\n# MDX Overview\n\n## Getting Started\n",
+    )
+    .unwrap();
 
     let output = forma(&root)
         .args([
@@ -666,6 +684,19 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
     assert!(read("notes/guide/index.md/index.html").contains("data-static-entry-id"));
     assert!(guide.contains(r#"href="/preview/notes/guide/setup.md">Setup</a>"#));
     assert!(!guide.contains(r#"href="/preview/notes/guide""#));
+    let mdx_directory = read("notes/mdx-only/index.html");
+    assert!(mdx_directory.contains(">MDX Overview</h1>"));
+    assert!(
+        mdx_directory
+            .contains(r#"href="/preview/notes/mdx-only/index.mdx">notes/mdx-only/index.mdx</a>"#)
+    );
+    assert!(mdx_directory.contains(r#"id="getting-started""#));
+    let mdx_document = read("notes/mdx-only/index.mdx/index.html");
+    assert!(mdx_document.contains("data-static-entry-id"));
+    assert!(mdx_document.contains(r#"id="getting-started""#));
+    let sitemap = read("sitemap.xml");
+    assert!(sitemap.contains("<loc>https://example.test/preview/notes/mdx-only</loc>"));
+    assert!(sitemap.contains("<loc>https://example.test/preview/notes/mdx-only/index.mdx</loc>"));
     let quick_start = read("notes/quick start/index.html");
     assert!(quick_start.contains(">quick start</h1>"));
     assert!(read("notes/quick start.md/index.html").contains(">Quick Start Overview</h1>"));
@@ -673,7 +704,6 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
     // Home is the root directory's page, so it lists the root folders too.
     let home = read("index.html");
     assert!(home.contains("href=\"/preview/notes\""), "{home}");
-    let sitemap = read("sitemap.xml");
     assert!(sitemap.contains("/preview/notes/deep"), "{sitemap}");
     std::fs::remove_dir_all(&root).unwrap();
 }

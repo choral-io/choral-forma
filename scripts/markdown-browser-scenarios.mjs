@@ -31,6 +31,74 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
     };
     const footnoteBackref = (current, id) =>
         current.locator(`a[data-footnote-backref][href$="#${encodeURIComponent(id)}"]`);
+    if (options.mode === "getting-started-directory") {
+        for (const host of options.hosts) {
+            const surfaces =
+                host.name === "static"
+                    ? [
+                          ["static enhanced", true],
+                          ["static without JavaScript", false],
+                      ]
+                    : [["WebApp", true]];
+            for (const [surface, javaScriptEnabled] of surfaces) {
+                const label = `${surface}: directory and exact index document`;
+                const context = await browser.newContext({ javaScriptEnabled });
+                context.setDefaultTimeout(12_000);
+                const current = await observedPage(context);
+                const base = host.origin + host.root;
+                const main = current.locator(javaScriptEnabled ? "[data-enhancement-ready] main" : "main");
+                const fragmentState = javaScriptEnabled ? "focus" : "target";
+                const listing = javaScriptEnabled
+                    ? main.getByRole("list", { name: "Pages", exact: true })
+                    : main
+                          .locator("section")
+                          .filter({ has: current.getByRole("heading", { name: "Entries", exact: true }) })
+                          .getByRole("list");
+                const authoredLink = main
+                    .locator('[data-reader="markdown"]')
+                    .getByRole("link", { name: "Learn how to link notes", exact: true });
+                const waitForRoute = (path, hash = "") =>
+                    current.waitForURL(
+                        (url) => url.origin + url.pathname.replace(/\/$/u, "") + url.hash === base + path + hash,
+                    );
+                try {
+                    const response = await current.goto(base + "/notes#start-here");
+                    assert(response?.ok(), `${label}: directory response ${response?.status()}`);
+                    await waitForRoute("/notes", "#start-here");
+                    await main.getByRole("heading", { level: 1, name: "Notes Overview", exact: true }).waitFor();
+                    await main.locator(`#start-here:${fragmentState}`).waitFor();
+                    await listing.locator(`a[href="${host.root}/notes/markdown-reader.md"]`).waitFor();
+                    const authoredTarget = base + "/notes/connect-pages.md#internal-links";
+                    assert(
+                        new URL(await authoredLink.getAttribute("href"), current.url()).href === authoredTarget,
+                        `${label}: introductory link did not resolve from the directory`,
+                    );
+
+                    await main.getByRole("link", { name: "notes/index.md", exact: true }).click();
+                    await waitForRoute("/notes/index.md");
+                    await main.getByRole("heading", { level: 1, name: "Notes Overview", exact: true }).waitFor();
+                    await main.getByRole("heading", { level: 2, name: "Start Here", exact: true }).waitFor();
+                    await listing.waitFor({ state: "detached" });
+                    await authoredLink.click();
+                    await waitForRoute("/notes/connect-pages.md", "#internal-links");
+                    await main.locator(`#internal-links:${fragmentState}`).waitFor();
+                    results.push(label);
+                } catch (error) {
+                    await failure(
+                        current,
+                        `getting-started-${host.name}-${javaScriptEnabled ? "js" : "no-js"}`,
+                        error,
+                        {
+                            surface,
+                        },
+                    );
+                } finally {
+                    await context.close();
+                }
+            }
+        }
+        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+    }
     if (options.mode === "route-matrix") {
         const source = "/notes/query-fragment-navigation.md";
         const target = "/notes/contract-target.md";

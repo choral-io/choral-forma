@@ -44,6 +44,7 @@ Give the team a reliable planning workflow before widening the pilot to more pro
 
 ## Related Records
 
+- [Validation overview](../validation/index.md)
 - [[product/atlas-notes]]
 - [[research/pilot-planning-friction]]
 - [[design/release-review-flow]]

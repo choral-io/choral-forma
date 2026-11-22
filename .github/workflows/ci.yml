@@ -154,6 +154,9 @@ jobs:
       - name: Verify reader browser regressions
         run: node scripts/run-reader-browser-regressions.mjs
 
+      - name: Verify Getting Started directory and index document in Chromium
+        run: node scripts/markdown-browser-regression.mjs --getting-started
+
       - name: Verify static site on local Cloudflare runtime
         shell: bash
         run: |

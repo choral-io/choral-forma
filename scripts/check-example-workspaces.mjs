@@ -1,11 +1,23 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readManifest } from "./site-cloudflare-regression.mjs";
 
-const repoRoot = resolve(new URL("..", import.meta.url).pathname);
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const examplesRoot = resolve(repoRoot, "examples");
 const customerWorkspace = resolve(repoRoot, "examples/fde-customer-project-workspace");
 const practiceWorkspace = resolve(repoRoot, "examples/fde-team-practice-workspace");
+const staticExampleRoutes = new Map([
+    ["minimal-workspace", ["/notes/welcome.md", "/-/views/notes"]],
+    ["software-product-rd-workspace", ["/validation", "/validation/index.md"]],
+    ["fde-customer-project-workspace", ["/overview/engagement-map.md", "/engineering/regression-test.md"]],
+    [
+        "fde-team-practice-workspace",
+        ["/overview/practice-map.md", "/evidence-cards/acknowledgement-window-comparison.md"],
+    ],
+]);
 const referenceFields = new Set([
     "relatedTo",
     "sources",
@@ -710,6 +722,72 @@ function checkFormaWorkspace(formaBin, workspacePath, label, errors) {
     }
 }
 
+async function checkStaticExample(formaBin, workspace, output, errors) {
+    const label = `${workspace.name} static export`;
+    const baseUrl = "https://example.test";
+    const rootPath = "/preview";
+    const result = run(
+        formaBin,
+        [
+            "--workspace",
+            workspace.path,
+            "site",
+            "build",
+            "--out",
+            output,
+            "--base-url",
+            baseUrl,
+            "--root-path",
+            rootPath,
+            "--json",
+        ],
+        repoRoot,
+    );
+    const parsed = parseJsonResult(result, label, errors);
+    if (!parsed) return;
+    if (parsed.operation !== "site.build" || parsed.status !== "passed" || parsed.counts?.warnings !== 0) {
+        errors.push(`${label}: expected passed with zero warnings: ${JSON.stringify(parsed)}`);
+        return;
+    }
+
+    try {
+        const { config, manifest } = await readManifest(output);
+        if (config.rootPath !== rootPath || config.artifactId !== parsed.artifactId) {
+            errors.push(`${label}: artifact configuration differs from the build result or requested root path`);
+        }
+        const sitemap = readFileSync(resolve(output, "sitemap.xml"), "utf8");
+        for (const path of ["/", ...(staticExampleRoutes.get(workspace.name) ?? [])]) {
+            const route = manifest.routes.find((route) => route.path === path);
+            if (!route || !statSync(resolve(output, route.outputPath), { throwIfNoEntry: false })?.isFile()) {
+                errors.push(`${label}: missing HTML output for ${path}`);
+            }
+            if (!sitemap.includes(`<loc>${baseUrl}${rootPath}${path}</loc>`)) {
+                errors.push(`${label}: sitemap is missing ${rootPath}${path}`);
+            }
+        }
+
+        if (workspace.path === customerWorkspace || workspace.path === practiceWorkspace) {
+            const otherOverview =
+                workspace.path === customerWorkspace ? "overview/practice-map.md" : "overview/engagement-map.md";
+            const publishedPaths = [
+                ...manifest.routes.map(({ path }) => path.slice(1)),
+                ...manifest.resources.flatMap(({ path, outputPath }) => [path, outputPath]),
+            ];
+            for (const path of [otherOverview, "engineering/fixture", "-/raw/engineering/fixture"]) {
+                const published = publishedPaths.find(
+                    (candidate) => candidate === path || candidate.startsWith(`${path}/`),
+                );
+                if (published || existsSync(resolve(output, path))) {
+                    errors.push(`${label}: unexpectedly includes ${published ?? path}`);
+                }
+            }
+        }
+        console.log(`${workspace.name}-static=status:${parsed.status} routes:${manifest.routes.length}`);
+    } catch (error) {
+        errors.push(`${label}: ${error.message}`);
+    }
+}
+
 function checkPartitionContracts(formaBin, workspacePath, label, errors) {
     const contracts = partitionContracts.get(workspacePath);
     if (!contracts) return;
@@ -901,6 +979,14 @@ try {
     for (const workspace of exampleWorkspaces) {
         checkFormaWorkspace(formaBin, workspace.path, workspace.name, errors);
         checkPartitionContracts(formaBin, workspace.path, workspace.name, errors);
+    }
+    const exportRoot = mkdtempSync(resolve(realpathSync(tmpdir()), "forma-example-exports-"));
+    try {
+        for (const workspace of exampleWorkspaces.filter(({ name }) => name !== "getting-started-workspace")) {
+            await checkStaticExample(formaBin, workspace, resolve(exportRoot, workspace.name), errors);
+        }
+    } finally {
+        rmSync(exportRoot, { recursive: true, force: true });
     }
     checkFixture(errors);
 

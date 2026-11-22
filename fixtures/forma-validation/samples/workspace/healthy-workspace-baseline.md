@@ -2,13 +2,13 @@
 schemaVersion: 1
 kind: validation-sample
 title: Healthy Workspace Baseline
-summary: Connected baseline record that links the complete first-batch case suite and defines the expected zero-error workspace state.
+summary: Links the first-batch validation cases and records the expected workspace health diagnostics.
 stage: done
 priority: P0
 area: workspace
 owner: "Riley Kumar"
 reviewer: "Taylor Brooks"
-longValue: "workspace-health://expected?errors=0&warnings=0&invalid-fixtures=isolated-outside-this-workspace"
+longValue: "workspace-health://expected?errors=0&warnings=11&invalid-fixtures=isolated-outside-this-workspace"
 tags:
     - health
     - baseline
@@ -33,8 +33,12 @@ The unified fixture workspace must remain valid, deterministic, and free of inte
 
 ## Corpus Cycle
 
-The sample relationship cycle returns to [[samples/reader/markdown-rendering-showcase]], ensuring every first-batch Sample has an inbound reference.
+The sample relationship cycle returns to [[samples/reader/markdown-rendering-showcase]]. Use the index below to open the standalone Markdown samples used for rendering checks.
 
 ## Expected Health
 
-`forma check --json` and `forma workspace health --json` should both report zero errors and zero warnings. Intentional invalid-input suites belong in isolated workspaces added in a later batch.
+`forma check --json` should report zero errors and zero warnings. `forma workspace health --json` should report zero errors and one `workspaceHealth.noOutgoingReferences` warning for each standalone sample below. These samples omit outgoing workspace links so the reader can exercise their source as written. Intentional invalid-input suites belong in isolated workspaces.
+
+- The callout and disclosure samples are [[samples/markdown/callouts]], [[samples/markdown/callout-review]], and [[samples/markdown/disclosures]].
+- The reader syntax samples are [[samples/markdown/reader]], [[samples/markdown/edge-cases]], [[samples/markdown/reading-p1]], and [[samples/markdown/review-regressions]].
+- The image and diagram samples are [[samples/markdown/images]], [[samples/markdown/viewers]], [[samples/markdown/mermaid]], and [[samples/markdown/mermaid-geometry]].

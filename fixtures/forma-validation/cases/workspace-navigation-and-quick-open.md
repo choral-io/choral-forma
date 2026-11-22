@@ -2,13 +2,14 @@
 schemaVersion: 1
 kind: validation-case
 title: Workspace Navigation and Quick Open
-summary: Validates taxonomy-neutral Browse navigation, long and multilingual labels, filtering, keyboard control, and single-route activation.
+summary: Validates configured collection and file navigation, long and multilingual labels, filtering, keyboard control, and single-route activation.
 status: active
 priority: P0
 area: workspace
 surfaces:
     - Home
-    - Browse
+    - Files
+    - Workspace
     - Quick Open
 automation: partial
 sampleRefs:
@@ -48,15 +49,15 @@ Confirm that the WebApp exposes configured taxonomy and entry titles without inf
 
 ## Steps
 
-1. Open Home and Browse, then navigate to both configured spaces.
-2. Open Quick Open and filter with `quick`, `移动`, and `境界`.
+1. Open Home at `/`, then open the collection index at `/~`. In the sidebar's Workspace section, open `Spaces` and visit both configured terms. In the Files section, expand `samples/navigation` and open the sample whose title starts with `Quick Open — Extremely Long Result Label`.
+2. Open Quick Open and filter with `quick` and `QUICK`, then use `知识条目` and `ナビゲーション` to find the mixed-language sample.
 3. Move through results with Arrow Up and Arrow Down, then activate one result with Enter.
-4. Close Quick Open with Escape and confirm focus returns to its trigger.
+4. Tab to the Quick Open trigger and press Enter. Press Escape and confirm focus returns to the trigger.
 5. Repeat at a narrow viewport and navigate through the mobile dialog.
 
 ## Expected Results
 
-- **NAV-001:** Browse presents `Validation Cases` and `Validation Samples` as configured terms.
+- **NAV-001:** The collection index lists `Spaces`. The Workspace tree links `Validation Cases` to `/~/spaces/cases` and `Validation Samples` to `/~/spaces/samples`. The Files tree opens the sample at `/samples/navigation/quick-open-long-label.md`.
 - **NAV-002:** Filtering is case-insensitive and supports Unicode labels without truncating the match target.
 - **NAV-003:** Enter causes exactly one route transition to the selected entry.
 - **NAV-004:** Escape and mobile navigation close the active dialog and restore a usable focus target.

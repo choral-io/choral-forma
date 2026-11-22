@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-summary: "Run the getting-started workspace with forma serve and explore the WebApp."
+summary: "Explore the getting-started workspace locally and publish a static copy."
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 ---
@@ -16,6 +16,33 @@ cargo run -p forma-cli -- --workspace examples/getting-started-workspace serve
 ```
 
 Open the printed local URL in your browser. The WebApp uses the same workspace files that you can inspect in your editor.
+
+## Publish a Static Site
+
+With Forma installed, run this command from the repository root. Replace `https://example.test` with the origin of your static host.
+
+```sh
+forma --workspace examples/getting-started-workspace site build \
+  --out dist/getting-started-preview \
+  --base-url https://example.test \
+  --root-path /preview
+```
+
+Upload the complete contents of `dist/getting-started-preview` to the `/preview` path on your static host. The host should serve `index.html` for directory paths. To publish at the root of an origin, omit `--root-path` and serve the output at `/`.
+
+Try these addresses on your host after publishing.
+
+| Path                                      | What opens                                              |
+| ----------------------------------------- | ------------------------------------------------------- |
+| `/preview/notes#start-here`               | The Notes directory, with its introduction and listing  |
+| `/preview/notes/index.md#start-here`      | The same introduction as a standalone Markdown document |
+| `/preview/notes/markdown-reader.md#image` | The image section in the Markdown Reader guide          |
+| `/preview/~/spaces/notes`                 | The Notes collection                                    |
+| `/preview/-/views/guide`                  | The saved guide view                                    |
+
+The Notes introduction comes from [Notes Overview](./index.md#start-here). Its relative links work from both the directory page and the standalone document. You can open the guide and follow the directory links with JavaScript disabled.
+
+When updating an older bookmark such as `/preview/pages/notes/markdown-reader#image`, use `/preview/notes/markdown-reader.md#image`. Keep the deployment prefix and any query parameters or heading fragment that still apply to the destination.
 
 ## How It Works
 

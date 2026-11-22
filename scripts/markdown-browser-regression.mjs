@@ -16,14 +16,14 @@ import { readerBrowserChecks, readerBrowserRegressionSource } from "./reader-bro
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const execute = promisify(execFile);
 const binary = join(root, "target", "debug", process.platform === "win32" ? "forma.exe" : "forma");
+const gettingStartedOnly = process.argv[2] === "--getting-started";
 await mkdir(join(root, "packages/webapp/.tmp"), { recursive: true });
 const artifacts = await mkdtemp(join(root, "packages/webapp/.tmp/markdown-browser-"));
 const temporary = await mkdtemp(join(await realpath(tmpdir()), "forma-markdown-browser-"));
-const workspace = join(temporary, "workspace");
+const workspace = gettingStartedOnly ? join(root, "examples/getting-started-workspace") : join(temporary, "workspace");
 const site = join(temporary, "site");
-let calloutBoundaries;
 const session = `forma-md-${process.pid}`;
-const cli = process.env.PLAYWRIGHT_CLI ?? "playwright-cli";
+const cli = process.env.PLAYWRIGHT_CLI ?? process.env.FORMA_SITE_PLAYWRIGHT_CLI ?? "playwright-cli";
 const abort = new AbortController();
 let interrupted;
 let testResult;
@@ -111,10 +111,8 @@ for (const [signal, code] of [
     });
 }
 
-try {
-    console.log(`Artifacts: ${artifacts}`);
-    await writeFile(join(artifacts, "run.json"), JSON.stringify({ session, temporary, pid: process.pid }));
-    calloutBoundaries = JSON.parse(
+async function prepareMarkdownWorkspace() {
+    const calloutBoundaries = JSON.parse(
         await readFile(join(root, "fixtures/forma-validation/cases/markdown-callout-boundaries.json"), "utf8"),
     );
     const readingCases = JSON.parse(
@@ -123,7 +121,6 @@ try {
     const disclosureCases = JSON.parse(
         await readFile(join(root, "fixtures/forma-validation/cases/markdown-disclosures.json"), "utf8"),
     );
-    await command(cli, ["--version"], 10_000, false, "version");
     await cp(join(root, "examples/minimal-workspace"), workspace, { recursive: true });
     await rm(join(workspace, "notes"), { recursive: true });
     await mkdir(join(workspace, "notes"));
@@ -583,7 +580,14 @@ try {
         join(workspace, ".forma/views/graph.md"),
         "---\nschemaVersion: 1\nkind: view\ntitle: Browser graph\nmode: graph\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - graph\ngraph:\n  edges:\n    - source: body\n      intent: link\n---\n",
     );
+    return { calloutBoundaries, readingCases, disclosureCases };
+}
 
+try {
+    console.log(`Artifacts: ${artifacts}`);
+    await writeFile(join(artifacts, "run.json"), JSON.stringify({ session, temporary, pid: process.pid }));
+    await command(cli, ["--version"], 10_000, false, "version");
+    const markdownCases = gettingStartedOnly ? undefined : await prepareMarkdownWorkspace();
     abort.signal.throwIfAborted();
     const rpcWebapp = join(temporary, "webapp");
     await cp(join(root, "packages/webapp/dist"), rpcWebapp, { recursive: true });
@@ -667,6 +671,11 @@ try {
         );
         await writeFile(join(artifacts, label + ".json"), build);
         const { status, diagnostics } = JSON.parse(build);
+        if (gettingStartedOnly) {
+            if (status !== "passed" || diagnostics.length !== 0)
+                throw new Error(`Unexpected Getting Started build diagnostics: ${JSON.stringify(diagnostics)}`);
+            return origin;
+        }
         const [ambiguity] = diagnostics;
         if (
             status !== "warning" ||
@@ -679,54 +688,85 @@ try {
         return origin;
     }
     const origin = await startRpc("");
-    const previewOrigin = await startRpc("/preview");
     const staticOrigin = await startStatic("/preview", site, "static-build");
-    const staticRootOrigin = await startStatic("", join(temporary, "site-root"), "static-root-build");
-    const routeMatrix = [
-        { name: "webapp", root: "", origin },
-        { name: "webapp", root: "/preview", origin: previewOrigin },
-        { name: "static", root: "", origin: staticRootOrigin },
-        { name: "static", root: "/preview", origin: staticOrigin },
-    ];
     const options = {
         artifacts,
-        calloutBoundaries,
-        readingCases,
-        disclosureCases,
+        ...markdownCases,
         hosts: [
             { name: "webapp", origin, root: "", graph: "/-/views/graph" },
             { name: "static", origin: staticOrigin, root: "/preview", graph: "/-/views/graph/" },
         ],
     };
     abort.signal.throwIfAborted();
+    const browserName = process.env.FORMA_BROWSER ?? "chromium";
+    const chromium = browserName === "chromium" && process.env.FORMA_SITE_CHROMIUM;
+    let browserArgs = ["--browser", browserName];
+    if (chromium) {
+        const configuration = join(temporary, "browser.json");
+        await writeFile(
+            configuration,
+            JSON.stringify({
+                browser: { browserName: "chromium", launchOptions: { executablePath: chromium, headless: true } },
+            }),
+        );
+        browserArgs = ["--config", configuration];
+    }
+
+    async function fullSuitePhases() {
+        const previewOrigin = await startRpc("/preview");
+        const staticRootOrigin = await startStatic("", join(temporary, "site-root"), "static-root-build");
+        const routeMatrix = [
+            { name: "webapp", root: "", origin },
+            { name: "webapp", root: "/preview", origin: previewOrigin },
+            { name: "static", root: "", origin: staticRootOrigin },
+            { name: "static", root: "/preview", origin: staticOrigin },
+        ];
+        const { readingCases, calloutBoundaries, disclosureCases } = markdownCases;
+        return [
+            {
+                name: "route-matrix",
+                mode: "route-matrix",
+                hosts: routeMatrix,
+                expectedSourceCases: {},
+                expectedResults: routeMatrix.flatMap(({ name, root }) =>
+                    (name === "static" ? ["initial", "enhanced"] : ["rpc"]).flatMap((surface) => [
+                        `${surface} ${root || "/"}: exact routes and query/fragment`,
+                        `${surface} ${root || "/"}: authored Markdown short-path resolution`,
+                    ]),
+                ),
+            },
+            // Bound each host independently so syntax checks cannot consume the interaction deadline.
+            ...markdownBrowserPhases(options.hosts, {
+                reading: readingCases.map((fixture) => fixture.id),
+                callouts: calloutBoundaries.map((fixture) => fixture.id),
+                disclosures: disclosureCases.map((fixture) => fixture.id),
+            }),
+            {
+                name: "reader-test-regressions",
+                mode: "reader-test-regressions",
+                expectedSourceCases: {},
+                expectedResults: readerBrowserChecks,
+            },
+        ];
+    }
+
+    const phases = gettingStartedOnly
+        ? [
+              {
+                  name: "getting-started-directory",
+                  mode: "getting-started-directory",
+                  expectedSourceCases: {},
+                  expectedResults: [
+                      "WebApp: directory and exact index document",
+                      "static enhanced: directory and exact index document",
+                      "static without JavaScript: directory and exact index document",
+                  ],
+              },
+          ]
+        : await fullSuitePhases();
     browserStarted = true;
-    await browserCommand("open", "--browser", process.env.FORMA_BROWSER ?? "chromium");
+    await browserCommand("open", ...browserArgs);
     const results = [];
-    // Bound each host independently; growing syntax coverage must not consume
-    // the interaction suite's cumulative command deadline.
-    const phases = markdownBrowserPhases(options.hosts, {
-        reading: readingCases.map((fixture) => fixture.id),
-        callouts: calloutBoundaries.map((fixture) => fixture.id),
-        disclosures: disclosureCases.map((fixture) => fixture.id),
-    });
-    phases.unshift({
-        name: "route-matrix",
-        mode: "route-matrix",
-        hosts: routeMatrix,
-        expectedSourceCases: {},
-        expectedResults: routeMatrix.flatMap(({ name, root }) =>
-            (name === "static" ? ["initial", "enhanced"] : ["rpc"]).flatMap((surface) => [
-                `${surface} ${root || "/"}: exact routes and query/fragment`,
-                `${surface} ${root || "/"}: authored Markdown short-path resolution`,
-            ]),
-        ),
-    });
-    phases.push({
-        name: "reader-test-regressions",
-        mode: "reader-test-regressions",
-        expectedSourceCases: {},
-        expectedResults: readerBrowserChecks,
-    });
     const completedPhases = [];
     for (const phase of phases) {
         abort.signal.throwIfAborted();

@@ -124,11 +124,12 @@ forma --workspace examples/fde-team-practice-workspace check --json
 The example-workspace gate discovers every committed `examples/*` workspace with a `.forma.md` entry point and checks its Forma configuration, content, and health. It also runs the additional engineering fixture and boundary contracts for the FDE examples:
 
 ```sh
+pnpm --filter @choral-forma/webapp build
 cargo build --locked --bin forma
 pnpm check:examples -- --forma-bin target/debug/forma
 ```
 
-The gate runs each workspace's `config summary --sources`, `check`, and `workspace health`. It additionally verifies every FDE partition's include pattern, required schema fields, create template, and `workspace explain` routing; runs the positive/negative/adjusted engineering fixture paths and Node regression tests; and enforces static cross-workspace/sensitive-data boundaries.
+The gate runs `config summary --sources`, `check`, and `workspace health` for each example. It also builds the minimal, product R&D, and FDE examples under `/preview` and checks representative HTML pages against their sitemaps. The Getting Started export runs in a dedicated browser check in CI. For the FDE examples, the gate verifies partition contracts and workspace-local references, checks for sensitive data, and runs the engineering fixture and its Node tests. It also checks that the exported sites exclude the other workspace's overview and the unreferenced engineering fixture files.
 
 Serve the read-only WebApp and RPC backend from an example workspace:
 
