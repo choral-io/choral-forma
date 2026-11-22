@@ -2,13 +2,12 @@ import { ListTree } from "lucide-react";
 import { useEffect, useId, useMemo, useRef } from "react";
 import { useLocation } from "react-router";
 
-import { canonicalRoutePath, dashboardEntryByPath, resolveDashboardEntryTarget } from "@/data/static-route-target";
-import type { DashboardDirectory, DashboardEntry, WorkspaceDashboard } from "@/data/workspace-client";
-import { DirectoryContents, DirectoryPage } from "@/features/browse/DirectoryPage";
+import { canonicalRoutePath, resolveDashboardEntryTarget } from "@/data/static-route-target";
+import type { DashboardEntry } from "@/data/workspace-client";
+import { DirectoryPage } from "@/features/browse/DirectoryPage";
 import { PagesList } from "@/features/browse/PagesList";
 import { recentlyUpdatedEntries } from "@/features/browse/recent-entries";
 import { entryClassifications } from "@/features/navigation/collection-tree";
-import { listingCounts, projectedDirectoryListing } from "@/features/navigation/directory-listing";
 import { directoryOwners } from "@/features/navigation/directory-owners";
 import { navigationSiblings } from "@/features/navigation/navigation-tree";
 import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
@@ -20,7 +19,7 @@ import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { canonicalEntries, canonicalEntryFor, canonicalEntryRoutePath } from "@/lib/entry-languages";
 import { cn } from "@/lib/utils";
 
-import { directoryBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
+import { entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
 import { EntryPage } from "./EntryPage";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
@@ -38,17 +37,12 @@ function EntryRouteContent({ routePath }: { routePath: string }) {
     const dashboard = useWorkspaceDashboard();
     const { entry: detail } = useWorkspacePage();
     const { files: filesTree } = useNavigationTrees(dashboard);
-    const owners = useMemo(
-        () => directoryOwners(canonicalEntries(dashboard.entries), dashboard.directories),
-        [dashboard],
-    );
+    const owners = useMemo(() => directoryOwners(dashboard.directories), [dashboard.directories]);
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
     const directory = dashboard.directories.find((candidate) => candidate.routePath === routePath);
-    const summaryEntry = directory?.introEntryPath
-        ? dashboardEntryByPath(dashboard, directory.introEntryPath)
-        : resolveDashboardEntryTarget(dashboard, routePath)?.summary;
+    const summaryEntry = resolveDashboardEntryTarget(dashboard, routePath)?.summary;
     const entry = detail ?? summaryEntry;
     const isEntryDetailLoading = !detail && entry?.body.length === 0;
     const outline = entry ? getEntryOutline(entry.body) : [];
@@ -90,8 +84,8 @@ function EntryRouteContent({ routePath }: { routePath: string }) {
         }
     }, [routePath]);
 
+    if (directory) return <DirectoryPage directory={directory} />;
     if (!entry) {
-        if (directory) return <DirectoryPage directory={directory} />;
         return (
             <WorkspaceRouteFrame title="Not found">
                 <EmptyPage />
@@ -120,13 +114,7 @@ function EntryRouteContent({ routePath }: { routePath: string }) {
             }
             reading
             // Home is the workspace crumb itself, so it has no ancestors to show.
-            breadcrumb={
-                routePath === "/"
-                    ? []
-                    : directory
-                      ? directoryBreadcrumb(directory.path, false, dashboard.directories, owners)
-                      : entryDirectoryBreadcrumb(entry, dashboard.directories, owners)
-            }
+            breadcrumb={routePath === "/" ? [] : entryDirectoryBreadcrumb(entry, dashboard.directories, owners)}
         >
             <EntryPage
                 // Home leads the Files tree but is not part of any reading sequence.
@@ -134,8 +122,6 @@ function EntryRouteContent({ routePath }: { routePath: string }) {
                 afterBody={
                     routePath === "/" ? (
                         <RecentlyUpdated entries={dashboard.entries} homePath={entry.path} />
-                    ) : directory ? (
-                        <OwnedDirectory directory={directory} dashboard={dashboard} />
                     ) : undefined
                 }
                 canonicalLanguage={dashboard.canonicalLanguage}
@@ -160,24 +146,6 @@ function EntryRouteContent({ routePath }: { routePath: string }) {
                 routePath={routePath}
             />
         </WorkspaceRouteFrame>
-    );
-}
-
-/** The directory listing remains available alongside its selected introduction. */
-function OwnedDirectory({ directory, dashboard }: { directory: DashboardDirectory; dashboard: WorkspaceDashboard }) {
-    const headingId = useId();
-    const listing = projectedDirectoryListing(dashboard, directory);
-
-    return (
-        <section aria-labelledby={headingId} className="flex flex-col gap-3 border-t border-base-300 pt-8">
-            <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-xl font-semibold" id={headingId}>
-                    In this folder
-                </h2>
-                <span className="text-sm text-base-content/60">{listingCounts(listing)}</span>
-            </div>
-            <DirectoryContents listing={listing} />
-        </section>
     );
 }
 

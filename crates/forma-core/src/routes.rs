@@ -12,6 +12,60 @@ use crate::config::TaxonomyTermDefinition;
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity};
 use crate::index::{IndexEntry, IndexView};
 use crate::path::FORMA_CONFIG_PATH;
+use crate::render::RenderedHeading;
+
+pub(crate) const DIRECTORY_INDEX_NAME: &str = ".index.md";
+
+/// Whether this exact basename belongs to workspace or directory configuration.
+pub fn is_reserved_document_source(path: &str) -> bool {
+    matches!(
+        path.rsplit('/').next(),
+        Some(FORMA_CONFIG_PATH | DIRECTORY_INDEX_NAME)
+    )
+}
+
+pub(crate) fn directory_content_mounts(
+    markdown: &str,
+) -> impl Iterator<Item = std::ops::Range<usize>> + '_ {
+    use markdown::mdast::Node;
+
+    let children = match markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()) {
+        Ok(Node::Root(root)) => root.children,
+        _ => Vec::new(),
+    };
+    children.into_iter().filter_map(|node| {
+        let Node::Html(html) = node else { return None };
+        let span = html.position?;
+        (html.value.trim() == "<!-- forma:content -->")
+            .then_some(span.start.offset..span.end.offset)
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirectoryIntroduction {
+    pub source_path: String,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub omit_leading_title: bool,
+    pub headings: Vec<RenderedHeading>,
+    pub markdown_before: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub markdown_after: Option<String>,
+}
+
+impl DirectoryIntroduction {
+    pub(crate) fn set_markdown(&mut self, markdown: &str) {
+        let mount = directory_content_mounts(markdown).next();
+        if let Some(mount) = mount {
+            self.markdown_before = markdown[..mount.start].to_owned();
+            self.markdown_after = Some(markdown[mount.end..].to_owned());
+        } else {
+            self.markdown_before = markdown.to_owned();
+            self.markdown_after = None;
+        }
+    }
+}
 
 /// The first path segment that belongs to Forma rather than to content.
 pub const SYSTEM_ROUTE_SEGMENT: &str = "-";
@@ -78,43 +132,48 @@ pub struct RouteDirectory {
     pub route_path: String,
     pub output_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub intro_entry_path: Option<String>,
+    pub introduction: Option<DirectoryIntroduction>,
     pub child_directory_paths: Vec<String>,
     pub entry_paths: Vec<String>,
 }
 
-pub(crate) fn route_directories(entries: &[IndexEntry]) -> Vec<RouteDirectory> {
+pub(crate) fn route_directories(
+    entries: &[IndexEntry],
+    introductions: BTreeMap<String, DirectoryIntroduction>,
+) -> Vec<RouteDirectory> {
     let mut directories = BTreeMap::<&str, RouteDirectory>::new();
-    for entry in entries {
-        for path in std::iter::once(&entry.path).chain(entry.variants.iter().map(|v| &v.path)) {
-            let mut child = path.as_str();
-            let mut file = true;
-            while let Some((parent, name)) = child.rsplit_once('/') {
-                let directory = directories.entry(parent).or_insert_with(|| {
-                    let route_path = directory_route_path(parent);
-                    RouteDirectory {
-                        path: parent.to_string(),
-                        output_path: route_output_path(&route_path),
-                        route_path,
-                        intro_entry_path: None,
-                        child_directory_paths: Vec::new(),
-                        entry_paths: Vec::new(),
-                    }
-                });
-                if file {
-                    directory.entry_paths.push(child.to_string());
-                    if path == &entry.path
-                        && (name == "index.md"
-                            || (name == "index.mdx" && directory.intro_entry_path.is_none()))
-                    {
-                        directory.intro_entry_path = Some(path.clone());
-                    }
-                } else {
-                    directory.child_directory_paths.push(child.to_string());
+    let entry_paths = entries.iter().flat_map(|entry| {
+        std::iter::once(entry.path.as_str())
+            .chain(entry.variants.iter().map(|variant| variant.path.as_str()))
+    });
+    let source_paths = introductions.keys().map(String::as_str);
+    for (path, is_entry) in entry_paths
+        .map(|path| (path, true))
+        .chain(source_paths.map(|path| (path, false)))
+    {
+        let mut child = path;
+        let mut direct_parent = true;
+        while let Some((parent, _)) = child.rsplit_once('/') {
+            let directory = directories.entry(parent).or_insert_with(|| {
+                let route_path = directory_route_path(parent);
+                RouteDirectory {
+                    path: parent.to_string(),
+                    output_path: route_output_path(&route_path),
+                    route_path,
+                    introduction: None,
+                    child_directory_paths: Vec::new(),
+                    entry_paths: Vec::new(),
                 }
-                child = parent;
-                file = false;
+            });
+            if !direct_parent {
+                directory.child_directory_paths.push(child.to_string());
+            } else if is_entry {
+                directory.entry_paths.push(child.to_string());
+            } else {
+                directory.introduction = introductions.get(path).cloned();
             }
+            child = parent;
+            direct_parent = false;
         }
     }
     directories
@@ -455,6 +514,7 @@ impl RouteSource {
 pub(crate) fn route_diagnostics(
     entries: &[IndexEntry],
     views: &[IndexView],
+    directories: &[RouteDirectory],
     taxonomies: &BTreeMap<String, serde_yml::Value>,
     terms: &BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
 ) -> Vec<Diagnostic> {
@@ -502,12 +562,12 @@ pub(crate) fn route_diagnostics(
         ));
     }
 
-    for directory in route_directories(entries) {
+    for directory in directories {
         if reserved_content_namespace(&directory.path).is_none()
             && canonical_route_path(&directory.route_path).is_some()
         {
             routes.push(RouteSource::new(
-                directory.route_path,
+                &directory.route_path,
                 format!("directory {}/", directory.path),
                 Some(&directory.path),
             ));
@@ -770,9 +830,11 @@ mod tests {
                 )
             })
             .collect();
+        let entries = entries.iter().map(|path| entry(path)).collect::<Vec<_>>();
         route_diagnostics(
-            &entries.iter().map(|path| entry(path)).collect::<Vec<_>>(),
+            &entries,
             &views.iter().map(|path| view(path)).collect::<Vec<_>>(),
+            &route_directories(&entries, BTreeMap::new()),
             &taxonomies,
             &terms,
         )
@@ -918,14 +980,14 @@ mod tests {
             entry("team/index.md"),
             entry("team/notes.md/deep.md"),
         ];
-        let directories = route_directories(&entries);
+        let directories = route_directories(&entries, BTreeMap::new());
         assert_eq!(
             &directories[0],
             &RouteDirectory {
                 path: "team".into(),
                 route_path: "/team".into(),
                 output_path: "team/index.html".into(),
-                intro_entry_path: Some("team/index.md".into()),
+                introduction: None,
                 child_directory_paths: vec!["team/notes.md".into()],
                 entry_paths: vec!["team/index.md".into(), "team/index.mdx".into()],
             }

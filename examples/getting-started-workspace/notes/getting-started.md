@@ -32,15 +32,15 @@ Upload the complete contents of `dist/getting-started-preview` to the `/preview`
 
 Try these addresses on your host after publishing.
 
-| Path                                      | What opens                                              |
-| ----------------------------------------- | ------------------------------------------------------- |
-| `/preview/notes#start-here`               | The Notes directory, with its introduction and listing  |
-| `/preview/notes/index.md#start-here`      | The same introduction as a standalone Markdown document |
-| `/preview/notes/markdown-reader.md#image` | The image section in the Markdown Reader guide          |
-| `/preview/~/spaces/notes`                 | The Notes collection                                    |
-| `/preview/-/views/guide`                  | The saved guide view                                    |
+| Path                                          | What opens                                             |
+| --------------------------------------------- | ------------------------------------------------------ |
+| `/preview/notes#start-here`                   | The Notes directory, with its introduction and listing |
+| `/preview/notes/index.md#exact-document-path` | An ordinary Markdown document in the Notes listing     |
+| `/preview/notes/markdown-reader.md#image`     | The image section in the Markdown Reader guide         |
+| `/preview/~/spaces/notes`                     | The Notes collection                                   |
+| `/preview/-/views/guide`                      | The saved guide view                                   |
 
-The Notes introduction comes from [Notes Overview](./index.md#start-here). Its relative links work from both the directory page and the standalone document. You can open the guide and follow the directory links with JavaScript disabled.
+The [Notes directory](./#start-here) gets its title, summary, and Markdown body from `notes/.index.md`. The standalone comment `<!-- forma:content -->` places the child folders and pages between the introduction and its closing line. Leave the comment out to put the list after the Markdown. The directory listing and its links also work with JavaScript disabled. Open [Index Files and Directory Pages](./index.md) to try the independent document route.
 
 When updating an older bookmark such as `/preview/pages/notes/markdown-reader#image`, use `/preview/notes/markdown-reader.md#image`. Keep the deployment prefix and any query parameters or heading fragment that still apply to the destination.
 

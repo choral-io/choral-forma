@@ -2,12 +2,11 @@ import type { DashboardDirectory, DashboardEntry } from "@/data/workspace-client
 import { directoryLabel } from "@/features/navigation/directory-owners";
 import type { WorkspaceBreadcrumb } from "@/features/workspace/WorkspaceRouteFrame";
 
-type DirectoryOwners = ReadonlyMap<string, Pick<DashboardEntry, "title">>;
+type DirectoryOwners = ReadonlyMap<string, { title?: string | null }>;
 
 /**
  * The directories that contain an entry, outermost first, each opening its directory page.
- * The workspace crumb that leads every breadcrumb is the root directory's page, home. A document that stands for a directory, such as its `index` file, does
- * not link to itself as one of its own ancestors.
+ * The workspace crumb that leads every breadcrumb is the root directory's page, home.
  */
 export function entryDirectoryBreadcrumb(
     entry: Pick<DashboardEntry, "path">,

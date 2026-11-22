@@ -1750,6 +1750,9 @@ async fn asset_handler(
     OriginalUri(uri): OriginalUri,
     State(state): State<AppState>,
 ) -> Response {
+    if forma_core::routes::is_reserved_document_source(path.trim_end_matches('/')) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let raw = uri.path();
     let mounted = if state.root_path == "/" {
         raw

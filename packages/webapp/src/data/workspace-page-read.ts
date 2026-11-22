@@ -1,4 +1,4 @@
-import { dashboardEntryByPath, resolveDashboardEntryTarget } from "./static-route-target";
+import { resolveDashboardEntryTarget } from "./static-route-target";
 import type { DashboardEntry, DashboardViewRender, WorkspaceClient, WorkspaceDashboard } from "./workspace-client";
 import { createWorkspaceDashboardContext } from "./workspace-client";
 
@@ -13,11 +13,9 @@ export async function readWorkspacePage(
     pathname: string,
 ): Promise<WorkspacePageRead> {
     const context = createWorkspaceDashboardContext(dashboard);
-    const directory = dashboard.directories.find((candidate) => candidate.routePath === pathname);
-    const summary = directory?.introEntryPath
-        ? dashboardEntryByPath(dashboard, directory.introEntryPath)
-        : resolveDashboardEntryTarget(dashboard, pathname)?.summary;
-    if (summary) return { entry: await client.getEntry(summary.path, context, { directoryPath: directory?.path }) };
+    if (dashboard.directories.some((directory) => directory.routePath === pathname)) return {};
+    const summary = resolveDashboardEntryTarget(dashboard, pathname)?.summary;
+    if (summary) return { entry: await client.getEntry(summary.path, context) };
     const view = dashboard.views.find((candidate) => candidate.routePath === pathname);
     if (view) return { view: await client.getViewRender(view.configId, context) };
     return {};

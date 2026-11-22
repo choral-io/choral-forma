@@ -278,7 +278,7 @@ export async function runStaticNavigationFailureScenarios(parentPage, { origin, 
         await page.getByRole("link", { name: "Cloudflare directory link", exact: true }).click();
         await waitForRoute("/notes");
         await page.waitForFunction(() => document.activeElement?.id === "directory-section");
-        await page.getByRole("link", { name: "notes/index.md", exact: true }).waitFor();
+        await page.locator("main header code[title=notes]").waitFor();
         await page.getByRole("list", { name: "Pages", exact: true }).waitFor();
         assert(new URL(page.url()).search === "?keep=1&keep=2", "B5: directory intro changed the repeated query");
 

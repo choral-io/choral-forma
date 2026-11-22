@@ -192,15 +192,23 @@ describe("resolveReaderLink", () => {
         ["./target", "/notes/target"],
         ["./folder", "/notes/folder"],
         ["/notes/folder", "/notes/folder"],
+        ["./folder/index.md", "/notes/folder/index.md"],
         ["./literal%2520", "/notes/literal%2520"],
-    ])("uses the published Entry route when %s names no exact source file", (href, expected) => {
+    ])("resolves the Entry or directory destination for %s", (href, expected) => {
         const suffix = "?value=a%2Fb&tag=one&tag=two#target";
         expect(
-            resolveReaderLink(href + suffix, "notes/source.md", [
-                { path: "notes/target.md", routePath: "/notes/target" },
-                { path: "notes/folder/index.md", routePath: "/notes/folder" },
-                { path: "notes/literal%20.md", routePath: "/notes/literal%2520" },
-            ]).href,
+            resolveReaderLink(
+                href + suffix,
+                "notes/source.md",
+                [
+                    { path: "notes/target.md", routePath: "/notes/target" },
+                    { path: "notes/folder/index.md", routePath: "/notes/folder/index.md" },
+                    { path: "notes/literal%20.md", routePath: "/notes/literal%2520" },
+                ],
+                undefined,
+                "workspace",
+                [{ path: "notes/folder", routePath: "/notes/folder" }],
+            ).href,
         ).toBe(expected + suffix);
     });
 

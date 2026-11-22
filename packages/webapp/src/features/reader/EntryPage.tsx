@@ -137,13 +137,10 @@ export function EntryPage({
                             {entry.status !== "healthy" ? (
                                 <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
                             ) : null}
-                            {entry.routePath !== routePath ? (
-                                <Link className="link truncate text-xs link-hover" to={entry.routePath}>
-                                    {entry.path}
-                                </Link>
-                            ) : (
-                                <SourcePath path={entry.path} />
-                            )}
+                            <SourcePath
+                                path={entry.path}
+                                to={entry.routePath !== routePath ? entry.routePath : undefined}
+                            />
                         </div>
                     </header>
 

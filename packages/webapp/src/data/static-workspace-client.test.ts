@@ -24,7 +24,7 @@ const entryTarget: StaticRouteTarget = {
 function config(rootPath = "/"): StaticRuntimeConfig {
     return {
         runtimeVersion: 1,
-        dataSchemaVersion: 3,
+        dataSchemaVersion: 4,
         artifactId,
         baseUrl: "https://fixture.example",
         rootPath,
@@ -47,7 +47,7 @@ const localizedVariant = {
 };
 
 const dashboard: StaticDashboardData = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     artifactId,
     routes: [entryTarget],
     directories: [],
@@ -316,9 +316,9 @@ describe("StaticWorkspaceClient", () => {
     });
 
     it("rejects mismatched manifest and HTML schema versions before loading details", async () => {
-        const fetch = vi.fn(() => json({ ...dashboard, schemaVersion: 2 }));
+        const fetch = vi.fn(() => json({ ...dashboard, schemaVersion: 3 }));
         vi.stubGlobal("fetch", fetch);
-        const oldClient = new StaticWorkspaceClient({ ...config(), runtimeVersion: 0 });
+        const oldClient = new StaticWorkspaceClient({ ...config(), dataSchemaVersion: 3 });
         await expect(oldClient.verifyStaticBootstrap(entryTarget.path)).rejects.toThrow("unsupported format");
         const client = new StaticWorkspaceClient(config());
         await expect(client.verifyStaticBootstrap(entryTarget.path)).rejects.toThrow("did not match the build");
@@ -478,7 +478,7 @@ describe("StaticWorkspaceClient", () => {
 });
 
 function json(value: object): Response {
-    return new Response(JSON.stringify({ schemaVersion: 3, artifactId, ...value }), {
+    return new Response(JSON.stringify({ schemaVersion: 4, artifactId, ...value }), {
         status: 200,
         headers: { "content-type": "application/json" },
     });

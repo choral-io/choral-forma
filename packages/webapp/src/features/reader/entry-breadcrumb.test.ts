@@ -18,7 +18,14 @@ const directories: DashboardDirectory[] = [
         routePath: "/team",
         childDirectoryPaths: [],
         entryPaths: ["team/index.md"],
-        introEntryPath: "team/index.md",
+        introduction: {
+            sourcePath: "team/.index.md",
+            title: "Our Team",
+            summary: null,
+            omitLeadingTitle: true,
+            headings: [],
+            markdownBefore: "",
+        },
     },
     { path: "a b", routePath: "/a%20b", childDirectoryPaths: ["a b/c"], entryPaths: [] },
 ];
@@ -35,9 +42,9 @@ describe("entryDirectoryBreadcrumb", () => {
         expect(entryDirectoryBreadcrumb({ path: "README.md" }, directories, new Map())).toEqual([]);
     });
 
-    it("labels the directory from its selected intro even on the intro's own exact file page", () => {
+    it("labels the directory from its introduction on an ordinary index document", () => {
         const intro = { path: "team/index.md", routePath: "/team/index.md", title: "Our Team" };
-        expect(entryDirectoryBreadcrumb(intro, directories, directoryOwners([intro], directories))).toEqual([
+        expect(entryDirectoryBreadcrumb(intro, directories, directoryOwners(directories))).toEqual([
             { label: "Our Team", to: "/team" },
         ]);
     });

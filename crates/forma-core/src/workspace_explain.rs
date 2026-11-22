@@ -118,12 +118,18 @@ fn explain_loaded_workspace(
     let kind =
         classify_managed_document(path_str, scan_plan, scan_plan.control_paths(), &view_paths);
     let selected_content_group = selected_content_group(&discovery, path_str);
-    let content_groups = content_group_candidates(
-        &workspace.model,
-        path_str,
-        selected_content_group.as_deref(),
-    );
-    let taxonomies = taxonomy_memberships(&workspace.model, path_str);
+    let (content_groups, taxonomies) = if crate::routes::is_reserved_document_source(path_str) {
+        (Vec::new(), Vec::new())
+    } else {
+        (
+            content_group_candidates(
+                &workspace.model,
+                path_str,
+                selected_content_group.as_deref(),
+            ),
+            taxonomy_memberships(&workspace.model, path_str),
+        )
+    };
     let effective = effective_configuration(workspace, selected_content_group.as_deref());
     let provenance = relevant_provenance(workspace, path_str, &content_groups, &taxonomies);
 

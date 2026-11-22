@@ -26,7 +26,7 @@ const intro = {
 const directory = {
     path: "guide",
     routePath: "/guide",
-    introEntryPath: intro.path,
+    introduction: { sourcePath: "guide/.index.md", title: "Guide", markdownBefore: "Introduction" },
     childDirectoryPaths: [],
     entryPaths: [intro.path, intro.variants[0]?.path],
 };
@@ -57,17 +57,15 @@ describe("readWorkspacePage", () => {
     it("uses the exact route target even when its legacy ID collides with another source", async () => {
         const client = clientFixture();
         await readWorkspacePage(client, dashboard, "/guide/index.md");
-        expect(client.getEntry).toHaveBeenCalledExactlyOnceWith(intro.path, expect.anything(), {});
+        expect(client.getEntry).toHaveBeenCalledExactlyOnceWith(intro.path, expect.anything());
     });
 
-    it("loads the selected directory intro and variant through their different projected identities", async () => {
+    it("uses the dashboard directory projection and fetches an exact index variant separately", async () => {
         const client = clientFixture();
-        await readWorkspacePage(client, dashboard, "/guide");
+        await expect(readWorkspacePage(client, dashboard, "/guide")).resolves.toEqual({});
+        expect(client.getEntry).not.toHaveBeenCalled();
         await readWorkspacePage(client, dashboard, "/guide/index.zh-hans.md");
-        expect(client.getEntry.mock.calls).toEqual([
-            ["guide/index.md", expect.anything(), { directoryPath: "guide" }],
-            ["guide/index.zh-hans.md", expect.anything(), {}],
-        ]);
+        expect(client.getEntry).toHaveBeenCalledExactlyOnceWith("guide/index.zh-hans.md", expect.anything());
     });
 
     it("uses the projected View route to select the full configuration ID", async () => {
@@ -95,27 +93,25 @@ describe("readWorkspacePageGroup", () => {
         ]);
     });
 
-    it.each(["/guide", "/guide/index.zh-hans.md"])(
-        "drops an excluded intro or variant from the recovered route %s",
-        async (pathname) => {
-            const client = clientFixture();
-            const nextDashboard = {
-                ...dashboard,
-                routeGeneration: "server:2",
-                entries: [first],
-                directories: [{ ...directory, introEntryPath: undefined, entryPaths: [] }],
-            };
-            client.getDashboard.mockResolvedValueOnce(dashboard).mockResolvedValueOnce(nextDashboard);
-            client.getEntry.mockRejectedValueOnce(generationMismatch());
+    it("drops an excluded variant from the recovered route", async () => {
+        const pathname = "/guide/index.zh-hans.md";
+        const client = clientFixture();
+        const nextDashboard = {
+            ...dashboard,
+            routeGeneration: "server:2",
+            entries: [first],
+            directories: [{ ...directory, introduction: undefined, entryPaths: [] }],
+        };
+        client.getDashboard.mockResolvedValueOnce(dashboard).mockResolvedValueOnce(nextDashboard);
+        client.getEntry.mockRejectedValueOnce(generationMismatch());
 
-            await expect(readWorkspacePageGroup(client, pathname, () => true)).resolves.toEqual({
-                dashboard: nextDashboard,
-                detail: {},
-            });
-            expect(client.getDashboard).toHaveBeenCalledTimes(2);
-            expect(client.getEntry).toHaveBeenCalledTimes(1);
-        },
-    );
+        await expect(readWorkspacePageGroup(client, pathname, () => true)).resolves.toEqual({
+            dashboard: nextDashboard,
+            detail: {},
+        });
+        expect(client.getDashboard).toHaveBeenCalledTimes(2);
+        expect(client.getEntry).toHaveBeenCalledTimes(1);
+    });
 
     it("stops after a second mismatch and drops a superseded attempt", async () => {
         const client = clientFixture();

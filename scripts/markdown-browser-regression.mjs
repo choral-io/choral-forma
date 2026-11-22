@@ -481,7 +481,7 @@ async function prepareMarkdownWorkspace() {
         join(workspace, ".forma/views/link-contracts.md"),
         "---\nschemaVersion: 1\nkind: view\ntitle: Link contracts View\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---\n\n# forma-heading-repeat\n\n[Root source](/notes/contract-target.md#hello-world)\n\n[Encoded source](../../notes/contract-target%2Emd#hello%2Dworld)\n\n[Localized source](/notes/contract-target.zh-hans.md)\n\n[Second heading](#repeat-2)\n\n[Across projection][projection-target]\n\n## Repeat\n\nFirst section.\n\n<!-- forma:content -->\n\n## Repeat\n\nSecond section.\n\n[projection-target]: /notes/contract-target.md\n",
     );
-    await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
+    await writeFile(join(workspace, "preview/.index.md"), "# Folder landing\n");
     await writeFile(
         join(workspace, "preview/same.md"),
         "# Mounted document\n\n[Jump to details](#details)\n\n## Details\n\nMounted body.\n",
@@ -544,14 +544,15 @@ async function prepareMarkdownWorkspace() {
     );
     await mkdir(join(workspace, "notes/resource-directory.txt"));
     await writeFile(
-        join(workspace, "notes/resource-directory.txt/index.md"),
-        "# Directory entry\n\n## Details\n\nDirectory alias content.\n",
+        join(workspace, "notes/resource-directory.txt/.index.md"),
+        "# Directory introduction\n\n## Details\n\nDirectory introduction content.\n",
     );
+    await writeFile(join(workspace, "notes/resource-directory.txt/index.md"), "# Exact index document\n\n## Details\n");
     await writeFile(join(workspace, "notes/raw-source.txt"), "FORMA_RAW_SOURCE_BROWSER_PROBE\n");
     await writeFile(join(workspace, "guides/query-sidecar.txt.mdx"), "# Sidecar entry\n\n## Details\n");
     await writeFile(
         join(workspace, "notes/raw-source.txt.md"),
-        "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n\n[Directory entry](./resource-directory.txt#details)\n",
+        "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n\n[Directory page](./resource-directory.txt#details)\n",
     );
     // A deep, long-titled page probes that the sidebar tree truncates instead of widening.
     await mkdir(join(workspace, "notes/sidebar/nested"), { recursive: true });

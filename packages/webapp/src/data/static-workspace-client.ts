@@ -11,6 +11,7 @@ import {
 } from "./static-runtime";
 import type {
     DashboardDiagnostic,
+    DashboardDirectory,
     DashboardEntry,
     DashboardEntryHeading,
     DashboardEntryLink,
@@ -119,8 +120,6 @@ interface StaticEntryDetail {
     backlinks?: StaticReferenceEdge[];
     diagnostics?: StaticDiagnostic[];
     language?: string;
-    directoryPath?: string;
-    directoryRoutePath?: string;
 }
 
 interface StaticReferenceEdge {
@@ -136,10 +135,9 @@ interface StaticDirectorySummary {
     path: string;
     routePath: string;
     outputPath: string;
-    introEntryPath?: string;
+    introduction?: DashboardDirectory["introduction"];
     childDirectoryPaths: string[];
     entryPaths: string[];
-    dataPath?: string;
 }
 
 interface StaticViewSummary {
@@ -226,7 +224,6 @@ export class StaticWorkspaceClient implements WorkspaceClient {
         };
         const records = [
             ["entries", data.entries.flatMap((entry) => [entry, ...entry.variants])],
-            ["directories", data.directories.filter((directory) => directory.introEntryPath !== undefined)],
             ["views", data.views],
         ] as const;
         const dataPaths = new Set<string>();
@@ -239,7 +236,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                     !isDetailDataPath(path) ||
                     dataPaths.has(path)
                 ) {
-                    throw new Error(`Static artifact has competing or invalid data paths: ${String(path)}`);
+                    throw new Error(`Static artifact has competing or invalid data paths: ${path}`);
                 }
                 dataPaths.add(path);
             }
@@ -287,9 +284,6 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 if (directory?.routePath !== target.path || directory.outputPath !== target.outputPath) {
                     throw new Error(`Static artifact directory route did not match: ${pathname}`);
                 }
-                if (directory.introEntryPath) {
-                    await this.getEntry(directory.introEntryPath, context, { directoryPath: directory.path });
-                }
                 return;
             }
             case "view": {
@@ -321,11 +315,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
         }
     }
 
-    async getEntry(
-        entryPath: string,
-        context: WorkspaceDashboardContext,
-        options?: { directoryPath?: string },
-    ): Promise<DashboardEntry> {
+    async getEntry(entryPath: string, context: WorkspaceDashboardContext): Promise<DashboardEntry> {
         const { entriesByPath } = context;
         await this.getDashboard();
         const manifest = this.#manifest?.data;
@@ -337,24 +327,15 @@ export class StaticWorkspaceClient implements WorkspaceClient {
             return mapWorkspaceRootEntry(manifest.workspace.home, manifest.workspace.name);
         if (!registered) throw new Error(`Static artifact entry was not listed: ${entryPath}`);
         const variant = registered.variants.find((variant) => variant.path === entryPath);
-        const directory =
-            options?.directoryPath === undefined
-                ? undefined
-                : manifest.directories.find(
-                      (candidate) => candidate.path === options.directoryPath && candidate.introEntryPath === entryPath,
-                  );
         const expected = variant ?? registered;
-        const dataPath = options?.directoryPath === undefined ? expected.dataPath : directory?.dataPath;
+        const dataPath = expected.dataPath;
         if (!dataPath) throw new Error(`Static artifact data path was not listed: ${entryPath}`);
         return this.#getOrRead(this.#entryDetails, dataPath, async () => {
             const detail = await this.#readJson<StaticEntryDetail>(dataPath);
             if (
                 detail.path !== expected.path ||
                 detail.routePath !== expected.routePath ||
-                (variant && detail.language !== variant.language) ||
-                (directory &&
-                    (detail.directoryPath !== directory.path || detail.directoryRoutePath !== directory.routePath)) ||
-                (!directory && detail.directoryPath !== undefined)
+                (variant && detail.language !== variant.language)
             ) {
                 throw new Error(`Static artifact entry identity did not match: ${entryPath}`);
             }

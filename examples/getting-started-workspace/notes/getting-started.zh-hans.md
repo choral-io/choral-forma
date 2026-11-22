@@ -32,15 +32,15 @@ forma --workspace examples/getting-started-workspace site build \
 
 发布后，可以打开以下地址。
 
-| 路径                                      | 打开的内容                         |
-| ----------------------------------------- | ---------------------------------- |
-| `/preview/notes#start-here`               | 笔记目录，包含介绍和子文档列表     |
-| `/preview/notes/index.md#start-here`      | 以独立 Markdown 文档打开同一篇介绍 |
-| `/preview/notes/markdown-reader.md#image` | Markdown 阅读器指南中的图片小节    |
-| `/preview/~/spaces/notes`                 | 笔记分类                           |
-| `/preview/-/views/guide`                  | 保存的指南视图                     |
+| 路径                                          | 打开的内容                         |
+| --------------------------------------------- | ---------------------------------- |
+| `/preview/notes#start-here`                   | 笔记目录，包含介绍和子文档列表     |
+| `/preview/notes/index.md#exact-document-path` | 笔记列表中的一篇普通 Markdown 文档 |
+| `/preview/notes/markdown-reader.md#image`     | Markdown 阅读器指南中的图片小节    |
+| `/preview/~/spaces/notes`                     | 笔记分类                           |
+| `/preview/-/views/guide`                      | 保存的指南视图                     |
 
-笔记目录的介绍来自[笔记概览](./index.md#start-here)。从目录页或独立文档页打开介绍时，里面的相对链接都可以使用。关闭 JavaScript 后，仍然可以阅读指南并使用目录中的链接。
+[笔记目录](./#start-here)使用 `notes/.index.md` 提供标题、摘要和 Markdown 正文。独占一行的 `<!-- forma:content -->` 注释把子目录和文档列表放在介绍和结尾之间。省略注释时，列表会放在正文末尾。关闭 JavaScript 后，目录列表及其链接仍然可用。打开 [Index Files and Directory Pages](./index.md) 可以体验独立文档地址。
 
 如果旧书签是 `/preview/pages/notes/markdown-reader#image`，请改为 `/preview/notes/markdown-reader.md#image`。迁移时保留部署前缀，以及目标页面仍需使用的查询参数和标题锚点。
 

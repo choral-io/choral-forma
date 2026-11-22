@@ -39,7 +39,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const wrangler = resolve(root, "node_modules", ".bin", "wrangler");
 const execute = promisify(execFile);
 const shaPattern = /^[0-9a-f]{64}$/u;
-const artifactSchema = 3;
+const artifactSchema = 4;
 const pass = /^(passed|warning)$/u;
 const requiredGroups = ["positive", "negative", "candidate"];
 const selector = 'script[data-forma-static-workspace][type="application/json"]';
@@ -170,13 +170,9 @@ export async function readManifest(directory) {
     assert.equal(new Set(manifest.routes.map(({ path }) => path)).size, manifest.routes.length);
     const home = manifest.routes.find(({ kind }) => kind === "home");
     assert(home && sameTarget(config.pageTarget, home) && config.pageRoutePath === home.path);
-    const details = [
-        ...manifest.entries.flatMap((entry) => [entry, ...entry.variants]),
-        ...manifest.directories.filter(({ introEntryPath }) => introEntryPath),
-        ...manifest.views,
-    ];
+    const details = [...manifest.entries.flatMap((entry) => [entry, ...entry.variants]), ...manifest.views];
     assert.equal(new Set(details.map((detail) => detail.dataPath)).size, details.length);
-    for (const detail of details) assert.match(detail.dataPath, /^(?:entries|directories|views)\/[0-9a-f]{64}\.json$/u);
+    for (const detail of details) assert.match(detail.dataPath, /^(?:entries|views)\/[0-9a-f]{64}\.json$/u);
     return { config, dataPath, manifest, details };
 }
 
@@ -301,17 +297,11 @@ async function pageProbe(origin, config, expected, signal, directory) {
 
 function validateDetail(payload, detail, artifactId) {
     validateEnvelope(payload, artifactId);
-    if (detail.introEntryPath) {
-        assert.equal(payload.path, detail.introEntryPath);
-        assert.equal(payload.directoryPath, detail.path);
-        assert.equal(payload.directoryRoutePath, detail.routePath);
+    assert.equal(payload.routePath, detail.routePath);
+    if (detail.configId) {
+        for (const field of ["configId", "publicId", "sourcePath"]) assert.equal(payload[field], detail[field]);
     } else {
-        assert.equal(payload.routePath, detail.routePath);
-        if (detail.configId) {
-            for (const field of ["configId", "publicId", "sourcePath"]) assert.equal(payload[field], detail[field]);
-        } else {
-            assert.equal(payload.path, detail.path);
-        }
+        assert.equal(payload.path, detail.path);
     }
 }
 
@@ -691,7 +681,7 @@ async function writeFixture(temporary, name) {
         "notes/with space.md":
             "# Fixture Exact Note\n\n## Fixture Section\n\n![Fixture Diagram](../diagram.svg)\n\nText.[^route-check]\n\n[^route-check]: Route footnote.\n",
         "notes/with space.zh-hans.md": "# Fixture Translated Note\n\n## Fixture Section\n",
-        "notes/index.md": "# Fixture Directory Introduction\n\n## Directory Section\n",
+        "notes/.index.md": "# Fixture Directory Introduction\n\n## Directory Section\n",
         "notes/report.html.md": "# Fixture Dotted Note\n",
         "notes/percent%2F.md": "# Fixture Literal Escape\n",
         "diagram.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>\n',
@@ -865,7 +855,7 @@ async function assertRpcAllows(context, workspace, fixture) {
             const { result, error } = await response.json();
             assert(!error && result, JSON.stringify(error));
             assert.match(result.status, pass);
-            assert.equal(result.routeProjectionVersion, 1);
+            assert.equal(result.routeProjectionVersion, 2);
             const taxonomy = result.taxonomies.find(({ id }) => id === fixture.id);
             assert(taxonomy, `RPC omitted taxonomy ${fixture.id}`);
             for (const id of fixture.terms)

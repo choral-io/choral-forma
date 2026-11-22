@@ -153,18 +153,18 @@ fn route_page(
                 .iter()
                 .find(|directory| directory.directory.path == route.id)
                 .ok_or_else(|| format!("missing static directory: {}", route.id))?;
-            let intro = directory
-                .directory
-                .intro_entry_path
-                .as_deref()
-                .and_then(|path| entries_by_path.get(path).copied());
+            let intro = directory.directory.introduction.as_ref();
             Ok(page(
                 route,
                 intro
-                    .and_then(|entry| entry.title.clone())
+                    .and_then(|intro| intro.title.clone())
                     .unwrap_or_else(|| directory_name(&route.id).to_string()),
-                format!("Pages the workspace includes under {}/.", route.id),
-                directory_body(snapshot, directory, intro, root_path),
+                intro
+                    .and_then(|intro| intro.summary.clone())
+                    .unwrap_or_else(|| {
+                        format!("Pages the workspace includes under {}/.", route.id)
+                    }),
+                directory_body(snapshot, directory, root_path),
                 canonical_language.to_string(),
             ))
         }
@@ -374,26 +374,35 @@ fn parent_directory(path: &str) -> &str {
     path.rsplit_once('/').map_or("", |(parent, _)| parent)
 }
 
-/// A directory keeps its identity and children even when it has an introductory entry.
 fn directory_body(
     snapshot: &StaticSiteSnapshot,
     directory: &StaticSiteDirectory,
-    intro: Option<&StaticSiteEntry>,
     root_path: &str,
 ) -> String {
+    let path = &directory.directory.path;
+    let intro = directory.directory.introduction.as_ref();
     let title = intro
-        .and_then(|entry| entry.title.as_deref())
-        .unwrap_or_else(|| directory_name(&directory.directory.path));
-    let intro = intro.map_or_else(String::new, |entry| format!(
-        "<article class=\"my-6 flex flex-col gap-4\"><a class=\"link\" href=\"{}\">{}</a><div data-reader=\"markdown\">{}</div></article>",
-        escape_attribute(&public_href(root_path, &entry.route_path)),
-        escape_html(&entry.path),
-        directory.intro_html.as_deref().unwrap_or_default(),
-    ));
+        .and_then(|intro| intro.title.as_deref())
+        .unwrap_or_else(|| directory_name(path));
+    let summary = optional_list_summary(intro.and_then(|intro| intro.summary.as_deref()));
+    let contents = directory_contents(snapshot, Some(directory), root_path);
+    let body = if intro.is_some() {
+        let (before, after) = directory.intro_around_contents();
+        if after.is_empty() {
+            format!("<article class=\"my-6\" data-reader=\"markdown\">{before}</article>{contents}")
+        } else {
+            format!(
+                "<article class=\"my-6\" data-reader=\"markdown\">{before}{contents}{after}</article>"
+            )
+        }
+    } else {
+        contents
+    };
     format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Folder</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{intro}{}",
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Folder</p><h1 class=\"text-3xl font-semibold\">{}</h1>{summary}<code class=\"text-base-content/60 text-xs\" title=\"{}\">{}</code></header>{body}",
         escape_html(title),
-        directory_contents(snapshot, Some(directory), root_path),
+        escape_attribute(path),
+        escape_html(path),
     )
 }
 
@@ -429,10 +438,9 @@ fn directory_contents(
             let path = &child.directory.path;
             let title = child
                 .directory
-                .intro_entry_path
+                .introduction
                 .as_ref()
-                .and_then(|intro| snapshot.entries.iter().find(|entry| entry.path == *intro))
-                .and_then(|entry| entry.title.as_deref())
+                .and_then(|intro| intro.title.as_deref())
                 .unwrap_or_else(|| directory_name(path));
             row(&format!("{path}/"), &child.directory.route_path, title)
         })
@@ -456,6 +464,10 @@ fn directory_contents(
         })
         .map(|(path, route, title)| row(path, route, title.as_deref().unwrap_or(path)))
         .collect::<String>();
+    if directory.is_some() && folders.is_empty() && entries.is_empty() {
+        return "<p class=\"text-base-content/60 text-sm\">This folder has no included pages.</p>"
+            .to_string();
+    }
     [("Folders", folders), ("Entries", entries)]
         .into_iter()
         .filter(|(_, rows)| !rows.is_empty())

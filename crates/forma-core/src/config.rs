@@ -894,6 +894,9 @@ fn included_markdown_config_paths(
             let path = path.strip_prefix(root).unwrap_or(path);
             if let Some(path) = path.to_str() {
                 let relative = path.replace(std::path::MAIN_SEPARATOR, "/");
+                if crate::routes::is_reserved_document_source(&relative) {
+                    return None;
+                }
                 if let Ok(relative) = WorkspacePath::parse_config(relative) {
                     return Some(relative.as_str().to_string());
                 }

@@ -35,7 +35,7 @@ async function fixture(t) {
     const dataPath = `-/data/${artifactId}`;
     const bootstrap = {
         runtimeVersion: 1,
-        dataSchemaVersion: 3,
+        dataSchemaVersion: 4,
         artifactId,
         pageRoutePath: "/",
         pageTarget: target,
@@ -50,7 +50,7 @@ async function fixture(t) {
     await writeFile(
         join(artifactDir, dataPath, "dashboard.json"),
         JSON.stringify({
-            schemaVersion: 3,
+            schemaVersion: 4,
             artifactId,
             status: "passed",
             routes: [target],

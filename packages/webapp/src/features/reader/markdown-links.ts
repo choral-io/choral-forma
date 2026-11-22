@@ -96,7 +96,7 @@ function resolveAuthorDocument(
     const paths = new Map(targets.map((target) => [target.path, target]));
     const lookup = rooted || direct === relative ? [relative] : [relative, direct];
     for (const name of lookup) {
-        for (const candidate of authorDocumentCandidates(name, true)) {
+        for (const candidate of authorDocumentCandidates(name)) {
             const entry = paths.get(candidate);
             if (entry) return entry;
         }
@@ -114,7 +114,7 @@ function resolveAuthorDocument(
 }
 
 function shortAuthorMatches(path: string, targets: readonly ReaderLinkTarget[]) {
-    const candidates = new Set(authorDocumentCandidates(path, false));
+    const candidates = new Set(authorDocumentCandidates(path));
     const shortMatches = targets.filter((entry) => {
         const separator = entry.path.indexOf("/");
         return separator >= 0 && candidates.has(entry.path.slice(separator + 1));
@@ -124,11 +124,10 @@ function shortAuthorMatches(path: string, targets: readonly ReaderLinkTarget[]) 
         : targets.filter((entry) => candidates.has(entry.path.split("/").at(-1) ?? ""));
 }
 
-function authorDocumentCandidates(path: string, directoryIntro: boolean) {
+function authorDocumentCandidates(path: string) {
     const candidates = [path];
     if (!/\.(?:md|mdx)$/iu.test(path)) {
         candidates.push(`${path}.md`, `${path}.mdx`);
-        if (directoryIntro) candidates.push(`${path}/index.md`, `${path}/index.mdx`);
     }
     return candidates;
 }

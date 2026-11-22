@@ -30,13 +30,13 @@ use crate::render::{
 use crate::routes::{
     BROWSE_ROUTE_PATH, HEALTH_ROUTE_PATH, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE,
     RouteDirectory, VIEWS_ROUTE_PATH, allocate_view_routes, decode_markdown_uri_path,
-    entry_route_path, percent_encode_segment, raw_route_path, route_directories, route_output_path,
-    taxonomy_route_path, taxonomy_term_route_path, view_route_path,
+    directory_content_mounts, entry_route_path, percent_encode_segment, raw_route_path,
+    route_output_path, taxonomy_route_path, taxonomy_term_route_path, view_route_path,
 };
 use crate::{media_type_for_workspace_path, version};
 
 /// Serialized contract version consumed by static artifact writers.
-pub const STATIC_SITE_SNAPSHOT_SCHEMA_VERSION: u16 = 3;
+pub const STATIC_SITE_SNAPSHOT_SCHEMA_VERSION: u16 = 4;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -124,8 +124,6 @@ pub struct StaticSiteRoute {
 pub struct StaticSiteDirectory {
     #[serde(flatten)]
     pub directory: RouteDirectory,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub intro_markdown: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub intro_html: Option<String>,
 }
@@ -243,6 +241,16 @@ pub struct StaticSiteView {
     pub status: OperationStatus,
 }
 
+const STATIC_DIRECTORY_PROJECTION_SLOT: &str = "<!-- forma:static-directory-projection-slot -->";
+
+impl StaticSiteDirectory {
+    pub fn intro_around_contents(&self) -> (&str, &str) {
+        let html = self.intro_html.as_deref().unwrap_or_default();
+        html.split_once(STATIC_DIRECTORY_PROJECTION_SLOT)
+            .unwrap_or((html, ""))
+    }
+}
+
 const STATIC_VIEW_PROJECTION_SLOT: &str = "<!-- forma:static-view-projection-slot -->";
 
 impl StaticSiteView {
@@ -343,23 +351,30 @@ impl StaticHeadingTargets {
                 is_mount(node) || matches!(node, Node::Paragraph(paragraph) if paragraph.children.iter().any(is_mount))
             })
         {
-            // Keep parsing the whole document so definitions on either side
-            // remain shared. The compiler escapes HTML comments by default.
-            let mut name = "forma-generated-view-slot".to_string();
-            while markdown.contains(&name) {
-                name.push('-');
-            }
-            let source = format!(
-                "{}\n\n<!-- {name} -->\n\n{}",
-                &markdown[..mount],
-                &markdown[mount + MARKER.len()..],
-            );
-            return self.render(&source).replace(
-                &format!("&lt;!-- {name} --&gt;"),
-                STATIC_VIEW_PROJECTION_SLOT,
-            );
+            return self.render_with_mount(markdown, mount..mount + MARKER.len(), STATIC_VIEW_PROJECTION_SLOT);
         }
         self.render(markdown)
+    }
+
+    fn render_with_mount(
+        &self,
+        markdown: &str,
+        mount: std::ops::Range<usize>,
+        slot: &str,
+    ) -> String {
+        // Parse the complete document so links and definitions can span the mount.
+        // The Markdown compiler escapes HTML comments by default.
+        let mut name = "forma-generated-content-slot".to_string();
+        while markdown.contains(&name) {
+            name.push('-');
+        }
+        let source = format!(
+            "{}\n\n<!-- {name} -->\n\n{}",
+            &markdown[..mount.start],
+            &markdown[mount.end..],
+        );
+        self.render(&source)
+            .replace(&format!("&lt;!-- {name} --&gt;"), slot)
     }
 }
 
@@ -414,10 +429,10 @@ fn build_static_site_snapshot_from_loaded(
             )
         })
         .collect::<BTreeMap<_, _>>();
-    let route_directories = route_directories(&discovery.index.entries);
+    let route_directories = &source.runtime().directories;
     let link_paths = StaticLinkPaths {
         entries: &entry_routes_by_path,
-        directories: &route_directories,
+        directories: route_directories,
     };
     let omitted_titles = discovery
         .index
@@ -446,6 +461,19 @@ fn build_static_site_snapshot_from_loaded(
             })
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
+    let directory_sources = &source.runtime().directory_sources;
+    for intro in route_directories
+        .iter()
+        .filter_map(|directory| directory.introduction.as_ref())
+    {
+        entry_headings_by_path.insert(
+            intro.source_path.clone(),
+            StaticHeadingTargets::new(
+                &directory_sources[&intro.source_path].document,
+                intro.omit_leading_title,
+            ),
+        );
+    }
     let workspace_home_document = read_document(source, FORMA_CONFIG_PATH)?;
     let (workspace_home_title, workspace_home_omit_leading_title) =
         resolve_markdown_title(None, &workspace_home_document);
@@ -651,28 +679,40 @@ fn build_static_site_snapshot_from_loaded(
     views.sort_by(|left, right| left.route_path.cmp(&right.route_path));
 
     let mut directories = Vec::new();
-    for directory in &route_directories {
-        let intro = directory
-            .intro_entry_path
-            .as_deref()
-            .map(|path| {
-                let document = read_document(source, path)?;
-                let targets = &entry_headings_by_path[path];
-                let markdown = static_markdown(
-                    source,
-                    &document,
-                    path,
-                    link_paths,
-                    &entry_headings_by_path,
-                    &config_paths,
-                    root_path,
-                    Some(&directory.route_path),
-                );
-                let html = targets.render(&markdown);
-                Ok::<_, OperationError>((markdown, html))
-            })
-            .transpose()?;
-        let (intro_markdown, intro_html) = intro.unzip();
+    for mut directory in route_directories.iter().cloned() {
+        let intro_html = directory.introduction.as_mut().map(|intro| {
+            let path = &intro.source_path;
+            let document = &directory_sources[path].document;
+            collect_document_resources(
+                source,
+                link_paths,
+                &mut resources,
+                &config_paths,
+                path,
+                &directory.route_path,
+                document,
+                root_path,
+            );
+            let markdown = static_markdown(
+                source,
+                document,
+                path,
+                link_paths,
+                &entry_headings_by_path,
+                &config_paths,
+                root_path,
+                Some(&directory.route_path),
+            );
+            let targets = &entry_headings_by_path[path];
+            let html = directory_content_mounts(&markdown).next().map_or_else(
+                || targets.render(&markdown),
+                |mount| {
+                    targets.render_with_mount(&markdown, mount, STATIC_DIRECTORY_PROJECTION_SLOT)
+                },
+            );
+            intro.set_markdown(&markdown);
+            html
+        });
         routes.push(StaticSiteRoute {
             kind: StaticSiteRouteKind::Directory,
             id: directory.path.clone(),
@@ -682,8 +722,7 @@ fn build_static_site_snapshot_from_loaded(
             taxonomy_id: None,
         });
         directories.push(StaticSiteDirectory {
-            directory: directory.clone(),
-            intro_markdown,
+            directory,
             intro_html,
         });
     }
@@ -729,6 +768,14 @@ fn build_static_site_snapshot_from_loaded(
             )
         })
         .collect::<BTreeMap<_, _>>();
+    let directory_source_routes = directories
+        .iter()
+        .filter_map(|directory| {
+            let route = &directory.directory;
+            let intro = route.introduction.as_ref()?;
+            Some((intro.source_path.as_str(), route.route_path.as_str()))
+        })
+        .collect::<BTreeMap<_, _>>();
     let static_diagnostics = diagnostics
         .into_iter()
         .map(|diagnostic| {
@@ -736,6 +783,7 @@ fn build_static_site_snapshot_from_loaded(
                 diagnostic,
                 &entry_routes,
                 &view_source_routes,
+                &directory_source_routes,
                 workspace.root.as_path(),
             )
         })
@@ -1267,7 +1315,10 @@ fn static_reference_href(
     let directory = link_paths.directory(&normalized);
     let directory_href = |directory: &RouteDirectory| {
         entry_href(
-            directory.intro_entry_path.as_deref().unwrap_or_default(),
+            directory
+                .introduction
+                .as_ref()
+                .map_or("", |intro| &intro.source_path),
             &directory.route_path,
         )
     };
@@ -1365,7 +1416,7 @@ fn resolve_entry_route<'a>(
         .rsplit_once('.')
         .is_some_and(|(_, ext)| ext.eq_ignore_ascii_case("md") || ext.eq_ignore_ascii_case("mdx"));
     if !has_markdown_extension {
-        for suffix in [".md", ".mdx", "/index.md", "/index.mdx"] {
+        for suffix in [".md", ".mdx"] {
             if let Some(entry) =
                 entry_routes_by_path.get_key_value(&format!("{normalized}{suffix}"))
             {
@@ -1899,7 +1950,7 @@ pub(crate) fn workspace_resource_href(
                 .iter()
                 .map(|source| source.path.as_str()),
         )
-        || runtime.has_entries_beneath(&path)
+        || runtime.contains_directory(&path)
         || (!workspace.root.join(&path).is_file()
             && !matches!(
                 runtime.resolve_author_document(&authored, source_path),
@@ -1980,6 +2031,7 @@ fn static_diagnostic(
     diagnostic: Diagnostic,
     entry_routes: &BTreeMap<String, String>,
     view_routes: &BTreeMap<String, String>,
+    directory_source_routes: &BTreeMap<&str, &str>,
     root: &Path,
 ) -> StaticSiteDiagnostic {
     let entry_route = diagnostic
@@ -1992,13 +2044,18 @@ fn static_diagnostic(
         .as_ref()
         .and_then(|path| view_routes.get(path))
         .cloned();
-    let is_entry = entry_route.is_some();
+    let directory_route = diagnostic
+        .path
+        .as_deref()
+        .and_then(|path| directory_source_routes.get(path))
+        .map(|route| (*route).to_owned());
+    let has_public_source = entry_route.is_some() || directory_route.is_some();
     let is_route_diagnostic = diagnostic.code.starts_with("route.");
-    let route_path = entry_route.or(view_route);
-    let path = (is_entry || is_route_diagnostic)
+    let route_path = entry_route.or(view_route).or(directory_route);
+    let path = (has_public_source || is_route_diagnostic)
         .then(|| safe_diagnostic_detail(diagnostic.path.clone(), root))
         .flatten();
-    let keep_details = is_entry || route_path.is_some() || is_route_diagnostic;
+    let keep_details = route_path.is_some() || is_route_diagnostic;
     StaticSiteDiagnostic {
         severity: diagnostic.severity,
         code: diagnostic.code,
@@ -2088,8 +2145,8 @@ mod tests {
         collect_backlinks_by_target,
     };
     use crate::{
-        DiagnosticSeverity, OperationStatus, ReferenceIntent, ReferenceSource, ViewRenderOutput,
-        WorkspaceSnapshot, check_workspace,
+        DiagnosticLocation, DiagnosticSeverity, OperationStatus, ReferenceIntent, ReferenceSource,
+        ViewRenderOutput, WorkspaceSnapshot, check_workspace,
     };
 
     #[test]
@@ -2629,7 +2686,7 @@ mod tests {
             ),
             (
                 "content/guides/directory.txt/index.md".into(),
-                "/content/guides/directory.txt".into(),
+                "/content/guides/directory.txt/index.md".into(),
             ),
             (
                 "content/guides/page.md".into(),
@@ -2654,7 +2711,7 @@ mod tests {
                     crate::markdown::FormaMarkdownDocument::parse(&format!("[link]({target})"));
                 let link_paths = super::StaticLinkPaths {
                     entries: &routes,
-                    directories: &[],
+                    directories: &source.runtime().directories,
                 };
                 let href = super::static_reference_href(
                     &source,
@@ -3896,8 +3953,13 @@ mod tests {
         .unwrap();
         fs::create_dir_all(root.join("content/guides/related")).unwrap();
         fs::write(
-            root.join("content/guides/related/index.md"),
+            root.join("content/guides/related/.index.md"),
             "# Directory introduction\n\n## Heading\n\n[Query](?mode=1#Heading)\n\n[File](./index.md#Heading)\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/related/index.md"),
+            "# Regular document\n\n## Heading\n",
         )
         .unwrap();
         fs::write(
@@ -3926,8 +3988,12 @@ mod tests {
             .find(|directory| directory.directory.path == "content/guides/related")
             .unwrap();
         assert_eq!(
-            directory.directory.intro_entry_path.as_deref(),
-            Some("content/guides/related/index.md")
+            directory
+                .directory
+                .introduction
+                .as_ref()
+                .map(|intro| intro.source_path.as_str()),
+            Some("content/guides/related/.index.md")
         );
         let source = snapshot
             .entries
@@ -3983,6 +4049,110 @@ mod tests {
                     .any(|route| route.kind == StaticSiteRouteKind::Entry && route.path == path)
             );
         }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn directory_introductions_follow_content_scope_and_never_become_entries() {
+        let root = copy_fixture("site-snapshot-directory-scope");
+        let selected = "content/guides/only-intro/.index.md";
+        let excluded = "excluded/.index.md";
+        for path in [selected, excluded, "content/guides/.forma.md", ".index.md"] {
+            fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
+            fs::write(root.join(path), "# Directory source\n").unwrap();
+        }
+        fs::write(
+            root.join("content/guides/only-intro/.forma.md"),
+            "# Nested source\n",
+        )
+        .unwrap();
+        let config_path = root.join(".forma.md");
+        let config = fs::read_to_string(&config_path).unwrap().replace(
+            "imports:\n",
+            "imports:\n    - \"content/guides/only-intro/*.md\"\n    - \".index.md\"\n    - \".forma.md\"\n",
+        );
+        fs::write(config_path, config).unwrap();
+
+        let snapshot = crate::WorkspaceSnapshot::load_for_routes(&root).unwrap();
+        let dashboard = snapshot.dashboard().unwrap();
+        let directory = dashboard
+            .directories
+            .iter()
+            .find(|directory| directory.path == "content/guides/only-intro")
+            .unwrap();
+        assert!(directory.entry_paths.is_empty());
+        assert_eq!(
+            directory.introduction.as_ref().unwrap().source_path,
+            selected
+        );
+        assert!(
+            !dashboard
+                .directories
+                .iter()
+                .any(|directory| directory.path == "excluded")
+        );
+        let explanation = crate::explain_workspace_path(&root, selected).unwrap();
+        assert_eq!(
+            explanation.target.kind,
+            crate::ManagedDocumentKind::DirectoryIntroduction
+        );
+        assert!(explanation.content_groups.is_empty());
+        assert!(explanation.taxonomies.is_empty());
+        assert_eq!(
+            crate::explain_workspace_path(&root, excluded)
+                .unwrap()
+                .target
+                .kind,
+            crate::ManagedDocumentKind::Unmanaged
+        );
+        assert!(!crate::is_public_workspace_path_allowed(&root, selected));
+        assert!(!crate::is_public_workspace_path_allowed(
+            &root,
+            "content/guides/.forma.md"
+        ));
+        assert!(snapshot.route_sources_match_workspace());
+        assert!(
+            crate::config::config_source_paths(&root)
+                .unwrap()
+                .iter()
+                .all(|source| {
+                    source.path != selected && source.path != "content/guides/only-intro/.forma.md"
+                })
+        );
+
+        fs::write(
+            root.join(selected),
+            "---\ntitle: Intro\n---\n\n## Details\n\n[Local](#details) [Existing](../related.md) [Missing](./missing.md)\n\n<!-- forma:content -->\n\nList above.\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+        assert!(!snapshot.route_sources_match_workspace());
+        let updated = build_static_site_snapshot_with_root_path(&root, "/").unwrap();
+        assert_eq!(updated.status, OperationStatus::Failed);
+        let related_diagnostics = updated
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.path.as_deref() == Some(selected))
+            .collect::<Vec<_>>();
+        assert_eq!(related_diagnostics.len(), 2, "{related_diagnostics:#?}");
+        assert!(related_diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "directory.mountMultiple"
+                && diagnostic.route_path.as_deref() == Some("/content/guides/only-intro")
+                && matches!(
+                    diagnostic.location,
+                    Some(DiagnosticLocation::Body {
+                        line: Some(13),
+                        column: Some(1)
+                    })
+                )
+        }));
+        assert!(related_diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "entryRef.unresolved"
+                && diagnostic.actual.as_deref() == Some("./missing.md")
+                && matches!(
+                    diagnostic.location,
+                    Some(DiagnosticLocation::Body { line: Some(7), .. })
+                )
+        }));
         fs::remove_dir_all(root).unwrap();
     }
 

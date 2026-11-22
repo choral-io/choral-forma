@@ -1,13 +1,10 @@
 ---
-title: "Notes Overview"
-summary: "Find the main guides in the getting-started workspace."
+title: "Index Files and Directory Pages"
+summary: "See how ordinary Markdown files and directory introductions have separate routes."
 ---
 
-# Notes Overview
+# Index Files and Directory Pages
 
-These notes show how to organize, connect, read, and publish your workspace pages.
+## Exact Document Path
 
-## Start Here
-
-- [Read Getting Started](./getting-started.md) for local browsing and static publishing.
-- [Learn how to link notes](./connect-pages.md#internal-links) to connect related documents.
+This Markdown document opens at `/notes/index.md`. The [Notes directory](../notes#start-here) has its own introduction and lists this file alongside the other guides. See [Markdown Reader](./markdown-reader.md) for the features available on ordinary document pages.

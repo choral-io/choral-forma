@@ -89,12 +89,13 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             const result = await this.#rpc.workspaceDashboard();
             this.#checkAttempt(epoch, attempt === this.#dashboardAttempt);
             const generation = validateGeneration(result);
-            if (
-                result.routeProjectionVersion !== 1 ||
-                !Array.isArray(result.directories) ||
-                !result.canonicalLanguage
-            ) {
-                throw new Error("Unsupported Forma dashboard route projection.");
+            if (result.routeProjectionVersion !== 2) {
+                throw new Error(
+                    "Unsupported Forma dashboard route projection. Use a WebApp and Forma server from the same release.",
+                );
+            }
+            if (!Array.isArray(result.directories) || !result.canonicalLanguage) {
+                throw new Error("Invalid Forma dashboard route projection.");
             }
             if (generation !== this.#generation) {
                 this.#generation = undefined;

@@ -1,4 +1,9 @@
-import type { CalendarProjection, GanttProjection, ViewDocumentHeadings } from "@choral-forma/shared";
+import type {
+    CalendarProjection,
+    DirectoryIntroduction,
+    GanttProjection,
+    ViewDocumentHeadings,
+} from "@choral-forma/shared";
 
 export type WorkspaceHealth = "healthy" | "warning" | "failed";
 
@@ -317,7 +322,7 @@ export interface WorkspaceDashboard {
 export interface DashboardDirectory {
     path: string;
     routePath: string;
-    introEntryPath?: string;
+    introduction?: DirectoryIntroduction;
     childDirectoryPaths: string[];
     entryPaths: string[];
 }
@@ -369,11 +374,7 @@ export function latestUpdatedAt(entries: Iterable<DashboardEntry>): string | und
 
 export interface WorkspaceClient {
     getDashboard(): Promise<WorkspaceDashboard>;
-    getEntry(
-        entryPath: string,
-        context: WorkspaceDashboardContext,
-        options?: { directoryPath?: string },
-    ): Promise<DashboardEntry>;
+    getEntry(entryPath: string, context: WorkspaceDashboardContext): Promise<DashboardEntry>;
     getViewRender(configId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender>;
     getHealth?(): Promise<DashboardHealth>;
     subscribeInvalidation?(listener: (error: Error) => void): () => void;

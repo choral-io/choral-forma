@@ -19,6 +19,27 @@ async function contextFor(client: RpcWorkspaceClient) {
 describe("RPC route generations", () => {
     afterEach(() => vi.unstubAllGlobals());
 
+    it("rejects the original directory contract before requesting Health", async () => {
+        const response = {
+            schemaVersion: 1,
+            routeProjectionVersion: 1,
+            routeGeneration: "legacy:1",
+            operation: "workspace.dashboard",
+            status: "passed",
+            directories: [{ path: "notes", introEntryPath: "notes/index.md" }],
+        };
+        const fetch = vi.fn((_url: string, init: RequestInit) => {
+            if (typeof init.body !== "string") throw new Error("Expected a JSON RPC request body.");
+            const request = JSON.parse(init.body) as { id: string };
+            return Promise.resolve(Response.json({ jsonrpc: "2.0", id: request.id, result: response }));
+        });
+        vi.stubGlobal("fetch", fetch);
+        await expect(new RpcWorkspaceClient("/-/rpc").getDashboard()).rejects.toThrow(
+            "Use a WebApp and Forma server from the same release.",
+        );
+        expect(fetch).toHaveBeenCalledOnce();
+    });
+
     it("retries a mixed dashboard and Health once and uses the accepted generation for a View", async () => {
         const view = ".forma/views/release-scope";
         const requests = stubRouteRounds([
@@ -543,7 +564,7 @@ function rpcResult(
     if (method === "workspace.dashboard") {
         return {
             schemaVersion: 1,
-            routeProjectionVersion: 1,
+            routeProjectionVersion: 2,
             routeGeneration: "fixture-generation",
             canonicalLanguage: "en",
             directories: [],

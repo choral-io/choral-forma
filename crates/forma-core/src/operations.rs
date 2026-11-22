@@ -1532,9 +1532,28 @@ impl WorkspaceSnapshot {
 
         Ok(WorkspaceDashboardResult {
             schema_version: 1,
-            route_projection_version: 1,
+            route_projection_version: 2,
             canonical_language: workspace.config.workspace.canonical_language.clone(),
-            directories: crate::routes::route_directories(&discovery.index.entries),
+            directories: self
+                .runtime
+                .directories
+                .iter()
+                .cloned()
+                .map(|mut directory| {
+                    if let Some(intro) = &mut directory.introduction {
+                        let path = &intro.source_path;
+                        let document = &self.runtime.directory_sources[path].document;
+                        let markdown = markdown_with_reference_fallbacks(
+                            workspace,
+                            document,
+                            path,
+                            self.runtime(),
+                        );
+                        intro.set_markdown(&markdown);
+                    }
+                    directory
+                })
+                .collect(),
             operation: "workspace.dashboard".to_string(),
             status: summary.status(),
             workspace: WorkspaceSummary {
@@ -2236,6 +2255,12 @@ impl WorkspaceSnapshot {
             .config_text
             .iter()
             .chain(self.runtime.entry_sources.iter())
+            .chain(
+                self.runtime
+                    .directory_sources
+                    .iter()
+                    .map(|(path, file)| (path, &file.source)),
+            )
             .all(|(path, source)| {
                 WorkspacePath::parse_config(path)
                     .ok()
@@ -2308,6 +2333,9 @@ impl WorkspaceSnapshot {
 
     pub fn affects_configuration(&self, source_path: &str) -> Result<bool, OperationError> {
         let source_path = WorkspacePath::parse_cli(source_path)?.as_str().to_string();
+        if crate::routes::is_reserved_document_source(&source_path) {
+            return Ok(source_path == FORMA_CONFIG_PATH);
+        }
         Ok(self.view_paths.contains(&source_path)
             || self.configuration_paths.contains(&source_path)
             || self.scan_plan.guideline_patterns().is_match(&source_path)
@@ -3996,7 +4024,9 @@ fn collect_workspace_files_from_candidates(
     let root = &workspace.root;
     let mut files = BTreeMap::<String, WorkspaceFile>::new();
     for path in candidates {
-        if let Some(file) = workspace_file_from_path(root, path) {
+        if let Some(file) = workspace_file_from_path(root, path)
+            .filter(|file| !crate::routes::is_reserved_document_source(&file.path))
+        {
             files.insert(file.path.clone(), file);
         }
     }
@@ -4017,6 +4047,7 @@ fn collect_workspace_files_from_candidates(
             .as_ref()
             .zip(workspace_path.as_ref())
             .is_some_and(|(boundary, path)| boundary.resolve_existing_file(path).is_ok())
+            && (path == FORMA_CONFIG_PATH || !crate::routes::is_reserved_document_source(&path))
             && let Some(file) = workspace_file_from_path(root, candidate)
         {
             files.insert(file.path.clone(), file);
@@ -4074,7 +4105,7 @@ pub fn media_type_for_workspace_path(path: &str) -> Option<&'static str> {
 
 pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
     let normalized = path.to_ascii_lowercase();
-    normalized != FORMA_CONFIG_PATH
+    !crate::routes::is_reserved_document_source(&normalized)
 }
 
 pub fn is_public_workspace_path_allowed(root: impl AsRef<Path>, path: &str) -> bool {

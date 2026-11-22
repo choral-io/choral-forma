@@ -7,7 +7,7 @@ export interface DirectoryListingFolder {
     name: string;
     path: string;
     routePath: string;
-    /** Title of the document that stands for this folder, such as its `index` file. */
+    /** Title supplied by the directory introduction. */
     title?: string;
 }
 
@@ -26,7 +26,7 @@ export function projectedDirectoryListing(
     const directories = directory.childDirectoryPaths.flatMap((path): DirectoryListingFolder[] => {
         const child = directoriesByPath.get(path);
         if (!child) return [];
-        const title = child.introEntryPath ? dashboardEntryByPath(dashboard, child.introEntryPath)?.title : undefined;
+        const title = child.introduction?.title ?? undefined;
         const documentCount = dashboard.directories
             .filter((candidate) => candidate.path === path || candidate.path.startsWith(`${path}/`))
             .reduce((total, candidate) => total + candidate.entryPaths.length, 0);

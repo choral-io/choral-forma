@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::path::{WorkspaceGlob, WorkspacePath};
+use crate::routes::is_reserved_document_source;
 use crate::scan::WorkspacePatternSet;
 
 /// One effective declaration and its concrete, workspace-relative results.
@@ -35,7 +36,9 @@ pub(crate) fn resolve_guidelines(
         let mut paths = Vec::new();
         if !declaration.contains(['*', '?', '[', '{']) {
             // Preserve exact-path validation (including missing-file errors).
-            paths.push(declaration.clone());
+            if !is_reserved_document_source(declaration) {
+                paths.push(declaration.clone());
+            }
         } else {
             let result = WorkspaceGlob::parse_config(declaration);
             match result {
@@ -98,6 +101,9 @@ pub(crate) fn resolve_guidelines(
                                     .expect("workspace scan returns paths under root")
                                     .to_string_lossy()
                                     .replace('\\', "/");
+                                if is_reserved_document_source(&path) {
+                                    continue;
+                                }
                                 let safe =
                                     WorkspacePath::parse_config(&path).ok().is_some_and(|path| {
                                         WorkspaceBoundary::new(root)

@@ -11,7 +11,7 @@ const customerWorkspace = resolve(repoRoot, "examples/fde-customer-project-works
 const practiceWorkspace = resolve(repoRoot, "examples/fde-team-practice-workspace");
 const staticExampleRoutes = new Map([
     ["minimal-workspace", ["/notes/welcome.md", "/-/views/notes"]],
-    ["software-product-rd-workspace", ["/validation", "/validation/index.md"]],
+    ["software-product-rd-workspace", ["/validation"]],
     ["fde-customer-project-workspace", ["/overview/engagement-map.md", "/engineering/regression-test.md"]],
     [
         "fde-team-practice-workspace",

@@ -15,7 +15,7 @@ export function buildFileTree(
     const entries = allEntries.filter((entry) => !isSystemRoutePath(entry.routePath));
     const entriesByPath = new Map(entries.map((entry) => [entry.path, entry]));
     const directoriesByPath = new Map(directories.map((directory) => [directory.path, directory]));
-    const owners = directoryOwners(entries, directories);
+    const owners = directoryOwners(directories);
 
     function fileNode(entry: FileTreeEntry): NavigationNode {
         return {

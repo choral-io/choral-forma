@@ -1,7 +1,9 @@
 import { WorkspaceLink as Link } from "@/app/workspace-navigation";
 import { ChevronRight, Folder } from "lucide-react";
+import { useMemo } from "react";
 
 import type { DashboardDirectory, DashboardEntry } from "@/data/workspace-client";
+import { isStaticWorkspaceClient } from "@/data/workspace-client-source";
 import {
     listingCounts,
     pluralCount,
@@ -11,47 +13,82 @@ import {
 } from "@/features/navigation/directory-listing";
 import { directoryOwners } from "@/features/navigation/directory-owners";
 import { directoryBreadcrumb } from "@/features/reader/entry-breadcrumb";
+import { markdownAroundProjection } from "@/features/reader/markdown-renderer";
+import { MarkdownReader } from "@/features/reader/MarkdownReader";
+import { useMermaidScope } from "@/features/reader/use-mermaid-scope";
 import { RouteBodySection } from "@/features/workspace/RouteContent";
+import { SourcePath } from "@/features/workspace/SourcePath";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { canonicalEntries } from "@/lib/entry-languages";
+import { useRouteContentFocusTarget } from "@/lib/route-focus";
 
 import { PagesList } from "./PagesList";
 
-/**
- * A directory of indexed source paths below the root, whose page is home: its folders, then its pages. It lists only what the
- * workspace includes, so a folder stands for its indexed pages, not its full contents.
- */
 export function DirectoryPage({ directory }: { directory: DashboardDirectory }) {
     const dashboard = useWorkspaceDashboard();
-    const entries = canonicalEntries(dashboard.entries);
+    const titleRef = useRouteContentFocusTarget<HTMLHeadingElement>();
+    const mermaidScope = useMermaidScope(directory.path);
+    const { introduction } = directory;
+    const before = introduction?.markdownBefore ?? "";
+    const after = introduction?.markdownAfter;
+    const source = useMemo(
+        () =>
+            after === undefined ? { markdown: before, boundary: undefined } : markdownAroundProjection(before, after),
+        [before, after],
+    );
     const listing = projectedDirectoryListing(dashboard, directory);
+    const contents = (
+        <RouteBodySection meta={listingCounts(listing)}>
+            <DirectoryContents listing={listing} />
+        </RouteBodySection>
+    );
 
     return (
         <WorkspaceRouteFrame
             breadcrumb={directoryBreadcrumb(
-                listing.path,
+                directory.path,
                 false,
                 dashboard.directories,
-                directoryOwners(entries, dashboard.directories),
+                directoryOwners(dashboard.directories),
             )}
             contentWidth="narrow"
-            description={`Pages the workspace includes under ${listing.path}/.`}
-            title={listing.path.split("/").at(-1) ?? listing.path}
         >
-            <RouteBodySection meta={listingCounts(listing)}>
-                <DirectoryContents listing={listing} />
-            </RouteBodySection>
+            <header className="flex flex-col gap-2">
+                <h1 className="text-3xl font-semibold tracking-normal" ref={titleRef} tabIndex={-1}>
+                    {introduction?.title ?? directory.path.split("/").at(-1) ?? directory.path}
+                </h1>
+                {introduction?.summary ? (
+                    <p className="text-base/7 text-base-content/60">{introduction.summary}</p>
+                ) : null}
+                <SourcePath className="text-base-content/60" path={directory.path} />
+            </header>
+            {introduction ? (
+                <MarkdownReader
+                    currentPath={introduction.sourcePath}
+                    currentRoutePath={directory.routePath}
+                    entries={dashboard.entries}
+                    headings={introduction.headings}
+                    linkSource={isStaticWorkspaceClient ? "published" : "workspace"}
+                    markdown={source.markdown}
+                    mermaidScope={mermaidScope}
+                    omitLeadingTitle={introduction.omitLeadingTitle}
+                    projection={{ boundary: source.boundary, content: contents }}
+                />
+            ) : (
+                contents
+            )}
         </WorkspaceRouteFrame>
     );
 }
 
-/** A listing's folders and pages, for a directory page or a document served at a directory's route. */
-export function DirectoryContents({ listing }: { listing: DirectoryListing<DashboardEntry> }) {
+function DirectoryContents({ listing }: { listing: DirectoryListing<DashboardEntry> }) {
     return (
         <>
             {listing.directories.length > 0 ? <FolderList folders={listing.directories} /> : null}
             {listing.entries.length > 0 ? <PagesList entries={listing.entries} /> : null}
+            {listing.directories.length === 0 && listing.entries.length === 0 ? (
+                <p className="text-sm text-base-content/60">This folder has no included pages.</p>
+            ) : null}
         </>
     );
 }

@@ -7,7 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::Uri;
 use forma_core::routes::{
-    RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE, SYSTEM_ROUTE_SEGMENT,
+    DirectoryIntroduction, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE,
+    SYSTEM_ROUTE_SEGMENT,
 };
 use forma_core::{
     DiagnosticSeverity, OperationStatus, StaticSiteDiagnostic, StaticSiteEntry, StaticSiteSnapshot,
@@ -28,7 +29,7 @@ mod output_preflight;
 use output_preflight::{ArtifactOutput, incomplete_output_preflight, validate_artifact_outputs};
 
 const OPERATION: &str = "site.build";
-pub(crate) const STATIC_DATA_SCHEMA_VERSION: u16 = 3;
+pub(crate) const STATIC_DATA_SCHEMA_VERSION: u16 = 4;
 /// The artifact directory of the data files, `-/data`, beside the reserved routes.
 const STATIC_DATA_DIR: &str = "-/data";
 const ARTIFACT_MARKER: &str = ".forma-site-artifact";
@@ -213,41 +214,6 @@ fn write_artifact(
     for view in &snapshot.views {
         insert_data(&mut data, data_path("views", &view.config_id), view)?;
     }
-    for directory in &snapshot.directories {
-        if let Some(source_path) = &directory.directory.intro_entry_path {
-            let entry = snapshot
-                .entries
-                .iter()
-                .find(|entry| &entry.path == source_path)
-                .ok_or_else(|| format!("missing static directory introduction: {source_path}"))?;
-            let mut detail = serde_json::to_value(entry).map_err(|error| error.to_string())?;
-            let object = detail
-                .as_object_mut()
-                .expect("entry serializes as an object");
-            object.insert(
-                "directoryPath".into(),
-                Value::String(directory.directory.path.clone()),
-            );
-            object.insert(
-                "directoryRoutePath".into(),
-                Value::String(directory.directory.route_path.clone()),
-            );
-            object.insert(
-                "markdown".into(),
-                Value::String(directory.intro_markdown.clone().unwrap_or_default()),
-            );
-            object.insert(
-                "html".into(),
-                Value::String(directory.intro_html.clone().unwrap_or_default()),
-            );
-            insert_data(
-                &mut data,
-                data_path("directories", &directory.directory.path),
-                &detail,
-            )?;
-        }
-    }
-
     let mut files = collect_embedded_files(static_webapp);
     files.sort_by(|left, right| left.0.cmp(&right.0));
     let embedded_index = files
@@ -1068,9 +1034,7 @@ struct StaticDirectorySummary<'a> {
     child_directory_paths: &'a [String],
     entry_paths: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
-    intro_entry_path: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data_path: Option<String>,
+    introduction: Option<&'a DirectoryIntroduction>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1155,11 +1119,7 @@ impl<'a> StaticDashboardData<'a> {
                         output_path: &directory.output_path,
                         child_directory_paths: &directory.child_directory_paths,
                         entry_paths: &directory.entry_paths,
-                        intro_entry_path: directory.intro_entry_path.as_deref(),
-                        data_path: directory
-                            .intro_entry_path
-                            .as_ref()
-                            .map(|_| data_path("directories", &directory.path)),
+                        introduction: directory.introduction.as_ref(),
                     }
                 })
                 .collect(),

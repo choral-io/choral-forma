@@ -21,6 +21,10 @@ use crate::markdown::{
 use crate::model::ResolvedWorkspaceModel;
 use crate::operations::workspace_skill_diagnostics;
 use crate::path::WorkspacePath;
+use crate::routes::{
+    DIRECTORY_INDEX_NAME, DirectoryIntroduction, RouteDirectory, directory_content_mounts,
+    is_reserved_document_source, route_directories,
+};
 use crate::schema::{parse_space_schema, validate_schema_value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -184,6 +188,8 @@ pub(crate) struct DiscoveryRuntime {
     pub(crate) references_by_target: BTreeMap<String, Vec<ReferenceOccurrence>>,
     pub(crate) fragment_projections: BTreeMap<String, MarkdownFragmentProjection>,
     pub(crate) entry_sources: std::sync::Arc<BTreeMap<String, String>>,
+    pub(crate) directory_sources: BTreeMap<String, DirectorySource>,
+    pub(crate) directories: Vec<RouteDirectory>,
     pub(crate) content_candidates: std::sync::Arc<Vec<PathBuf>>,
     pub(crate) variant_references: BTreeMap<String, Vec<IndexReference>>,
     path_index: PathIndex,
@@ -194,13 +200,8 @@ impl DiscoveryRuntime {
         self.path_index.resolve_author_document(target, source_path)
     }
 
-    pub(crate) fn has_entries_beneath(&self, path: &str) -> bool {
-        let prefix = format!("{path}/");
-        self.path_index
-            .all_paths
-            .range(prefix.clone()..)
-            .next()
-            .is_some_and(|path| path.starts_with(&prefix))
+    pub(crate) fn contains_directory(&self, path: &str) -> bool {
+        self.path_index.directory_paths.contains(path)
     }
 
     pub(crate) fn resolve_wikilink_mdx(&self, source_path: &str, target: &str) -> Option<String> {
@@ -213,6 +214,12 @@ impl DiscoveryRuntime {
             _ => None,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DirectorySource {
+    pub(crate) source: String,
+    pub(crate) document: FormaMarkdownDocument,
 }
 
 #[derive(Debug, Clone)]
@@ -243,6 +250,7 @@ struct LanguageSuffix {
 struct PathIndex {
     all_paths: BTreeSet<String>,
     author_paths: BTreeSet<String>,
+    directory_paths: BTreeSet<String>,
     by_suffix: BTreeMap<String, Vec<String>>,
     by_basename: BTreeMap<String, Vec<String>>,
     by_space: BTreeMap<String, BTreeSet<String>>,
@@ -292,6 +300,8 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
         .scan_plan()
         .content_patterns()
         .route_files(&mut diagnostics);
+    let directory_sources =
+        discover_directory_sources(workspace, &content_candidates, &mut diagnostics);
     let mut entries = discover_entries(workspace, &content_candidates, &mut diagnostics);
     let mut fragment_projections = BTreeMap::new();
     for entry in &entries {
@@ -306,7 +316,8 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
             );
         }
     }
-    let path_index = PathIndex::from_entries(&entries);
+    let path_index = PathIndex::from_entries(&entries, &directory_sources);
+    let introductions = directory_introductions(&directory_sources, &path_index, &mut diagnostics);
     let mut index_entries = Vec::new();
     let mut variant_references = BTreeMap::new();
     let mut occurrences_by_source = BTreeMap::<String, Vec<ReferenceOccurrence>>::new();
@@ -477,9 +488,11 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
                 .join(", ")
         )));
     }
+    let directories = route_directories(&index_entries, introductions);
     diagnostics.extend(crate::routes::route_diagnostics(
         &index_entries,
         &views,
+        &directories,
         &config.taxonomies,
         &config.terms,
     ));
@@ -516,6 +529,8 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
                     })
                     .collect(),
             ),
+            directory_sources,
+            directories,
             content_candidates: std::sync::Arc::new(content_candidates),
             variant_references,
             path_index,
@@ -596,6 +611,102 @@ fn check_result(operation: &str, diagnostics: Vec<Diagnostic>) -> CheckResult {
     }
 }
 
+fn discover_directory_sources(
+    workspace: &FormaWorkspace,
+    content_candidates: &[PathBuf],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<String, DirectorySource> {
+    let mut sources = BTreeMap::new();
+    for file in content_candidates.iter().filter(|file| {
+        file.file_name()
+            .is_some_and(|name| name == DIRECTORY_INDEX_NAME)
+    }) {
+        let Some(path) =
+            workspace_relative_path(&workspace.root, file).filter(|path| path.contains('/'))
+        else {
+            continue;
+        };
+        if let Some(diagnostic) = crate::routes::reserved_content_diagnostic(&path) {
+            diagnostics.push(diagnostic);
+            continue;
+        }
+        let source = match fs::read_to_string(file) {
+            Ok(source) => source,
+            Err(error) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "file.readFailed",
+                        "Directory introduction could not be read.",
+                    )
+                    .with_path(path)
+                    .with_actual(error.to_string()),
+                );
+                continue;
+            }
+        };
+        let document = FormaMarkdownDocument::parse(&source);
+        diagnostics.extend(
+            document
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(|diagnostic| diagnostic.with_path(&path)),
+        );
+        sources.insert(path, DirectorySource { source, document });
+    }
+    sources
+}
+
+fn directory_introductions(
+    sources: &BTreeMap<String, DirectorySource>,
+    path_index: &PathIndex,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<String, DirectoryIntroduction> {
+    let mut introductions = BTreeMap::new();
+    for (path, DirectorySource { source, document }) in sources {
+        if let Some(mount) = directory_content_mounts(&document.body).nth(1) {
+            let body_offset = source.len().saturating_sub(document.body.len());
+            diagnostics.push(
+                Diagnostic::error(
+                    "directory.mountMultiple",
+                    "Directory introductions allow only one content placeholder.",
+                )
+                .with_path(path)
+                .with_location(body_diagnostic_location(source_span(
+                    source,
+                    body_offset + mount.start,
+                    body_offset + mount.end,
+                )))
+                .with_expected("one standalone <!-- forma:content --> comment"),
+            );
+        }
+        // Check authored links without making the introduction a graph node or backlink source.
+        let _ = resolve_body_refs(
+            path,
+            source,
+            document,
+            path_index,
+            diagnostics,
+            &mut Vec::new(),
+        );
+        let value = document.frontmatter.value.as_ref();
+        let (title, omit_leading_title) =
+            resolve_markdown_title(scalar_field(value, "title"), document);
+        let mut introduction = DirectoryIntroduction {
+            source_path: path.clone(),
+            title,
+            summary: scalar_field(value, "summary"),
+            omit_leading_title,
+            headings: crate::render::render_all_headings(document, omit_leading_title),
+            markdown_before: String::new(),
+            markdown_after: None,
+        };
+        introduction.set_markdown(&document.body);
+        introductions.insert(path.clone(), introduction);
+    }
+    introductions
+}
+
 fn discover_entries(
     workspace: &FormaWorkspace,
     content_candidates: &[PathBuf],
@@ -635,6 +746,7 @@ fn discover_entries(
     }
     let markdown_paths = markdown_files
         .iter()
+        .filter(|(_, path)| !is_reserved_document_source(path))
         .map(|(_, path)| path.clone())
         .collect::<BTreeSet<_>>();
     let config_source_paths = workspace
@@ -649,7 +761,7 @@ fn discover_entries(
     let mut variants_by_canonical = BTreeMap::<String, Vec<CandidateVariant>>::new();
 
     for (path, relative) in markdown_files {
-        if config_source_paths.contains(&relative) {
+        if is_reserved_document_source(&relative) || config_source_paths.contains(&relative) {
             continue;
         }
         let matched = matchers
@@ -1215,6 +1327,8 @@ fn resolve_body_refs(
     occurrences: &mut Vec<ReferenceOccurrence>,
 ) -> Vec<IndexReference> {
     let mut refs = Vec::new();
+    let body_offset = source.len().saturating_sub(document.body.len());
+    let is_directory_intro = source_path.rsplit('/').next() == Some(DIRECTORY_INDEX_NAME);
     for reference in &document.references {
         if matches!(reference.intent, FormaReferenceIntent::View) {
             continue;
@@ -1239,21 +1353,19 @@ fn resolve_body_refs(
             });
             continue;
         }
+        let reference_location = || {
+            body_diagnostic_location(reference.span.and_then(|span| {
+                source_span(
+                    source,
+                    body_offset + span.start_byte,
+                    body_offset + span.end_byte,
+                )
+            }))
+        };
         let unresolved = || {
             Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
                 .with_path(source_path)
-                .with_location(
-                    reference
-                        .span
-                        .map(|span| DiagnosticLocation::Body {
-                            line: Some(span.start_line),
-                            column: Some(span.start_column),
-                        })
-                        .unwrap_or(DiagnosticLocation::Body {
-                            line: None,
-                            column: None,
-                        }),
-                )
+                .with_location(reference_location())
                 .with_actual(reference.target.clone())
         };
         let markdown_uri = matches!(
@@ -1264,6 +1376,16 @@ fn resolve_body_refs(
             diagnostics.push(unresolved());
             continue;
         };
+        if is_directory_intro && target.path.is_empty() {
+            continue;
+        }
+        let is_directory_link = reference.syntax == FormaReferenceSyntax::MarkdownLink
+            && !target.path.is_empty()
+            && crate::operations::normalized_relative_target(source_path, &target.path)
+                .is_some_and(|path| path_index.directory_paths.contains(&path));
+        if is_directory_link && target.path.ends_with('/') {
+            continue;
+        }
         let resolved = if is_non_markdown_resource_target(&target.path) {
             if !matches!(
                 reference.syntax,
@@ -1325,6 +1447,7 @@ fn resolve_body_refs(
                     });
                 }
             }
+            ResolveResult::Unresolved if is_directory_link => (),
             ResolveResult::Unresolved => diagnostics.push(unresolved()),
             ResolveResult::Ambiguous => diagnostics.push(
                 Diagnostic::error(
@@ -1332,23 +1455,19 @@ fn resolve_body_refs(
                     "Reference resolves to multiple entries.",
                 )
                 .with_path(source_path)
-                .with_location(
-                    reference
-                        .span
-                        .map(|span| DiagnosticLocation::Body {
-                            line: Some(span.start_line),
-                            column: Some(span.start_column),
-                        })
-                        .unwrap_or(DiagnosticLocation::Body {
-                            line: None,
-                            column: None,
-                        }),
-                )
+                .with_location(reference_location())
                 .with_actual(reference.target.clone()),
             ),
         }
     }
     refs
+}
+
+fn body_diagnostic_location(span: Option<SourceSpan>) -> DiagnosticLocation {
+    DiagnosticLocation::Body {
+        line: span.map(|span| span.start_line),
+        column: span.map(|span| span.start_column),
+    }
 }
 
 fn document_reference_syntax(syntax: FormaReferenceSyntax) -> Option<DocumentReferenceSyntax> {
@@ -1431,7 +1550,10 @@ pub(crate) enum ResolveResult {
 }
 
 impl PathIndex {
-    fn from_entries(entries: &[CandidateEntry]) -> Self {
+    fn from_entries(
+        entries: &[CandidateEntry],
+        directory_sources: &BTreeMap<String, DirectorySource>,
+    ) -> Self {
         let mut all_paths = BTreeSet::new();
         let mut author_paths = BTreeSet::new();
         let mut by_suffix: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -1461,9 +1583,23 @@ impl PathIndex {
                 .insert(entry.path.clone());
         }
 
+        let mut directory_paths = BTreeSet::new();
+        for mut path in author_paths
+            .iter()
+            .map(String::as_str)
+            .chain(directory_sources.keys().map(String::as_str))
+        {
+            while let Some((parent, _)) = path.rsplit_once('/') {
+                if !directory_paths.insert(parent.to_string()) {
+                    break;
+                }
+                path = parent;
+            }
+        }
         Self {
             all_paths,
             author_paths,
+            directory_paths,
             by_suffix,
             by_basename,
             by_space,
@@ -1522,10 +1658,10 @@ impl PathIndex {
             return ResolveResult::Unresolved;
         };
         let direct = target.trim_start_matches("./");
-        let candidates = author_document_candidates(&relative, true);
+        let candidates = author_document_candidates(&relative);
         let rooted = target.starts_with('/');
         let direct_candidates =
-            (!rooted && direct != relative).then(|| author_document_candidates(direct, true));
+            (!rooted && direct != relative).then(|| author_document_candidates(direct));
         if let Some(path) = candidates
             .into_iter()
             .chain(direct_candidates.into_iter().flatten())
@@ -1541,13 +1677,12 @@ impl PathIndex {
         // basename tier, and a conflicting tier never picks a winner.
         let cmp = |path: &str| self.author_paths.contains(path);
         if relative != direct && (target.starts_with("./") || target.starts_with("../")) {
-            let result =
-                self.resolve_short_candidates(&author_document_candidates(&relative, false), cmp);
+            let result = self.resolve_short_candidates(&author_document_candidates(&relative), cmp);
             if !matches!(result, ResolveResult::Unresolved) {
                 return result;
             }
         }
-        self.resolve_short_candidates(&author_document_candidates(direct, false), cmp)
+        self.resolve_short_candidates(&author_document_candidates(direct), cmp)
     }
 
     fn resolve_short_candidates(
@@ -1620,17 +1755,12 @@ fn candidate_paths(target: &str) -> Vec<String> {
     }
 }
 
-fn author_document_candidates(target: &str, directory_intro: bool) -> Vec<String> {
+fn author_document_candidates(target: &str) -> Vec<String> {
     let mut candidates = vec![target.to_string()];
     if !target.rsplit_once('.').is_some_and(|(_, extension)| {
         extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("mdx")
     }) {
         candidates.extend([".md", ".mdx"].map(|extension| format!("{target}{extension}")));
-        if directory_intro {
-            candidates.extend(
-                ["/index.md", "/index.mdx"].map(|extension| format!("{target}{extension}")),
-            );
-        }
     }
     candidates
 }

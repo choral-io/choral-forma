@@ -669,10 +669,20 @@ export type DashboardViewSummary = {
     space?: string;
 };
 
+export type DirectoryIntroduction = {
+    sourcePath: string;
+    title: string | null;
+    summary: string | null;
+    omitLeadingTitle: boolean;
+    headings: { id: string; level: number; text: string }[];
+    markdownBefore: string;
+    markdownAfter?: string;
+};
+
 export type DashboardDirectory = {
     path: string;
     routePath: string;
-    introEntryPath?: string;
+    introduction?: DirectoryIntroduction;
     childDirectoryPaths: string[];
     entryPaths: string[];
 };

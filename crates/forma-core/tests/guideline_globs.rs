@@ -108,6 +108,58 @@ fn guideline_globs_resolve_once_for_config_skills_and_applicability() {
 }
 
 #[test]
+fn reserved_workspace_and_directory_sources_are_never_guidelines() {
+    let fixture = Fixture::new();
+    let config = fs::read_to_string(fixture.root().join(".forma.md")).unwrap();
+    fixture.write(
+        ".forma.md",
+        &config.replace(
+            "'guidance/*.md']",
+            "'guidance/*.md', guidance/.index.md, guidance/.forma.md, .forma.md]",
+        ),
+    );
+    fixture.skill("guidance/.index.md", "directory-rule");
+    fixture.skill("guidance/.forma.md", "nested-root-rule");
+
+    let workspace = load_workspace(fixture.root()).unwrap();
+    assert!(
+        workspace.diagnostics.is_empty(),
+        "{:?}",
+        workspace.diagnostics
+    );
+    assert_eq!(
+        workspace.config.guidelines,
+        ["guidance/base.md", "guidance/other.md"]
+    );
+
+    let sources = summarize_config(fixture.root(), None, true)
+        .unwrap()
+        .guideline_sources
+        .unwrap();
+    assert_eq!(sources[1].paths, ["guidance/base.md", "guidance/other.md"]);
+    assert!(sources[2..5].iter().all(|source| source.paths.is_empty()));
+    let snapshot = WorkspaceSnapshot::load(fixture.root()).unwrap();
+    assert!(
+        !snapshot
+            .affects_configuration("guidance/.index.md")
+            .unwrap()
+    );
+    assert!(
+        !snapshot
+            .affects_configuration("guidance/.forma.md")
+            .unwrap()
+    );
+    assert!(snapshot.affects_configuration(".forma.md").unwrap());
+    assert!(
+        skills_list(fixture.root())
+            .unwrap()
+            .skills
+            .iter()
+            .all(|skill| { skill.id != "directory-rule" && skill.id != "nested-root-rule" })
+    );
+}
+
+#[test]
 fn guideline_globs_watch_new_and_removed_files_outside_content() {
     let fixture = Fixture::new();
     let snapshot = WorkspaceSnapshot::load(fixture.root()).unwrap();

@@ -44,9 +44,21 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                 const label = `${surface}: directory and exact index document`;
                 const context = await browser.newContext({ javaScriptEnabled });
                 context.setDefaultTimeout(12_000);
+                if (javaScriptEnabled) {
+                    await context.addInitScript(() => {
+                        Object.defineProperty(navigator, "clipboard", {
+                            value: {
+                                async writeText(value) {
+                                    window.formaTestCopiedPath = value;
+                                },
+                            },
+                        });
+                    });
+                }
                 const current = await observedPage(context);
                 const base = host.origin + host.root;
                 const main = current.locator(javaScriptEnabled ? "[data-enhancement-ready] main" : "main");
+                const sourcePath = "notes/index.md";
                 const fragmentState = javaScriptEnabled ? "focus" : "target";
                 const listing = javaScriptEnabled
                     ? main.getByRole("list", { name: "Pages", exact: true })
@@ -61,6 +73,17 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                     current.waitForURL(
                         (url) => url.origin + url.pathname.replace(/\/$/u, "") + url.hash === base + path + hash,
                     );
+                const checkSourceCopy = async (sourcePath) => {
+                    await main.locator(`header code[title="${sourcePath}"]`).waitFor();
+                    await main.getByRole("button", { name: `Copy source path ${sourcePath}`, exact: true }).click();
+                    await main.getByRole("button", { name: `Copied source path ${sourcePath}`, exact: true }).waitFor();
+                    const copied = await current.evaluate(() => {
+                        const path = window.formaTestCopiedPath;
+                        delete window.formaTestCopiedPath;
+                        return path;
+                    });
+                    assert(copied === sourcePath, `${label}: expected to copy ${sourcePath}, got ${copied}`);
+                };
                 try {
                     const response = await current.goto(base + "/notes#start-here");
                     assert(response?.ok(), `${label}: directory response ${response?.status()}`);
@@ -74,11 +97,38 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                         `${label}: introductory link did not resolve from the directory`,
                     );
 
-                    await main.getByRole("link", { name: "notes/index.md", exact: true }).click();
-                    await waitForRoute("/notes/index.md");
-                    await main.getByRole("heading", { level: 1, name: "Notes Overview", exact: true }).waitFor();
-                    await main.getByRole("heading", { level: 2, name: "Start Here", exact: true }).waitFor();
+                    const order = await main.evaluate((body) => {
+                        const text = body.textContent;
+                        return [
+                            "Start Here",
+                            "Index Files and Directory Pages",
+                            "For local browsing and static publishing",
+                        ].map((label) => text.indexOf(label));
+                    });
+                    assert(
+                        order[0] >= 0 && order[0] < order[1] && order[1] < order[2],
+                        `${label}: directory list was not mounted in the introduction`,
+                    );
+                    assert(
+                        (await main.locator('a[href$="/.index.md"]').count()) === 0,
+                        `${label}: directory exposed its intro as a page`,
+                    );
+                    for (const path of ["/notes/.index.md", "/-/raw/notes/.index.md"]) {
+                        const hidden = await context.request.get(base + path);
+                        assert(hidden.status() === 404, `${label}: ${path} returned HTTP ${hidden.status()}`);
+                    }
+                    await main.locator('header code[title="notes"]').waitFor();
+                    if (javaScriptEnabled) await checkSourceCopy("notes");
+                    await listing.locator(`a[href="${host.root}/${sourcePath}"]`).click();
+                    await waitForRoute(`/${sourcePath}`);
+                    await main
+                        .getByRole("heading", { level: 1, name: "Index Files and Directory Pages", exact: true })
+                        .waitFor();
+                    await main.getByRole("heading", { level: 2, name: "Exact Document Path", exact: true }).waitFor();
                     await listing.waitFor({ state: "detached" });
+                    if (javaScriptEnabled) await checkSourceCopy(sourcePath);
+                    await main.getByRole("link", { name: "Notes directory", exact: true }).click();
+                    await waitForRoute("/notes", "#start-here");
                     await authoredLink.click();
                     await waitForRoute("/notes/connect-pages.md", "#internal-links");
                     await main.locator(`#internal-links:${fragmentState}`).waitFor();
@@ -230,28 +280,29 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
     const rawSource = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/notes/raw-source.txt.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
-        // Scoped to the document: the sidebar titles that directory with the same "Directory entry" heading.
         const directory = current
             .locator('[data-reader="markdown"]')
-            .getByRole("link", { name: "Directory entry", exact: true });
-        const directoryHref = `${host.root}/notes/resource-directory.txt/index.md#details`;
+            .getByRole("link", { name: "Directory page", exact: true });
+        const directoryHref = `${host.root}/notes/resource-directory.txt#details`;
         assert(
             (await directory.getAttribute("href")) === directoryHref,
-            `${host.name}: directory source alias opens the exact index document`,
+            `${host.name}: directory link opens the directory page`,
         );
         await directory.click();
         await current.waitForURL(
             (url) =>
-                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/resource-directory.txt/index.md` &&
+                url.pathname.replace(/\/$/u, "") === `${host.root}/notes/resource-directory.txt` &&
                 url.hash === "#details",
         );
         await current
             .locator('[data-reader="markdown"]:not([data-reader-loading])')
-            .getByText("Directory alias content.", { exact: true })
+            .getByText("Directory introduction content.", { exact: true })
             .waitFor();
         assert(
-            (await current.locator('[data-reader="markdown"]').textContent()).includes("Directory alias content."),
-            "static: directory alias content missing",
+            (await current.locator('[data-reader="markdown"]').textContent()).includes(
+                "Directory introduction content.",
+            ),
+            "static: directory introduction content missing",
         );
         await current.goto(`${host.origin}${host.root}/notes/raw-source.txt.md/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();

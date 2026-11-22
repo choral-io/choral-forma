@@ -24,7 +24,6 @@ function entry(path: string, title: string): DashboardEntry {
 const listing = {
     path: "notes",
     routePath: "/notes",
-    introEntryPath: "notes/index.md",
     childDirectoryPaths: ["notes/Gespräch"],
     entryPaths: ["notes/index.mdx", "notes/index.md", "notes/index.zh.md", "notes/item-10.md", "notes/item-2.md"],
 };
@@ -68,7 +67,7 @@ const dashboard = {
 } as WorkspaceDashboard;
 
 describe("projectedDirectoryListing", () => {
-    it("lists direct projected paths, preserving both exact introductions and variants", () => {
+    it("lists direct projected paths, preserving both ordinary index files and variants", () => {
         const result = projectedDirectoryListing(dashboard, listing);
         expect(result.entries.map(({ routePath }) => routePath)).toEqual([
             "/notes/index.md",

@@ -396,7 +396,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let data_root = root.join("dist/site/-/data").join(artifact_id);
     let dashboard = std::fs::read_to_string(data_root.join("dashboard.json")).unwrap();
     let manifest: Value = serde_json::from_str(&dashboard).unwrap();
-    assert_eq!(manifest["schemaVersion"], 3);
+    assert_eq!(manifest["schemaVersion"], 4);
     assert_eq!(manifest["artifactId"], artifact_id);
     let entry_detail = manifest["entries"]
         .as_array()
@@ -430,7 +430,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(index.contains(r#"<script data-forma-static-workspace type="application/json">"#));
     assert!(!index.contains("window.__FORMA_STATIC_WORKSPACE__"));
     assert!(index.contains(&format!(r#""dataBaseUrl":"/preview/-/data/{artifact_id}""#)));
-    assert!(index.contains(r#""dataSchemaVersion":3"#));
+    assert!(index.contains(r#""dataSchemaVersion":4"#));
     assert!(index.contains(r#""runtimeVersion":1"#));
     assert!(index.contains(r#""baseUrl":"https://example.test""#));
     assert!(index.contains(r#""rootPath":"/preview""#));
@@ -628,7 +628,7 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
     .unwrap();
     for (path, title) in [
         ("notes/deep/inner.md", "Inner"),
-        ("notes/guide/index.md", "Guide Overview"),
+        ("notes/guide/index.md", "Guide Document"),
         ("notes/guide/setup.md", "Setup"),
         ("notes/quick start.md", "Quick Start Overview"),
         ("notes/quick start/basics.md", "Basics"),
@@ -642,6 +642,22 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
         )
         .unwrap();
     }
+    std::fs::write(
+        root.join("notes/guide/.index.md"),
+        "---\ntitle: Guide Overview\nsummary: Guide metadata.\n---\n\n# Guide Overview\n\nBefore.[^hint]\n\n```md\n<!-- forma:content -->\n```\n\n<!-- forma:content -->\n\n## After the list\n\n[^hint]: Across the list.\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(root.join("notes/intro-only")).unwrap();
+    std::fs::write(
+        root.join("notes/intro-only/.index.md"),
+        "# Only a directory introduction\n\nStandalone directory prose.\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("notes/intro-only/.forma.md"),
+        "# No nested workspace\n",
+    )
+    .unwrap();
     std::fs::create_dir_all(root.join("notes/mdx-only")).unwrap();
     std::fs::write(
         root.join("notes/mdx-only/index.mdx"),
@@ -680,21 +696,32 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
     );
     assert!(read("notes/deep/index.html").contains("Inner"));
     let guide = read("notes/guide/index.html");
-    assert!(guide.contains(r#"href="/preview/notes/guide/index.md">notes/guide/index.md</a>"#));
+    assert!(guide.contains(r#"href="/preview/notes/guide/index.md">Guide Document</a>"#));
+    assert!(guide.contains("Guide metadata."));
+    assert!(guide.contains(r#"title="notes/guide">notes/guide</code>"#));
+    assert!(guide.contains("&lt;!-- forma:content --&gt;"));
+    assert!(guide.contains("Across the list."));
+    assert!(guide.find("Before.").unwrap() < guide.find(">Guide Document</a>").unwrap());
+    assert!(
+        guide.find(">Guide Document</a>").unwrap() < guide.find(">After the list</h2>").unwrap()
+    );
+    let intro_only = read("notes/intro-only/index.html");
+    assert!(intro_only.contains(">Only a directory introduction</h1>"));
+    assert!(intro_only.contains("Standalone directory prose."));
+    assert!(!root.join("dist/site/notes/guide/.index.md").exists());
     assert!(read("notes/guide/index.md/index.html").contains("data-static-entry-id"));
     assert!(guide.contains(r#"href="/preview/notes/guide/setup.md">Setup</a>"#));
     assert!(!guide.contains(r#"href="/preview/notes/guide""#));
     let mdx_directory = read("notes/mdx-only/index.html");
-    assert!(mdx_directory.contains(">MDX Overview</h1>"));
-    assert!(
-        mdx_directory
-            .contains(r#"href="/preview/notes/mdx-only/index.mdx">notes/mdx-only/index.mdx</a>"#)
-    );
-    assert!(mdx_directory.contains(r#"id="getting-started""#));
+    assert!(mdx_directory.contains(">mdx-only</h1>"));
+    assert!(mdx_directory.contains(r#"href="/preview/notes/mdx-only/index.mdx">MDX Overview</a>"#));
+    assert!(!mdx_directory.contains(r#"id="getting-started""#));
     let mdx_document = read("notes/mdx-only/index.mdx/index.html");
     assert!(mdx_document.contains("data-static-entry-id"));
     assert!(mdx_document.contains(r#"id="getting-started""#));
     let sitemap = read("sitemap.xml");
+    assert!(!sitemap.contains("/.index.md"));
+    assert!(!sitemap.contains("/.forma.md"));
     assert!(sitemap.contains("<loc>https://example.test/preview/notes/mdx-only</loc>"));
     assert!(sitemap.contains("<loc>https://example.test/preview/notes/mdx-only/index.mdx</loc>"));
     let quick_start = read("notes/quick start/index.html");
@@ -709,13 +736,18 @@ fn site_build_keeps_directories_and_exact_index_documents_distinct() {
 }
 
 #[test]
-fn site_build_keeps_entry_aliases_out_of_resource_inventory() {
-    let root = fixture_root("site-entry-alias-resources");
+fn site_build_keeps_directory_links_out_of_resource_inventory() {
+    let root = fixture_root("site-directory-link-resources");
     std::fs::create_dir_all(&root).unwrap();
     copy_starter_workspace(&root);
     std::fs::create_dir_all(root.join("notes/source.txt")).unwrap();
-    std::fs::write(root.join("notes/source.txt/index.md"), "---\nkind: note\ntitle: Source index\nsummary: Directory alias fixture.\n---\n\n# Source index\n\n## Details\n").unwrap();
-    std::fs::write(root.join("notes/intro.md"), "---\nkind: note\ntitle: Intro\nsummary: Sidecar link fixture.\n---\n\n# Intro\n\n[Source](./source.txt#details)\n").unwrap();
+    std::fs::write(root.join("notes/source.txt/index.md"), "---\nkind: note\ntitle: Source index\nsummary: Exact index document fixture.\n---\n\n# Source index\n\n## Details\n").unwrap();
+    std::fs::write(
+        root.join("notes/source.txt/.index.md"),
+        "# Source folder\n\n## Details\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("notes/intro.md"), "---\nkind: note\ntitle: Intro\nsummary: Sidecar link fixture.\n---\n\n# Intro\n\n[Source folder](./source.txt#details)\n\n[Source document](./source.txt/index.md#details)\n").unwrap();
     let output = forma(&root)
         .args([
             "site",
@@ -741,6 +773,7 @@ fn site_build_keeps_entry_aliases_out_of_resource_inventory() {
         html.contains("/preview/notes/source.txt/index.md#details"),
         "{html}"
     );
+    assert!(html.contains("/preview/notes/source.txt#details"), "{html}");
     assert!(!root.join("dist/site/-/raw/notes/source.txt").exists());
     std::fs::remove_dir_all(root).unwrap();
 }

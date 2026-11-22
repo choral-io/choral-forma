@@ -19,13 +19,15 @@ order: 60
 
 `forma site build` exports the configured workspace projection as a static, multi-page HTML artifact. It does not start a server, create a second content store, or change workspace sources. Serve the completed output with an ordinary static-file host; every generated route has its own HTML file, including `404.html`, `sitemap.xml`, and `robots.txt`.
 
-Document URLs use the exact workspace-relative path, including the Markdown extension. For example, `notes/welcome.md` is `/notes/welcome.md`. The directory `/notes` lists indexed children and can use `notes/index.md` as its introduction. `/notes/index.md` still opens that source document. Home at `/` shows `.forma.md` and the root listing.
+Document URLs use the exact workspace-relative path, including the Markdown extension. For example, `notes/welcome.md` is `/notes/welcome.md`. The directory `/notes` lists indexed children and can use `notes/.index.md` from the configured content scope for its optional `title`, `summary`, and Markdown body. Put a single standalone `<!-- forma:content -->` comment where you want the list. By default the list follows the body.
+
+Forma reserves `.index.md` and `.forma.md` from content, guideline, and configuration import patterns. The workspace root uses `.forma.md` directly at `/`. A directory introduction contributes only to its directory page. Files named `index.md` or `index.mdx` are regular documents with their own URLs.
 
 Collections are at `/~`, with taxonomies at `/~/<taxonomy>` and terms at `/~/<taxonomy>/<term>`. Views are at `/-/views/<public-id>`. If several Views share the same basename, all members of that collision group receive a stable digest suffix based on their full configuration ID. Use the projected View URL or sitemap when updating bookmarks. The top-level segments `~` and `-` are reserved.
 
-Older bookmarks to extensionless entries should use the full source path. Where an old bookmark opened an index document, use the directory URL for its introduction and listing or add `/index.md` to open the specific document. Replace `/-/browse` with `/~` for collection links and preserve any query or fragment needed by the destination. An old URL that matches a current directory opens that directory.
+Older bookmarks to extensionless entries should use the full source path. To migrate a directory introduction from `index.md`, rename it to `.index.md` and update links and bookmarks to use the directory URL. Keep any `index.md` that should remain a standalone document. Replace `/-/browse` with `/~` for collection links and preserve any query or fragment needed by the destination. An old URL that matches a current directory opens that directory.
 
-The export includes readable entry bodies, directory listings, navigation, and Health without JavaScript. Opening `/-/` leads to Home. Interactive enhancement adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. It reads the manifest and explicit detail paths under `/-/data/<artifactId>/` and activates only after validating the document's target against data from the same build. An enhancement failure preserves the initial HTML.
+The export includes readable entry bodies, directory listings, navigation, and Health without JavaScript. Opening `/-/` leads to Home. Interactive enhancement adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. It reads the manifest and explicit detail paths under `/-/data/<artifactId>/` and activates only after validating the document's target against data from the same build. An enhancement failure preserves the initial HTML. Deploy the complete output of one build together so its HTML, scripts, and directory data use the same format.
 
 ### Route Conflicts
 

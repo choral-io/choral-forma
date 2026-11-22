@@ -15,7 +15,7 @@ import {
 
 const entry = (path: string, title: string) => ({ path, routePath: `/${path}`, title });
 
-function buildFileTree(entries: ReturnType<typeof entry>[]) {
+function buildFileTree(entries: ReturnType<typeof entry>[], directoryTitles: Record<string, string> = {}) {
     const directories = new Map<string, DashboardDirectory>();
     for (const entry of entries) {
         if (entry.path.startsWith("-/") || entry.path.startsWith("~/")) continue;
@@ -30,15 +30,24 @@ function buildFileTree(entries: ReturnType<typeof entry>[]) {
             };
             if (i === segments.length - 1) {
                 directory.entryPaths.push(entry.path);
-                if (segments[i] === "index.md") {
-                    Object.assign(directory, { introEntryPath: entry.path });
-                }
             } else {
                 const child = segments.slice(0, i + 1).join("/");
                 if (!directory.childDirectoryPaths.includes(child)) directory.childDirectoryPaths.push(child);
             }
             directories.set(path, directory);
         }
+    }
+    for (const [path, title] of Object.entries(directoryTitles)) {
+        const directory = directories.get(path);
+        if (directory)
+            directory.introduction = {
+                sourcePath: `${path}/.index.md`,
+                title,
+                summary: null,
+                omitLeadingTitle: true,
+                headings: [],
+                markdownBefore: "",
+            };
     }
     return buildProjectedFileTree(entries, [...directories.values()]);
 }
@@ -97,16 +106,19 @@ describe("buildFileTree", () => {
     });
 
     it("labels directories from their projected intro and retains all separate file routes", () => {
-        const tree = buildFileTree([
-            entry("guide/index.md", "Guide"),
-            entry("guide/README.md", "Read me"),
-            entry("notes.md", "Notes overview"),
-            entry("notes/a.md", "A"),
-            entry("other.md", "Other"),
-        ]);
+        const tree = buildFileTree(
+            [
+                entry("guide/index.md", "Guide"),
+                entry("guide/README.md", "Read me"),
+                entry("notes.md", "Notes overview"),
+                entry("notes/a.md", "A"),
+                entry("other.md", "Other"),
+            ],
+            { guide: "Directory guide" },
+        );
 
         expect(outline(tree)).toEqual([
-            "directory:Guide",
+            "directory:Directory guide",
             "  entry:Guide",
             "  entry:Read me",
             "directory:notes",
@@ -124,11 +136,10 @@ describe("buildFileTree", () => {
     });
 
     it("never compacts a titled directory into a chain", () => {
-        const tree = buildFileTree([
-            entry("members/tiscs/index.md", "Tiscs"),
-            entry("a.md", "A overview"),
-            entry("a/b/c.md", "C"),
-        ]);
+        const tree = buildFileTree(
+            [entry("members/tiscs/index.md", "Tiscs"), entry("a.md", "A overview"), entry("a/b/c.md", "C")],
+            { "members/tiscs": "Tiscs" },
+        );
 
         expect(outline(tree)).toEqual([
             "directory:a/b",
@@ -157,14 +168,17 @@ describe("buildFileTree", () => {
     });
 
     it("describes siblings that share a label by their file or directory names", () => {
-        const tree = buildFileTree([
-            entry("notes/overview.md", "Overview"),
-            entry("notes/intro.md", "overview"),
-            entry("notes/unique.md", "Unique"),
-            entry("notes/guides/index.md", "Overview"),
-            entry("notes/guides/setup.md", "Setup"),
-            entry("other/overview.md", "Overview"),
-        ]);
+        const tree = buildFileTree(
+            [
+                entry("notes/overview.md", "Overview"),
+                entry("notes/intro.md", "overview"),
+                entry("notes/unique.md", "Unique"),
+                entry("notes/guides/index.md", "Overview"),
+                entry("notes/guides/setup.md", "Setup"),
+                entry("other/overview.md", "Overview"),
+            ],
+            { "notes/guides": "Overview" },
+        );
         const notes = tree.find((node) => node.title === "notes");
 
         expect(notes?.children?.map((node) => [node.label, node.description])).toEqual([

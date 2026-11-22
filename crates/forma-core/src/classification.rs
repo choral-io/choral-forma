@@ -11,6 +11,7 @@ pub enum ManagedDocumentKind {
     Content,
     View,
     Control,
+    DirectoryIntroduction,
     Unmanaged,
 }
 
@@ -37,6 +38,21 @@ pub(crate) fn classify_managed_document(
         Some("md" | "mdx")
     ) {
         return ManagedDocumentKind::Unmanaged;
+    }
+    let (parent, name) = source_path.rsplit_once('/').unwrap_or(("", source_path));
+    if name == crate::routes::DIRECTORY_INDEX_NAME {
+        return if !parent.is_empty() && scan_plan.content_patterns().is_match(source_path) {
+            ManagedDocumentKind::DirectoryIntroduction
+        } else {
+            ManagedDocumentKind::Unmanaged
+        };
+    }
+    if name == crate::path::FORMA_CONFIG_PATH {
+        return if parent.is_empty() {
+            ManagedDocumentKind::Control
+        } else {
+            ManagedDocumentKind::Unmanaged
+        };
     }
     if view_paths.contains(source_path) {
         return ManagedDocumentKind::View;

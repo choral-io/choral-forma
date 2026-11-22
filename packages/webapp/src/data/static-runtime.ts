@@ -20,7 +20,7 @@ export interface StaticRouteTarget {
     taxonomyId?: string;
 }
 
-export const staticDataSchemaVersion = 3;
+export const staticDataSchemaVersion = 4;
 
 export function requireStaticArtifact(config: StaticRuntimeConfig | undefined) {
     const artifactId = config?.artifactId;

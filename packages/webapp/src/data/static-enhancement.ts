@@ -48,13 +48,12 @@ export async function prepareStaticRoute(pathname: string) {
 
     await staticWorkspaceClient.prepareStaticRoute(pathname);
     const context = createWorkspaceDashboardContext(dashboard);
-    const directory = dashboard.directories.find((candidate) => candidate.routePath === pathname);
-    const entryPath = directory?.introEntryPath ?? resolveDashboardEntryTarget(dashboard, pathname)?.summary.path;
+    const entryPath = resolveDashboardEntryTarget(dashboard, pathname)?.summary.path;
     const view = dashboard.views.find((candidate) => candidate.routePath === pathname);
     // These reads consume the validated cache from prepareStaticRoute before the Router commits.
     const route: PreparedStaticRoute = {};
     if (entryPath && pathname !== "/") {
-        route.entry = await staticWorkspaceClient.getEntry(entryPath, context, { directoryPath: directory?.path });
+        route.entry = await staticWorkspaceClient.getEntry(entryPath, context);
     }
     if (view) route.view = await staticWorkspaceClient.getViewRender(view.configId, context);
     preparedRoutes.set(pathname, route);
