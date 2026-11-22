@@ -66,9 +66,22 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                           .locator("section")
                           .filter({ has: current.getByRole("heading", { name: "Entries", exact: true }) })
                           .getByRole("list");
-                const authoredLink = main
-                    .locator('[data-reader="markdown"]')
-                    .getByRole("link", { name: "Learn how to link notes", exact: true });
+                const summary = main
+                    .locator("header")
+                    .getByText("Find the main guides in the getting-started workspace.", { exact: true });
+                const introduction = main.locator('[data-reader="markdown"]');
+                const openingParagraph = introduction.getByText(
+                    "These notes show how to organize, connect, read, and publish your workspace pages.",
+                    { exact: true },
+                );
+                const authoredLink = introduction.getByRole("link", {
+                    name: "Learn how to link notes",
+                    exact: true,
+                });
+                const closingParagraph = introduction.getByText(
+                    "For local browsing and static publishing, start with the Getting Started guide.",
+                    { exact: true },
+                );
                 const waitForRoute = (path, hash = "") =>
                     current.waitForURL(
                         (url) => url.origin + url.pathname.replace(/\/$/u, "") + url.hash === base + path + hash,
@@ -89,25 +102,32 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                     assert(response?.ok(), `${label}: directory response ${response?.status()}`);
                     await waitForRoute("/notes", "#start-here");
                     await main.getByRole("heading", { level: 1, name: "Notes Overview", exact: true }).waitFor();
+                    await summary.waitFor({ state: "visible" });
                     await main.locator(`#start-here:${fragmentState}`).waitFor();
                     await listing.locator(`a[href="${host.root}/notes/markdown-reader.md"]`).waitFor();
+                    const orderedContent = [openingParagraph, authoredLink, listing, closingParagraph];
+                    await Promise.all(orderedContent.map((element) => element.waitFor({ state: "visible" })));
                     const authoredTarget = base + "/notes/connect-pages.md#internal-links";
                     assert(
                         new URL(await authoredLink.getAttribute("href"), current.url()).href === authoredTarget,
                         `${label}: introductory link did not resolve from the directory`,
                     );
 
-                    const order = await main.evaluate((body) => {
-                        const text = body.textContent;
-                        return [
-                            "Start Here",
-                            "Index Files and Directory Pages",
-                            "For local browsing and static publishing",
-                        ].map((label) => text.indexOf(label));
-                    });
+                    const elements = await Promise.all(orderedContent.map((element) => element.elementHandle()));
+                    const inOrder = await current.evaluate(
+                        (nodes) =>
+                            nodes
+                                .slice(1)
+                                .every((node, index) =>
+                                    Boolean(
+                                        nodes[index].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
+                                    ),
+                                ),
+                        elements,
+                    );
                     assert(
-                        order[0] >= 0 && order[0] < order[1] && order[1] < order[2],
-                        `${label}: directory list was not mounted in the introduction`,
+                        inOrder,
+                        `${label}: expected the directory list after the introductory content and before the closing paragraph`,
                     );
                     assert(
                         (await main.locator('a[href$="/.index.md"]').count()) === 0,
