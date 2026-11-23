@@ -1,4 +1,4 @@
-id = "forma"
+id = "forma-lsp"
 name = "Forma"
 version = "0.3.0"
 schema_version = 1
@@ -9,3 +9,4 @@ repository = "https://github.com/choral-io/choral-forma"
 [language_servers.forma]
 name = "Forma"
 languages = ["Markdown"]
+opt_in_languages = ["Markdown"]

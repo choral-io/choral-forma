@@ -96,8 +96,11 @@ mise run build:pnpm
 Run all checks:
 
 ```sh
+mise exec -- rustup toolchain install 1.90.0 --profile minimal --target wasm32-wasip2
 mise run check
 ```
+
+Install the Rust 1.90.0 toolchain once for the [Zed registry build check](extensions/zed/README.md#build-check).
 
 ## Run Example Workspaces
 

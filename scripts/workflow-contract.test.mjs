@@ -450,8 +450,11 @@ test("retains the complete CI, site, extension, and Zed gates", async () => {
     );
 
     const rustCommands = stepRunCommandsForTest(job(ci, "rust")).join("\n");
-    assert.match(rustCommands, /rustup target add wasm32-wasip1/u);
-    assert.match(rustCommands, /cargo check -p forma-zed-extension --target wasm32-wasip1 --locked/u);
+    assert.match(rustCommands, /rustup toolchain install 1\.90\.0 --profile minimal --target wasm32-wasip2/u);
+    assert.match(
+        rustCommands,
+        /cargo \+1\.90\.0 build --locked --release --package forma-zed-extension --target wasm32-wasip2/u,
+    );
     const windowsInstaller = job(ci, "windows-installer");
     assert.equal(windowsInstaller["runs-on"], "windows-2025");
     assert.ok(

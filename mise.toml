@@ -19,8 +19,8 @@ depends = ["build:pnpm"]
 run = "cargo fmt --all -- --check && cargo check --workspace"
 
 [tasks."check:zed"]
-description = "Check the Zed extension WebAssembly target"
-run = "cargo check -p forma-zed-extension --target wasm32-wasip1"
+description = "Build the Zed extension with the registry Rust toolchain"
+run = "cargo +1.90.0 build --locked --release --package forma-zed-extension --target wasm32-wasip2"
 
 [tasks."format:rust"]
 description = "Format Rust workspace"

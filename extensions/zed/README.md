@@ -1,25 +1,34 @@
 # Forma for Zed
 
-This development extension adds Forma reference navigation and language intelligence to Zed's built-in Markdown language through the `forma lsp` command.
+Forma adds workspace-aware reference navigation and language intelligence to Zed's built-in Markdown language through `forma lsp`. The extension ID is `forma-lsp`. The language server is named `forma` in Zed settings.
 
-## Requirements
+## Install the Development Extension
 
-- Install the Forma CLI.
-- Ensure `forma` is available in the Zed worktree environment's `PATH`.
-- Open a worktree whose root contains `.forma.md`.
+1. Clone this repository and [install the matching Forma CLI](../../README.md#installing-forma). Confirm its version with `forma --version` in the environment from which you open Zed. Ensure `forma` is on the Zed worktree's `PATH`.
+2. Install Rust with [rustup](https://rustup.rs/) so Zed can compile the development extension for `wasm32-wasip2`.
+3. Run `zed: install dev extension` from Zed's command palette and select the repository's `extensions/zed` directory.
+4. Open [Getting Started](../../examples/getting-started-workspace/) as a folder in Zed. If Zed opens it in Restricted Mode, review and trust its project settings to enable the server.
+5. Open `notes/welcome-to-choral-forma.md` and run Find All References on the link to Getting Started. Zed shows the matching references across the workspace.
 
-The extension resolves `forma` from the worktree `PATH` and starts it with `--workspace <root> lsp`. It does not run a separate version check before starting the language server. Instead, it passes the extension version through LSP `initializationOptions`; when the CLI version differs, the server publishes an advisory diagnostic on `.forma.md` with a link to the [Forma installation instructions](https://github.com/choral-io/choral-forma#installing-forma). The warning does not block startup. Older CLIs that predate this diagnostic cannot report the mismatch, while CLIs that fail before LSP initialization remain visible through Zed's logs. Internal test installations can place the desired CLI earlier on the Zed worktree `PATH` without replacing another machine-level installation.
+If you previously installed the development extension under the ID `forma`, uninstall that entry before installing `forma-lsp`.
 
-Zed's native `lsp.forma.binary` setting is a host-level escape hatch. When present, Zed launches that command directly and bypasses the extension's command construction and required `--workspace <root> lsp` arguments. Do not use that override for the normal Forma setup or expect it to participate in the managed CLI lifecycle.
+## Enable Forma in a Workspace
 
-The extension does not download or update the CLI. Managed acquisition, checksum verification, caching, and remote-host validation remain follow-up work. It does not add Preview rendering or custom UI.
+Open the folder containing `.forma.md` as the Zed worktree root. Add the following to that folder's `.zed/settings.json`. The main repository and Getting Started already include these settings. The `"..."` wildcard keeps other default Markdown servers available.
 
-## Local installation
+```json
+{
+    "languages": {
+        "Markdown": {
+            "language_servers": ["forma", "..."]
+        }
+    }
+}
+```
 
-1. Build the repository's `forma` binary and install it on the `PATH` visible to the Zed worktree.
-2. In Zed, run `zed: install dev extension`.
-3. Select this `extensions/zed` directory.
-4. Open a Markdown file in a Forma workspace, then use `F12` or `Cmd+Click` / `Ctrl+Click` on a supported reference.
+Older Zed versions can ignore [opt-in language server settings](https://zed.dev/docs/extensions/languages#opt-in-language-servers) and try to start Forma in other Markdown projects. Use a current Zed release for workspace-only activation.
+
+## Language Features
 
 The language server uses Zed's native UI for the added capabilities:
 
@@ -36,4 +45,17 @@ Inside inline code and fenced blocks labelled `md` or `markdown`, Forma supplies
 
 For a uniquely resolved document link without a heading fragment, the LSP uses Zed's positionless `zed://file` target so reopening an existing file preserves its cursor and scroll state. Heading links continue to use a positioned `file://` target. This compatibility path is selected only when the LSP client identifies itself as Zed; remote-workspace behavior still requires separate validation.
 
-If the server does not start, run `zed: open log` and confirm that the Zed worktree environment can resolve `forma`.
+## Troubleshooting
+
+The extension launches the `forma` executable from the worktree's `PATH` as `forma --workspace <root> lsp`. If the server fails to start, check `forma --version` in the worktree environment, then open `zed: open log`. Install and update the CLI separately from the extension.
+
+A CLI that supports version advisories reports a mismatch on `.forma.md`. Check Zed's log for older CLIs that fail during startup. A custom `lsp.forma.binary` setting bypasses the extension's launch command, so remove the override when using this setup.
+
+## Build Check
+
+From the repository root, install the Rust toolchain used by Zed's registry and run the same release build as Forma CI.
+
+```sh
+mise exec -- rustup toolchain install 1.90.0 --profile minimal --target wasm32-wasip2
+mise run check:zed
+```

@@ -377,7 +377,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-          rustup target add wasm32-wasip1
+          rustup toolchain install 1.90.0 --profile minimal --target wasm32-wasip2
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -391,8 +391,8 @@ jobs:
       - name: Check Rust workspace
         run: cargo check --workspace --locked
 
-      - name: Check Zed extension WebAssembly
-        run: cargo check -p forma-zed-extension --target wasm32-wasip1 --locked
+      - name: Build Zed extension WebAssembly
+        run: cargo +1.90.0 build --locked --release --package forma-zed-extension --target wasm32-wasip2
 
       - name: Test Rust workspace
         run: cargo test --workspace --locked
