@@ -1990,6 +1990,7 @@ fn content_type_for(path: &str) -> &'static str {
         Some("svg") => "image/svg+xml",
         Some("json") => "application/json",
         Some("wasm") => "application/wasm",
+        Some("woff2") => "font/woff2",
         _ => "application/octet-stream",
     }
 }
@@ -3411,6 +3412,7 @@ mod tests {
         )
         .unwrap();
         fs::write(root.join("-/assets/app.js"), "console.log('external');").unwrap();
+        fs::write(root.join("-/assets/icons.woff2"), b"wOF2").unwrap();
 
         let index_response = rpc_router_with_options(Some(root.clone()), Vec::new())
             .unwrap()
@@ -3429,22 +3431,27 @@ mod tests {
             .unwrap();
         assert!(String::from_utf8_lossy(&index_body).contains("External Forma"));
 
-        let asset_response = rpc_router_with_options(Some(root.clone()), Vec::new())
-            .unwrap()
-            .oneshot(
-                Request::builder()
-                    .method(Method::GET)
-                    .uri("/-/assets/app.js")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(asset_response.status(), StatusCode::OK);
-        assert_eq!(
-            asset_response.headers().get("content-type").unwrap(),
-            "text/javascript; charset=utf-8"
-        );
+        for (path, content_type) in [
+            ("/-/assets/app.js", "text/javascript; charset=utf-8"),
+            ("/-/assets/icons.woff2", "font/woff2"),
+        ] {
+            let asset_response = rpc_router_with_options(Some(root.clone()), Vec::new())
+                .unwrap()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::GET)
+                        .uri(path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(asset_response.status(), StatusCode::OK);
+            assert_eq!(
+                asset_response.headers().get("content-type").unwrap(),
+                content_type
+            );
+        }
 
         // The reserved segment is a directory of assets, but its own path is a route.
         let system_response = rpc_router_with_options(Some(root.clone()), Vec::new())

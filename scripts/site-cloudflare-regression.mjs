@@ -536,7 +536,7 @@ async function browserProbe(context, origin, name, data, samples, fixture) {
         assert(record, `No test completion marker from Playwright: ${output}`);
         assert.equal(
             Number(record[1]),
-            samples.length * 4 + (fixture ? 3 + staticNavigationBrowserAssertions : 0),
+            samples.length * 4 + (fixture ? 4 + staticNavigationBrowserAssertions : 0),
             "Browser assertions incomplete",
         );
         return { assertions: Number(record[1]), browserVersion: Buffer.from(record[2], "hex").toString() };
@@ -568,6 +568,23 @@ async function browserChecks(
     page.on("request", (request) => {
         if (new URL(request.url()).pathname.endsWith("/-/rpc")) rpcRequests.push(request.url());
     });
+    async function verifyLinkIcons(surface) {
+        await surface.evaluate(async () => {
+            const family = "Lucide Link Icons";
+            for (const [kind, glyph] of Object.entries({ external: "\ue0b9", anchor: "\ue0ef" })) {
+                const link = document.querySelector(`main a[data-link-kind="${kind}"]`);
+                if (!link) throw new Error(`Missing ${kind} link in the browser fixture`);
+                const icon = getComputedStyle(link, "::after");
+                if (!icon.content.includes(glyph) || !icon.fontFamily.includes(family))
+                    throw new Error(`Incorrect ${kind} link icon style`);
+                const faces = await document.fonts.load(`16px "${family}"`, glyph).catch((error) => {
+                    throw new Error(`Could not load the ${kind} link icon font: ${error.message}`);
+                });
+                if (faces.length === 0) throw new Error(`Missing font face for the ${kind} link icon`);
+            }
+        });
+        assertions += 1;
+    }
     async function currentTarget(probe, initialHeading) {
         await page.locator("[data-enhancement-ready][data-workspace-route]").waitFor({ timeout: 12_000 });
         const routes = await page.locator("[data-enhancement-ready]").getAttribute("data-workspace-route");
@@ -654,6 +671,7 @@ async function browserChecks(
                 "Direct enhancement did not retain the fragment target",
             );
             assertions += 1;
+            await verifyLinkIcons(page);
             assertions += await runNavigationScenarios(page, { origin, base, root, fixture }, observe);
         }
         expect(rpcRequests.length === 0, `Static enhancement attempted RPC: ${rpcRequests.join(", ")}`);
@@ -679,7 +697,7 @@ async function writeFixture(temporary, name) {
     );
     const changes = {
         "notes/with space.md":
-            "# Fixture Exact Note\n\n## Fixture Section\n\n![Fixture Diagram](../diagram.svg)\n\nText.[^route-check]\n\n[^route-check]: Route footnote.\n",
+            "# Fixture Exact Note\n\n## Fixture Section\n\n![Fixture Diagram](../diagram.svg)\n\n[External resource](https://example.com/) and [this section](#fixture-section).\n\nText.[^route-check]\n\n[^route-check]: Route footnote.\n",
         "notes/with space.zh-hans.md": "# Fixture Translated Note\n\n## Fixture Section\n",
         "notes/.index.md": "# Fixture Directory Introduction\n\n## Directory Section\n",
         "notes/report.html.md": "# Fixture Dotted Note\n",

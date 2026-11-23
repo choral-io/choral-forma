@@ -96,7 +96,8 @@
 
 @font-face {
     font-family: "Lucide Link Icons";
-    src: url("../assets/lucide-link-icons.woff2") format("woff2");
+    /* Static sites restrict fonts to same-origin files. */
+    src: url("../assets/lucide-link-icons.woff2?no-inline") format("woff2");
     font-style: normal;
     font-weight: 400;
     font-display: block;
