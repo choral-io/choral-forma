@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "facts": [
+    {
+      "address": { "revision": "review-v1", "instance": "sample-42", "position": "register" },
+      "event": { "kind": "dispatch" }
+    },
+    {
+      "address": { "revision": "review-v1", "instance": "sample-42", "position": "register" },
+      "event": { "kind": "returned", "payloadJson": "{\"registered\":true}" }
+    },
+    {
+      "address": { "revision": "review-v1", "instance": "sample-42", "position": "review/submission" },
+      "event": { "kind": "submission", "id": "review-1", "payloadJson": "{\"receipt\":\"R-1\"}" }
+    },
+    {
+      "address": { "revision": "review-v1", "instance": "sample-42", "position": "journal" },
+      "event": { "kind": "dispatch" }
+    },
+    {
+      "address": { "revision": "review-v1", "instance": "sample-42", "position": "journal" },
+      "event": { "kind": "returned", "payloadJson": "null" }
+    }
+  ]
+}

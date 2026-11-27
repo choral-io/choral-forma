@@ -3,7 +3,12 @@
 mod bindings;
 mod contracts;
 mod error;
+mod execution;
 mod values;
+mod watcher;
+
+pub use execution::{replay_execution, validate_execution};
+use watcher::Watcher;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -34,32 +39,60 @@ struct Step<'a> {
     input_schema: Option<&'a Value>,
     output_schema: Option<&'a Value>,
     input: Option<Binding>,
-    output: Binding,
+    output: Option<Binding>,
+    publishes: bool,
+    operation: Operation<'a>,
+}
+
+enum Operation<'a> {
+    Pure,
+    Call {
+        target: &'a str,
+        argument: Option<Binding>,
+        tolerate: bool,
+    },
+    Watch(Box<Watcher<'a>>),
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Mode {
+    Pure,
+    Replay,
 }
 
 impl<'a> Step<'a> {
-    fn compile(raw: &'a Value) -> Result<Self> {
-        if [
-            "call",
-            "flow",
-            "watch",
-            "each",
-            "repeat",
-            "judge",
-            "continue",
-            "remaining",
-        ]
-        .iter()
-        .any(|key| raw.get(key).is_some())
+    fn compile(raw: &'a Value, mode: Mode) -> Result<Self> {
+        if ["flow", "each", "repeat", "judge", "continue"]
+            .iter()
+            .any(|key| raw.get(key).is_some())
+            || raw
+                .get("remaining")
+                .is_some_and(|policy| mode == Mode::Pure || policy != "retain")
+            || (mode == Mode::Pure && (raw.get("watch").is_some() || raw.get("call").is_some()))
         {
             return Err(definition("unsupported_step"));
         }
         let id = raw["id"].as_str().ok_or_else(|| definition("step_id"))?;
+        if raw.get("watch").is_some() {
+            return Watcher::compile_step(raw, id);
+        }
         let input = raw.get("input").ok_or_else(|| definition("step_input"))?;
-        let output = raw.get("output").ok_or_else(|| definition("step_output"))?;
-        let output_binding = output
-            .get("bind")
-            .ok_or_else(|| definition("step_output"))?;
+        let output = raw.get("output");
+        let mut output_roots = BTreeSet::from(["$input"]);
+        let operation = if let Some(call) = raw.get("call") {
+            let argument = call
+                .get("input")
+                .map(|bind| Binding::compile(bind, &output_roots))
+                .transpose()?;
+            output_roots.insert("$result");
+            Operation::Call {
+                target: call["target"].as_str().ok_or_else(|| definition("call"))?,
+                argument,
+                tolerate: call.get("onFailure").is_some(),
+            }
+        } else {
+            Operation::Pure
+        };
         let needs = raw["needs"]
             .as_object()
             .into_iter()
@@ -93,11 +126,16 @@ impl<'a> Step<'a> {
             id,
             needs,
             input_schema: input.get("schema"),
-            output_schema: output.get("schema"),
+            output_schema: output.and_then(|v| v.get("schema")),
             input: input_binding
                 .map(|binding| Binding::compile(binding, &readable))
                 .transpose()?,
-            output: Binding::compile(output_binding, &BTreeSet::from(["$input"]))?,
+            output: output
+                .and_then(|v| v.get("bind"))
+                .map(|bind| Binding::compile(bind, &output_roots))
+                .transpose()?,
+            publishes: output.is_some(),
+            operation,
         })
     }
 }
@@ -106,6 +144,7 @@ struct Plan<'a> {
     id: &'a str,
     steps: Vec<Step<'a>>,
     order: Vec<usize>,
+    delivery: Option<usize>,
     contracts: Contracts,
 }
 
@@ -120,18 +159,19 @@ fn parse_document(source: &str) -> Result<Value> {
     Ok(document)
 }
 
-fn compile(document: &Value) -> Result<Option<Plan<'_>>> {
+fn compile(document: &Value, mode: Mode) -> Result<Option<Plan<'_>>> {
     let named = document["schemas"].as_object();
     let Some(definition) = document.get("definition") else {
         Contracts::compile(named, [])?;
         return Ok(None);
     };
-    compile_definition(definition, named).map(Some)
+    compile_definition(definition, named, mode).map(Some)
 }
 
 fn compile_definition<'a>(
     raw: &'a Value,
     named: Option<&serde_json::Map<String, Value>>,
+    mode: Mode,
 ) -> Result<Plan<'a>> {
     if raw.get("context").is_some() || raw.get("definitions").is_some() {
         return Err(definition("unsupported_definition"));
@@ -145,16 +185,21 @@ fn compile_definition<'a>(
         .ok_or_else(|| definition("steps"))?;
     let steps = raw_steps
         .iter()
-        .map(Step::compile)
+        .map(|raw| Step::compile(raw, mode))
         .collect::<Result<Vec<_>>>()?;
-    let order = order_steps(&steps)?;
+    let (order, delivery) = order_steps(&steps)?;
     let schemas = steps.iter().flat_map(|step| {
+        let local = match &step.operation {
+            Operation::Watch(watch) => watch.schemas(step.id),
+            _ => [None, None],
+        };
         [
             step.input_schema.map(|schema| (input_key(step.id), schema)),
             step.output_schema
                 .map(|schema| (output_key(step.id), schema)),
         ]
         .into_iter()
+        .chain(local)
         .flatten()
     });
     let contracts = Contracts::compile(named, schemas)?;
@@ -162,11 +207,12 @@ fn compile_definition<'a>(
         id,
         steps,
         order,
+        delivery,
         contracts,
     })
 }
 
-fn order_steps(steps: &[Step<'_>]) -> Result<Vec<usize>> {
+fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Option<usize>)> {
     let by_name: BTreeMap<_, _> = steps
         .iter()
         .enumerate()
@@ -183,6 +229,9 @@ fn order_steps(steps: &[Step<'_>]) -> Result<Vec<usize>> {
                 .get(dependency.from)
                 .copied()
                 .ok_or_else(|| definition("dependency"))?;
+            if dependency.require == "output" && !steps[from].publishes {
+                return Err(definition("dependency"));
+            }
             dependents[from].push(index);
         }
         remaining.push(step.needs.len());
@@ -192,7 +241,13 @@ fn order_steps(steps: &[Step<'_>]) -> Result<Vec<usize>> {
         .enumerate()
         .filter_map(|(index, count)| (*count == 0).then_some((steps[index].id, index)))
         .collect();
-    if ready.len() != 1 || dependents.iter().filter(|items| items.is_empty()).count() != 1 {
+    let mut deliveries =
+        (0..steps.len()).filter(|&i| dependents[i].is_empty() && steps[i].publishes);
+    let delivery = deliveries.next();
+    if ready.len() != 1
+        || deliveries.next().is_some()
+        || delivery.is_some_and(|i| matches!(steps[i].operation, Operation::Watch(_)))
+    {
         return Err(definition("entry_or_delivery"));
     }
     let mut order = Vec::new();
@@ -209,7 +264,7 @@ fn order_steps(steps: &[Step<'_>]) -> Result<Vec<usize>> {
     if order.len() != steps.len() {
         return Err(definition("cycle"));
     }
-    Ok(order)
+    Ok((order, delivery))
 }
 
 fn input_key(id: &str) -> String {
@@ -233,7 +288,7 @@ fn encoded_size(value: &str, stage: ErrorStage) -> Result<()> {
 /// also includes `id`, `entry`, `delivery`, and dependency-ordered `steps`.
 pub fn validate_definition(source: &str) -> std::result::Result<String, DefinitionError> {
     let document = parse_document(source)?;
-    let Some(plan) = compile(&document)? else {
+    let Some(plan) = compile(&document, Mode::Pure)? else {
         return Ok(json!({
             "kind": "schemas",
             "profile": DEFINITION_PROFILE,
@@ -272,7 +327,7 @@ pub fn run_definition(
     input_json: &str,
 ) -> std::result::Result<String, DefinitionError> {
     let document = parse_document(source)?;
-    let plan = compile(&document)?.ok_or_else(|| definition("schemas_only"))?;
+    let plan = compile(&document, Mode::Pure)?.ok_or_else(|| definition("schemas_only"))?;
     let input = parse(input_json, ErrorStage::Input)?;
     ValueBudget::default().charge(&input, 0, ErrorStage::Input)?;
     let mut initial = Some(input);
@@ -319,6 +374,8 @@ pub fn run_definition(
         let roots = Roots::from([("$input", (&input, step.input_schema))]);
         let value = step
             .output
+            .as_ref()
+            .ok_or_else(|| definition("step_output"))?
             .evaluate(&roots, &plan.contracts, ErrorStage::Output)?;
         if step.output_schema.is_some() {
             plan.contracts

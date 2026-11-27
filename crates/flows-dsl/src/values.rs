@@ -24,7 +24,7 @@ pub(crate) fn parse(source: &str, stage: ErrorStage) -> Result<Value> {
     if let Ok(raw) = serde_json::from_str::<&RawValue>(source) {
         return parse_json(raw, 0, &mut budget);
     }
-    if stage == ErrorStage::Input {
+    if stage != ErrorStage::Definition {
         return Err(error("syntax"));
     }
     let mut reader = Reader {
@@ -321,5 +321,40 @@ impl ValueBudget {
             return Err(DefinitionError::new(stage, "size"));
         }
         Ok(())
+    }
+}
+
+/// Fact identity compares JSON numbers as decimals, including inside arrays and objects.
+pub(crate) fn same_json(a: &Value, b: &Value) -> bool {
+    fn decimal(n: &Number) -> (bool, String, i32) {
+        // Facts passed here have been admitted by the bounded JSON parser.
+        let text = n.to_string();
+        let (mantissa, exponent) = number_parts(&text).expect("admitted decimal");
+        let unsigned = mantissa.trim_start_matches('-');
+        let (whole, fraction) = unsigned.split_once('.').unwrap_or((unsigned, ""));
+        let digits = format!("{whole}{fraction}");
+        let digits = digits.trim_start_matches('0');
+        if digits.is_empty() {
+            return (false, String::new(), 0);
+        }
+        let significant = digits.trim_end_matches('0');
+        (
+            mantissa.starts_with('-'),
+            significant.to_owned(),
+            exponent - fraction.len() as i32 + (digits.len() - significant.len()) as i32,
+        )
+    }
+    match (a, b) {
+        (Value::Number(left), Value::Number(right)) => decimal(left) == decimal(right),
+        (Value::Array(left), Value::Array(right)) => {
+            left.len() == right.len() && left.iter().zip(right).all(|(a, b)| same_json(a, b))
+        }
+        (Value::Object(left), Value::Object(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .all(|(key, a)| right.get(key).is_some_and(|b| same_json(a, b)))
+        }
+        _ => a == b,
     }
 }

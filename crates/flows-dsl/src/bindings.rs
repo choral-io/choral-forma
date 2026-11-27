@@ -92,6 +92,9 @@ impl Reference {
 
 impl Binding {
     pub(crate) fn compile(template: &Value, roots: &BTreeSet<&str>) -> Result<Self> {
+        if template.get("$call").is_some() {
+            return Err(definition("unsupported_predicate_call"));
+        }
         if let Some(token) = template.get("$ref").and_then(Value::as_str) {
             return Ok(Self::Reference(Reference::compile(token, roots)?));
         }

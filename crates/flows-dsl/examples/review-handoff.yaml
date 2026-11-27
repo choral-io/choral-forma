@@ -1,0 +1,64 @@
+dsl: choral/flows-v1-beta.2
+schemas:
+  Review:
+    type: object
+    additionalProperties: false
+    required: [receipt]
+    properties:
+      receipt: { type: string, minLength: 1 }
+definition:
+  id: reviewHandoff
+  steps:
+    - id: register
+      input:
+        schema:
+          type: object
+          required: [matterId, initialHandoffId, amount]
+          additionalProperties: false
+          properties:
+            matterId: { type: string }
+            initialHandoffId: { type: string }
+            amount: { type: number }
+      call:
+        target: registerReview@1
+        input:
+          matterId: { $ref: "$input#/matterId" }
+          handoffId: { $ref: "$input#/initialHandoffId" }
+      output:
+        bind:
+          registered: { $ref: "$result#/registered" }
+          packet: { $ref: "$input#" }
+        schema: { properties: { registered: { const: true } } }
+
+    - id: review
+      watch:
+        observe:
+          request: { from: register }
+          submission:
+            needs: { registered: { from: register, require: success } }
+            input: { schema: { $ref: Review } }
+            output: { bind: { $ref: "$input#" } }
+        cases:
+          - on: submission
+            when: true
+            exit: recorded
+            output:
+              bind:
+                packet: { $ref: "request#/results/0/packet" }
+                receipt: { $ref: "submission#/results/0/receipt" }
+
+    - id: handoff
+      needs: { reviewed: { from: review, require: output } }
+      input: { bind: { $ref: "reviewed#" } }
+      output:
+        bind:
+          matterId: { $ref: "$input#/packet/matterId" }
+          predecessor: { $ref: "$input#/packet/initialHandoffId" }
+          amount: { $ref: "$input#/packet/amount" }
+          receipt: { $ref: "$input#/receipt" }
+
+    - id: journal
+      needs: { reviewed: { from: review, require: output } }
+      input: { bind: { $ref: "reviewed#/receipt" } }
+      call: { target: registerReceipt@1 }
+      remaining: retain

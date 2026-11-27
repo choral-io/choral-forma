@@ -9,6 +9,7 @@ pub enum ErrorStage {
     Binding,
     Expression,
     Output,
+    Execution,
 }
 
 impl ErrorStage {
@@ -20,6 +21,7 @@ impl ErrorStage {
             Self::Binding => "binding",
             Self::Expression => "expression",
             Self::Output => "output",
+            Self::Execution => "execution",
         }
     }
 }

@@ -136,7 +136,7 @@ fn normalize<'a>(schema: &'a Value, references: &mut BTreeSet<&'a str>) -> Resul
     for (key, value) in source {
         let normalized = match key.as_str() {
             "type" | "required" | "minimum" | "maximum" | "exclusiveMinimum"
-            | "exclusiveMaximum" | "title" | "description" => value.clone(),
+            | "exclusiveMaximum" | "title" | "description" | "const" | "minLength" => value.clone(),
             "items" | "additionalProperties" => normalize(value, references)?,
             "properties" => Value::Object(
                 value
