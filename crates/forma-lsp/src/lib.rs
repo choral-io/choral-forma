@@ -1708,7 +1708,7 @@ mod tests {
         let response = receive_raw_response(&client_connection);
         assert_eq!(response.id, RequestId::from(1));
         assert_eq!(
-            response.error.unwrap().code,
+            response.response_result.unwrap_err().code,
             ErrorCode::InvalidParams as i32
         );
         server.join().unwrap().unwrap();
@@ -2746,7 +2746,7 @@ mod tests {
         );
         let initialize = receive_response(&client_connection);
         assert_eq!(initialize.id, RequestId::from(1));
-        let capabilities = initialize.result.unwrap()["capabilities"].clone();
+        let capabilities = initialize.response_result.unwrap()["capabilities"].clone();
         assert_eq!(capabilities["positionEncoding"], "utf-16");
         assert_eq!(capabilities["textDocumentSync"]["change"], 1);
         assert_eq!(
@@ -2784,8 +2784,12 @@ mod tests {
             "textDocument/documentLink",
             json!({ "textDocument": { "uri": source_uri } }),
         );
-        let links: Option<Vec<DocumentLink>> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let links: Option<Vec<DocumentLink>> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         let links = links.unwrap();
         assert_eq!(links.len(), 2);
         assert!(links.iter().all(|link| {
@@ -2811,8 +2815,12 @@ mod tests {
                 "position": { "line": 5, "character": 10 },
             }),
         );
-        let hover: Option<Hover> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let hover: Option<Hover> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         assert!(hover_markdown(&hover.unwrap()).contains("members/sam-rivera.md"));
 
         send_request(
@@ -2825,8 +2833,12 @@ mod tests {
                 "context": { "includeDeclaration": false },
             }),
         );
-        let references: Option<Vec<Location>> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let references: Option<Vec<Location>> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         assert!(!references.unwrap().is_empty());
 
         let changed = "---\ntitle: LSP test\nowners: []\n---\nSee 😀 [[members/mira-chen|Mira]].\n";
@@ -2852,8 +2864,12 @@ mod tests {
             "textDocument/documentLink",
             json!({ "textDocument": { "uri": source_uri } }),
         );
-        let links: Option<Vec<DocumentLink>> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let links: Option<Vec<DocumentLink>> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         let links = links.unwrap();
         assert_eq!(links.len(), 2);
         assert!(links.iter().all(|link| {
@@ -2867,7 +2883,7 @@ mod tests {
         send_request(&client_connection, 8, "textDocument/definition", json!({}));
         let malformed = receive_raw_response(&client_connection);
         assert_eq!(malformed.id, RequestId::from(8));
-        assert!(malformed.error.is_some());
+        assert!(malformed.response_result.is_err());
 
         send_notification(
             &client_connection,
@@ -3044,8 +3060,12 @@ mod tests {
                 "position": { "line": link_line, "character": alias_character },
             }),
         );
-        let definition: Option<GotoDefinitionResponse> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let definition: Option<GotoDefinitionResponse> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         let GotoDefinitionResponse::Link(locations) = definition.unwrap() else {
             panic!("expected a location link response");
         };
@@ -3064,8 +3084,12 @@ mod tests {
             "textDocument/documentLink",
             json!({ "textDocument": { "uri": view_uri } }),
         );
-        let links: Option<Vec<DocumentLink>> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let links: Option<Vec<DocumentLink>> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         assert!(links.unwrap().is_empty());
 
         send_notification(
@@ -3085,8 +3109,12 @@ mod tests {
                 "position": { "line": link_line, "character": alias_character },
             }),
         );
-        let definition: Option<GotoDefinitionResponse> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let definition: Option<GotoDefinitionResponse> = serde_json::from_value(
+            receive_response(&client_connection)
+                .response_result
+                .unwrap(),
+        )
+        .unwrap();
         let GotoDefinitionResponse::Link(locations) = definition.unwrap() else {
             panic!("expected the configured View to remain managed after save");
         };
@@ -4018,7 +4046,7 @@ mod tests {
 
     fn receive_response(connection: &Connection) -> lsp_server::Response {
         let response = receive_raw_response(connection);
-        if let Some(error) = &response.error {
+        if let Err(error) = &response.response_result {
             panic!("LSP response failed: {error:?}");
         }
         response
