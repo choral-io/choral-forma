@@ -2,7 +2,7 @@
 import { expect, it } from "vitest";
 import { mediaWheelZoomFactor } from "./media-viewer-gestures";
 
-it("matches Flows modifier, wheel-unit and event-splitting semantics", () => {
+it("requires a modifier and preserves zoom across wheel units and split events", () => {
     const wheel = (options: WheelEventInit) => mediaWheelZoomFactor(new WheelEvent("wheel", options), 600);
     expect(wheel({ deltaY: -10 })).toBeUndefined();
     expect(wheel({ ctrlKey: true, deltaY: 0 })).toBeUndefined();

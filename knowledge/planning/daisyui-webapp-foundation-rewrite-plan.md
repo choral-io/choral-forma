@@ -35,7 +35,7 @@ Expected implementation cost is two to three focused person-days for one enginee
 ## Confirmed Decisions
 
 - Tailwind CSS 4 and DaisyUI 5 become the default WebApp styling and component foundation.
-- The first theme baseline copies `choral-light` and `choral-dark` from `choral-flows` without redesigning their color tokens.
+- The first theme baseline preserves the existing `choral-light` and `choral-dark` color tokens.
 - `choral-light` is the default light theme. `choral-dark` uses `prefersdark: true` so the first cut follows the operating-system preference without a custom theme controller.
 - Native HTML elements and browser APIs are preferred for interaction: `<dialog>`, `<details>`, `<summary>`, `<select>`, radio inputs, buttons, links, and normal form submission.
 - Transient UI state should remain owned by browser and DOM primitives wherever practical. React state is reserved for business data, rendered results, persistence, or genuine cross-component coordination.
@@ -61,7 +61,7 @@ Expected implementation cost is two to three focused person-days for one enginee
 
 ## Theme Baseline
 
-Use the definitions in `choral-flows/packages/webapp/src/index.css` at Git commit `e3a3ff5ae30c480252ad0c6054e578c05d9e93cf` as the initial source baseline.
+The implemented theme definitions are in `packages/webapp/src/styles/globals.css`.
 
 The first implementation slice must:
 

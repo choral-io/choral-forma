@@ -95,7 +95,7 @@ When the backend rewrites wikilinks or embeds into ordinary Markdown fallback li
 
 `file.render` should return a structured `headings` list for reader navigation. The WebApp may attach heading ids while rendering Markdown locally, but the outline order and heading identity should come from backend analysis rather than client-invented workspace scanning.
 
-The WebApp should render Markdown through an isolated reader component. The renderer should prefer valid ordinary Markdown semantics and should sanitize generated HTML before insertion. It may borrow the pipeline shape used by Choral Flows: a `marked` renderer with explicit plugins for Mermaid, code highlighting, math, tables, and other reader features. Forma should not inherit Choral Flows' product-specific mention syntax, and it should not make DOM patching libraries part of the read-model contract.
+The WebApp should render Markdown through an isolated reader component. The renderer should prefer valid ordinary Markdown semantics and should sanitize generated HTML before insertion. A `marked` pipeline can use explicit plugins for Mermaid, code highlighting, math, tables, and other reader features. Product-specific mention syntax and DOM patching libraries stay outside the read-model contract.
 
 Reader styling should live in WebApp CSS on a semantic container, similar to `tailwindcss-typography`, rather than large arbitrary-selector chains inside route components. Backend output and analysis should stay presentation-neutral.
 
@@ -252,7 +252,7 @@ The WebApp should keep a package-local adapter boundary. Fake data can remain as
 - Should document heading ids eventually be embedded directly into server HTML output for export modes? Current direction: WebApp reader attaches ids from backend heading analysis during client render.
 - Should `workspace.dashboard` include document bodies? Current direction: no.
 - Should graph rendering use Sigma.js long-term? Current direction: Sigma.js plus Graphology is the accepted 2D renderer inside `packages/graph-view`. The backend and projection contract remain renderer-agnostic, and the WebApp consumes the package through a thin React adapter rather than maintaining a separate Sigma implementation.
-- Should the first client renderer use `marked` or a React/unified component renderer? Current direction: use a `marked` pipeline close to Choral Flows for the first implementation, with DOMPurify sanitization and isolated WebApp CSS, then revisit if component-level rendering becomes necessary.
+- Should the first client renderer use `marked` or a React/unified component renderer? The current direction uses `marked` with DOMPurify sanitization and isolated WebApp CSS. Revisit if component-level rendering becomes necessary.
 
 ## Related Documents
 

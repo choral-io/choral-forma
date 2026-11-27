@@ -1,4 +1,4 @@
-/** Choral Flows media gesture contract: modifier/pinch wheel, normalized units, continuous delta. */
+/** Normalize modifier-wheel and trackpad pinch deltas for continuous zoom. */
 export function mediaWheelZoomFactor(event: WheelEvent, viewportHeight: number): number | undefined {
     if (!event.ctrlKey && !event.metaKey) return;
     const mode = event.deltaMode;

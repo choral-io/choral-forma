@@ -1,0 +1,28 @@
+[
+  { "inputJson": "3", "schema": { "type": "integer" }, "code": "type(n) == int && n == 3", "expected": true },
+  { "inputJson": "3.0", "schema": { "type": "integer" }, "code": "type(n) == int && n == 3", "expected": true },
+  { "inputJson": "3e0", "schema": { "type": "integer" }, "code": "type(n) == int && n == 3", "expected": true },
+  { "inputJson": "3.5", "schema": { "type": "integer" }, "code": "true", "errorAt": "input" },
+  { "inputJson": "3", "schema": { "type": "number" }, "code": "type(n) == double && n / 2.0 == 1.5", "expected": true },
+  {
+    "inputJson": "3.0",
+    "schema": { "type": "number" },
+    "code": "type(n) == double && n / 2.0 == 1.5",
+    "expected": true
+  },
+  {
+    "inputJson": "3e0",
+    "schema": { "type": "number" },
+    "code": "type(n) == double && n / 2.0 == 1.5",
+    "expected": true
+  },
+  { "inputJson": "3.5", "schema": { "type": "number" }, "code": "n / 2.0", "expected": 1.75 },
+  { "inputJson": "3", "code": "type(n) == double && n / 2.0 == 1.5", "expected": true },
+  { "inputJson": "3.0", "code": "type(n) == double && n / 2.0 == 1.5", "expected": true },
+  { "inputJson": "3e0", "code": "type(n) == double && n / 2.0 == 1.5", "expected": true },
+  { "inputJson": "3.5", "code": "n / 2.0", "expected": 1.75 },
+  { "inputJson": "9007199254740992", "schema": { "type": "number" }, "code": "true", "errorAt": "input" },
+  { "inputJson": "-9007199254740992", "code": "true", "errorAt": "input" },
+  { "inputJson": "9007199254740991", "schema": { "type": "integer" }, "code": "n + 1", "errorAt": "output" },
+  { "inputJson": "-9007199254740991", "schema": { "type": "integer" }, "code": "n - 1", "errorAt": "output" }
+]

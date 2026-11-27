@@ -1,0 +1,812 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Choral Flows Definition · v1 beta 2",
+  "type": "object",
+  "properties": {
+    "dsl": {
+      "const": "choral/flows-v1-beta.2"
+    },
+    "definition": {
+      "$ref": "#/$defs/definition"
+    },
+    "schemas": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "imports": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "metadata": true
+  },
+  "required": ["dsl"],
+  "additionalProperties": false,
+  "anyOf": [
+    {
+      "required": ["definition"]
+    },
+    {
+      "required": ["schemas"]
+    }
+  ],
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(/[A-Za-z_][A-Za-z0-9_-]*)*$"
+    },
+    "contract": {
+      "$ref": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "valueRef": {
+      "type": "object",
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "pattern": "^(\\$?[A-Za-z_][A-Za-z0-9_-]*)#(/([^~]|~[01])*)?$"
+        }
+      },
+      "required": ["$ref"],
+      "additionalProperties": false
+    },
+    "literal": {
+      "type": "object",
+      "properties": {
+        "$literal": true
+      },
+      "required": ["$literal"],
+      "additionalProperties": false
+    },
+    "expression": {
+      "type": "object",
+      "properties": {
+        "$expr": {
+          "type": "object",
+          "properties": {
+            "lang": {
+              "const": "choral-cel/v1"
+            },
+            "args": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/name"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/value"
+              }
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["lang", "args", "code"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["$expr"],
+      "additionalProperties": false
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": ["null", "boolean", "number", "string"]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[^$]|^$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/value"
+          }
+        },
+        {
+          "$ref": "#/$defs/valueRef"
+        },
+        {
+          "$ref": "#/$defs/literal"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "predicateExpression": {
+      "type": "object",
+      "properties": {
+        "$expr": {
+          "type": "object",
+          "properties": {
+            "lang": {
+              "const": "choral-cel/v1"
+            },
+            "args": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/name"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/predicate"
+              }
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["lang", "args", "code"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["$expr"],
+      "additionalProperties": false
+    },
+    "predicate": {
+      "anyOf": [
+        {
+          "type": ["null", "boolean", "number", "string"]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/predicate"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[^$]|^$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/predicate"
+          }
+        },
+        {
+          "$ref": "#/$defs/valueRef"
+        },
+        {
+          "$ref": "#/$defs/literal"
+        },
+        {
+          "$ref": "#/$defs/predicateExpression"
+        },
+        {
+          "$ref": "#/$defs/judgmentCall"
+        }
+      ]
+    },
+    "judgmentCall": {
+      "type": "object",
+      "properties": {
+        "$call": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "input": {
+              "$ref": "#/$defs/predicate"
+            }
+          },
+          "required": ["target", "input"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["$call"],
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "$ref": "#/$defs/contract"
+        },
+        "bind": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bound": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/binding"
+        },
+        {
+          "required": ["bind"]
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/path"
+            },
+            {
+              "const": "$context"
+            }
+          ]
+        },
+        "require": {
+          "enum": ["output", "success"]
+        },
+        "exit": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/name"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        }
+      },
+      "required": ["from", "require"],
+      "additionalProperties": false
+    },
+    "call": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input": {
+          "$ref": "#/$defs/value"
+        },
+        "onFailure": {
+          "const": "tolerate"
+        }
+      },
+      "required": ["target"],
+      "additionalProperties": false
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(\\.[A-Za-z_][A-Za-z0-9_-]*)?$"
+        },
+        "entry": {
+          "$ref": "#/$defs/name"
+        },
+        "input": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": ["target"],
+      "additionalProperties": false
+    },
+    "remaining": {
+      "enum": ["retain", "end-when-undemanded"]
+    },
+    "judgeCase": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "otherwise": {
+          "const": true
+        },
+        "exit": {
+          "$ref": "#/$defs/name"
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "bind": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": ["bind"],
+          "additionalProperties": false
+        },
+        "raise": {
+          "type": "object",
+          "properties": {
+            "bind": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": ["when"]
+            },
+            {
+              "required": ["otherwise"]
+            }
+          ]
+        },
+        {
+          "oneOf": [
+            {
+              "required": ["exit"]
+            },
+            {
+              "required": ["raise"],
+              "not": {
+                "required": ["output"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "watchCase": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "otherwise": {
+          "const": true
+        },
+        "exit": {
+          "$ref": "#/$defs/name"
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "bind": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": ["bind"],
+          "additionalProperties": false
+        },
+        "on": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "required": ["exit"],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["when"]
+        },
+        {
+          "required": ["otherwise"]
+        }
+      ]
+    },
+    "judge": {
+      "type": "object",
+      "properties": {
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/judgeCase"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["cases"],
+      "additionalProperties": false
+    },
+    "watch": {
+      "type": "object",
+      "properties": {
+        "observe": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/observation"
+          },
+          "minProperties": 1
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/watchCase"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["observe", "cases"],
+      "additionalProperties": false
+    },
+    "observation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/path"
+            },
+            "collect": {
+              "$ref": "#/$defs/path"
+            }
+          },
+          "required": ["from"],
+          "additionalProperties": false
+        },
+        {
+          "$ref": "#/$defs/localStep"
+        }
+      ]
+    },
+    "each": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "$ref": "#/$defs/value"
+        },
+        "input": {
+          "$ref": "#/$defs/value"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["items", "input", "steps"],
+      "additionalProperties": false
+    },
+    "repeat": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["steps"],
+      "additionalProperties": false
+    },
+    "processForm": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/binding"
+        },
+        "output": {
+          "$ref": "#/$defs/bound"
+        },
+        "remaining": {
+          "$ref": "#/$defs/remaining"
+        },
+        "continue": {
+          "const": "$repeat"
+        }
+      },
+      "required": ["input", "output"]
+    },
+    "callForm": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/binding"
+        },
+        "call": {
+          "$ref": "#/$defs/call"
+        },
+        "output": {
+          "$ref": "#/$defs/binding"
+        },
+        "remaining": {
+          "$ref": "#/$defs/remaining"
+        },
+        "continue": {
+          "const": "$repeat"
+        }
+      },
+      "required": ["input", "call"]
+    },
+    "flowForm": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/binding"
+        },
+        "flow": {
+          "$ref": "#/$defs/flow"
+        },
+        "context": {
+          "$ref": "#/$defs/bound"
+        },
+        "output": {
+          "$ref": "#/$defs/binding"
+        },
+        "remaining": {
+          "$ref": "#/$defs/remaining"
+        },
+        "continue": {
+          "const": "$repeat"
+        }
+      },
+      "required": ["input", "flow"]
+    },
+    "eachForm": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/binding"
+        },
+        "each": {
+          "$ref": "#/$defs/each"
+        },
+        "remaining": {
+          "$ref": "#/$defs/remaining"
+        }
+      },
+      "required": ["input", "each"]
+    },
+    "repeatForm": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/binding"
+        },
+        "repeat": {
+          "$ref": "#/$defs/repeat"
+        }
+      },
+      "required": ["input", "repeat"]
+    },
+    "judgeForm": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/binding"
+        },
+        "judge": {
+          "$ref": "#/$defs/judge"
+        },
+        "output": {
+          "$ref": "#/$defs/binding"
+        }
+      },
+      "required": ["input", "judge"]
+    },
+    "watchForm": {
+      "type": "object",
+      "properties": {
+        "watch": {
+          "$ref": "#/$defs/watch"
+        },
+        "output": {
+          "$ref": "#/$defs/binding"
+        }
+      },
+      "required": ["watch"]
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata": true
+      },
+      "required": ["id"],
+      "oneOf": [
+        {
+          "$ref": "#/$defs/processForm",
+          "not": {
+            "anyOf": [
+              {
+                "required": ["call"]
+              },
+              {
+                "required": ["flow"]
+              },
+              {
+                "required": ["watch"]
+              },
+              {
+                "required": ["judge"]
+              },
+              {
+                "required": ["repeat"]
+              },
+              {
+                "required": ["each"]
+              }
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/callForm"
+        },
+        {
+          "$ref": "#/$defs/flowForm"
+        },
+        {
+          "$ref": "#/$defs/eachForm"
+        },
+        {
+          "$ref": "#/$defs/repeatForm"
+        },
+        {
+          "$ref": "#/$defs/judgeForm"
+        },
+        {
+          "$ref": "#/$defs/watchForm"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "localStep": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/processForm",
+          "not": {
+            "anyOf": [
+              {
+                "required": ["call"]
+              },
+              {
+                "required": ["flow"]
+              }
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/callForm"
+        },
+        {
+          "$ref": "#/$defs/flowForm"
+        }
+      ],
+      "not": {
+        "required": ["continue"]
+      },
+      "unevaluatedProperties": false
+    },
+    "definition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata": true,
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "minItems": 1
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/definition"
+          }
+        },
+        "context": {
+          "$ref": "#/$defs/contract"
+        }
+      },
+      "required": ["id", "steps"],
+      "additionalProperties": false
+    }
+  }
+}

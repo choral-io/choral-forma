@@ -1,0 +1,17 @@
+[package]
+name = "flows-dsl"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Validation and pure execution for the Choral Flow Definition language"
+readme = "README.md"
+include = ["/src", "/tests", "/examples", "/contract", "/README.md", "/LICENSE"]
+
+[dependencies]
+cel = { version = "0.16.1", default-features = false, features = ["chrono", "regex"] }
+jsonschema = { version = "0.63.2", default-features = false, features = ["arbitrary-precision"] }
+serde = "1"
+serde_json = { version = "1", features = ["arbitrary_precision", "raw_value"] }
+yaml-rust2 = { version = "0.13.2", default-features = false }

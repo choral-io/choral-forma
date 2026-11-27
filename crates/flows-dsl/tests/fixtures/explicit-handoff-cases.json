@@ -1,0 +1,34 @@
+{
+  "id": "S02.1",
+  "inputJson": "{\"decision\":false,\"memo\":\"Sample memo\"}",
+  "expectedDeliveryJson": "\"Sample memo\"",
+  "decisionOnly": {
+    "source": {
+      "dsl": "choral/flows-v1-beta.2",
+      "definition": {
+        "id": "carryDecision",
+        "steps": [
+          {
+            "id": "receive",
+            "input": {},
+            "output": { "bind": { "$ref": "$input#" } }
+          },
+          {
+            "id": "forward",
+            "needs": { "received": { "from": "receive", "require": "output" } },
+            "input": { "bind": { "$ref": "received#/decision" } },
+            "output": { "bind": { "$ref": "$input#" } }
+          },
+          {
+            "id": "deliver",
+            "needs": { "forwarded": { "from": "forward", "require": "output" } },
+            "input": { "bind": { "$ref": "forwarded#" } },
+            "output": { "bind": { "$ref": "$input#" } }
+          }
+        ]
+      }
+    },
+    "expectedDeliveryJson": "false"
+  },
+  "privateReadBinding": { "$ref": "receive#/memo" }
+}

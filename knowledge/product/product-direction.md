@@ -57,26 +57,13 @@ future Choral Forma = productized capabilities abstracted from practice
 
 The repository practice can therefore inform product design, but it should not automatically constrain product workspaces. When a repository convention conflicts with a cleaner product model, the product design should identify the underlying user value, compatibility need, and migration cost before adopting or rejecting that convention.
 
-## Relationship To Choral Flows
+## Product Scope
 
-Choral Forma and Choral Flows share the same underlying knowledge runtime thesis, but productize it for different users and interaction surfaces.
+Choral Forma is a professional knowledge engineering workspace. It gives knowledge maintainers and Agent workflow builders direct control over repository-backed Markdown, spaces, schemas, semantic types, structured views, reviewable diffs, health checks, and Agent-readable context.
 
-Choral Forma is the professional productization path. It keeps repository-backed Markdown, spaces, schemas, semantic types, structured views, reviewable diffs, health checks, and Agent-readable context close to the surface so knowledge maintainers and Agent workflow builders can control the structure directly.
+It can serve software teams, research teams, consulting teams, operations teams, one-person companies, and Agent workflow maintainers that need durable, reviewable, repository-backed knowledge. Integrations can consume a Forma repository as a Git-backed knowledge source while Forma remains the authoring and governance workspace.
 
-Choral Flows is the business-user productization path. It hides repository and schema mechanics behind business objects such as Matter, Message, Handoff, Proposal, Work Record, Agent, Skill, and Knowledge Promotion so ordinary users can operate through work context rather than knowledge-engineering mechanics.
-
-Working distinction:
-
-```text
-Choral Forma = professional knowledge engineering workspace.
-Choral Flows = business collaboration runtime.
-```
-
-Choral Forma should not be treated only as a companion tool for Choral Flows. It can serve software teams, research teams, consulting teams, operations teams, one-person companies, and Agent workflow maintainers that need durable, reviewable, repository-backed knowledge. Choral Flows may later use Choral Forma-style capabilities to maintain Starter Kits, Agent Definitions, Skills, Workflow Definitions, and Knowledge Promotion materials, but the two products should keep separate user models and product surfaces.
-
-A Choral Forma repository may also be consumed by Choral Flows as a Git-backed knowledge source. In that model, Forma remains the professional authoring and governance source, while Flows installs the repository as a Workspace Data Source and governs operational use through Workspace, Project, Matter, Agent, Skill, and permission policies. This should be treated as integration, not full migration from Forma into Flows.
-
-Choral Flows does not face the same direct-file inconsistency problem because users operate through product surfaces and knowledge documents are handled by the server. Choral Forma has a larger inconsistency surface because repository files remain directly editable. It should still borrow Choral Flows' broader workflow idea: maintenance problems should become observable, attributable, diagnosable, and repairable through structured findings, reviewable changes, tasks, or Agent workflows instead of only being printed as errors.
+Direct edits to repository files can introduce inconsistencies. Forma should make maintenance problems observable, attributable, diagnosable, and repairable through structured findings, reviewable changes, tasks, or Agent workflows.
 
 ## Behavior
 
@@ -1385,7 +1372,7 @@ The user-facing experience should not require users to understand Git branches, 
 - What exact P0 starter file contents should initialize `notes`, `tasks`, `members`, `decisions`, `proposals`, and `guidelines` without constraining advanced workspaces?
 - What exact P0 Schema DSL, semantic type, template, and view configuration syntax should be implemented first?
 - When should loaders or integrations become necessary beyond declarative space configuration?
-- How should Forma package or expose repository-backed knowledge so operational systems such as Choral Flows can consume it as a Git-backed knowledge source without turning Forma into a Flows backend or losing repository authorship?
+- How should Forma expose repository-backed knowledge so other systems can consume it while preserving repository authorship and Forma's authoring role?
 - How should the product model promotion workflows from personal content to shared content?
 - How should shared content be split into personal work material without losing provenance?
 - What exact CLI, JSON result, and future skill interfaces are needed for Agents to check workspace health?

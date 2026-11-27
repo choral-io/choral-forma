@@ -1,0 +1,16 @@
+dsl: choral/flows-v1-beta.2
+definition:
+  id: deliverDecision
+  steps:
+    - id: receive
+      input:
+        schema:
+          type: object
+          required: [approved]
+          properties: { approved: { type: boolean } }
+      output: { bind: { $ref: "$input#" } }
+
+    - id: deliver
+      needs: { decision: { from: receive, require: output } }
+      input: { bind: { $ref: "decision#/approved" } }
+      output: { schema: { type: boolean }, bind: { $ref: "$input#" } }

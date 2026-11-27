@@ -1,0 +1,20 @@
+# S02.1
+dsl: choral/flows-v1-beta.2
+definition:
+  id: carryMemo
+  steps:
+    - id: receive
+      input: {}
+      output: { bind: { $ref: "$input#" } }
+
+    - id: forward
+      needs: { received: { from: receive, require: output } }
+      input: { bind: { $ref: "received#" } }
+      output:
+        bind:
+          memo: { $ref: "$input#/memo" }
+
+    - id: deliver
+      needs: { forwarded: { from: forward, require: output } }
+      input: { bind: { $ref: "forwarded#/memo" } }
+      output: { bind: { $ref: "$input#" } }

@@ -1,0 +1,28 @@
+{
+  "id": "S02.2",
+  "source": {
+    "dsl": "choral/flows-v1-beta.2",
+    "definition": {
+      "id": "deliverValue",
+      "steps": [
+        {
+          "id": "receive",
+          "input": {},
+          "output": { "bind": { "$ref": "$input#" } }
+        },
+        {
+          "id": "deliver",
+          "needs": { "received": { "from": "receive", "require": "output" } },
+          "input": { "bind": { "$ref": "received#/value" } },
+          "output": { "bind": { "$ref": "$input#" } }
+        }
+      ]
+    }
+  },
+  "present": [
+    { "inputJson": "{\"value\":false}", "expectedDeliveryJson": "false" },
+    { "inputJson": "{\"value\":null}", "expectedDeliveryJson": "null" },
+    { "inputJson": "{\"value\":[]}", "expectedDeliveryJson": "[]" }
+  ],
+  "missingInputJson": "{}"
+}
