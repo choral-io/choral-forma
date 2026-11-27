@@ -192,19 +192,19 @@
     "@choral-forma/shared": "workspace:*",
     "@choral-forma/temporal-view": "workspace:*",
     "@types/mocha": "~10.0.10",
-    "@types/node": "~26.6.6",
-    "@types/react": "~19.3.0",
+    "@types/node": "~26.6.11",
+    "@types/react": "~19.3.3",
     "@types/vscode": "~1.134.0",
     "@vscode/test-cli": "~0.0.15",
     "@vscode/test-electron": "~3.1.0",
     "@vscode/vsce": "~4.1.1",
     "esbuild": "~0.28.2",
-    "lucide-react": "~1.77.0",
+    "lucide-react": "~1.81.0",
     "markdown-it": "~15.0.3",
     "mocha": "~11.8.0",
     "react": "~19.3.1"
   },
   "dependencies": {
-    "vscode-languageclient": "~11.0.0"
+    "vscode-languageclient": "~11.0.1"
   }
 }
