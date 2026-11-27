@@ -6,6 +6,8 @@ export const readerBrowserChecks = [
     "reader section: clipped heading rejected on direct and refresh",
     "reader diagnostics: captures the URL at each focus attempt",
     "reader diagnostics: attributes requests across documents and reloads",
+    "reader section: preserves the phase, step and cause of heading and geometry failures",
+    "reader section: distinguishes a document reload from reopening the URL",
 ];
 
 export function readerBrowserRegressionSource() {
@@ -89,24 +91,6 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
             return locator;
         };
     }
-    await fixture(
-        () => ({ body: normal }),
-        async (current) => {
-            const result = await section(current);
-            assert(result.direct && result.refresh, "Visible heading should pass on direct and refresh");
-        },
-    );
-    let directLoads = 0;
-    await fixture(
-        (pathname) => {
-            if (pathname === "/guide") directLoads++;
-            return { body: normal };
-        },
-        async (current) => {
-            const result = await section(current, "direct");
-            assert(result.direct && !result.refresh && directLoads === 1, "Direct-only probe must stop before refresh");
-        },
-    );
     const sections = [
         // Keep the heading visible so only fragment ownership can reject this landing.
         '<aside id="section">Wrong fragment owner</aside>' + normal,
@@ -198,42 +182,6 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
                                 `${phase}: geometry timeout did not show a clipped fragment heading`,
                             ) && (await current.locator("main h2").count()) === 0,
                             `${phase}: a heading that disappeared was accepted as clipped`,
-                        );
-                    },
-                );
-            }
-            for (const failureStep of ["heading", "geometry"]) {
-                await fixture(
-                    () => ({ body: failureStep === "heading" ? reader("") : badBody }),
-                    async (current) => {
-                        current.setDefaultTimeout(800);
-                        const locate = (page, id, name) => {
-                            const locator = sectionHeading(page, id, name);
-                            if (failureStep !== "geometry") return locator;
-                            const evaluateAll = locator.evaluateAll.bind(locator);
-                            let first = true;
-                            locator.evaluateAll = (...args) => {
-                                if (first) {
-                                    first = false;
-                                    throw new TypeError("Injected TimeoutPolicy failure");
-                                }
-                                return evaluateAll(...args);
-                            };
-                            return locator;
-                        };
-                        const error = await expectSectionTimeout(current, "direct", "geometry", locate).then(
-                            () => null,
-                            (error) => error,
-                        );
-                        const reason =
-                            failureStep === "heading"
-                                ? "TimeoutError: locator.waitFor"
-                                : "TypeError: Injected TimeoutPolicy failure";
-                        assert(
-                            error?.message.startsWith(
-                                `direct: section probe failed with an unexpected error during ${failureStep}: ${reason}`,
-                            ),
-                            `Expected the actual ${failureStep} failure, received ${error?.message ?? "a passing result"}`,
                         );
                     },
                 );
@@ -336,6 +284,90 @@ export async function readerBrowserRegressions(page, checks, checkSection, obser
                 );
             },
         );
+    });
+    testCases.push(async () => {
+        for (const phase of ["direct", "refresh"]) {
+            const expectedLoads = phase === "direct" ? 1 : 2;
+            for (const fault of ["missing heading", "TypeError", "TimeoutError"]) {
+                const missing = fault === "missing heading";
+                let loads = 0;
+                await fixture(
+                    (path) => {
+                        if (path === "/guide") loads++;
+                        return { body: missing && loads === expectedLoads ? reader("") : normal };
+                    },
+                    async (current) => {
+                        current.setDefaultTimeout(800);
+                        const injected = new TypeError("Injected TimeoutPolicy geometry failure");
+                        if (fault === "TimeoutError") injected.name = fault;
+                        const locate = (page, id, name) => {
+                            const locator = sectionHeading(page, id, name);
+                            const evaluateAll = locator.evaluateAll.bind(locator);
+                            let pending = !missing;
+                            locator.evaluateAll = (...args) => {
+                                if (pending && loads === expectedLoads) {
+                                    pending = false;
+                                    throw injected;
+                                }
+                                return evaluateAll(...args);
+                            };
+                            return locator;
+                        };
+                        const failure = await section(current, phase, locate).then(
+                            () => null,
+                            (error) => error,
+                        );
+                        const step = missing ? "heading" : "geometry";
+                        const cause = failure?.cause;
+                        assert(
+                            loads === expectedLoads &&
+                                failure?.phase === phase &&
+                                failure.step === step &&
+                                failure.timedOut === missing &&
+                                (missing
+                                    ? cause?.name === "TimeoutError" && cause.message.includes("locator.waitFor")
+                                    : cause === injected),
+                            `${phase}: ${fault} expected ${step} timedOut=${missing} after ${expectedLoads} document(s); got ${failure?.phase}/${failure?.step} timedOut=${failure?.timedOut}, cause=${cause?.name}: ${cause?.message}, loads=${loads}`,
+                        );
+                    },
+                );
+            }
+        }
+    });
+    testCases.push(async () => {
+        const body =
+            normal +
+            `<script>
+            const visits = JSON.parse(sessionStorage.getItem("guideVisits") || "[]");
+            visits.push(performance.getEntriesByType("navigation")[0]?.type);
+            sessionStorage.setItem("guideVisits", JSON.stringify(visits));
+        </script>`;
+        for (const phase of ["direct", "refresh"]) {
+            await fixture(
+                () => ({ body }),
+                async (current) => {
+                    let documents = 0;
+                    current.on("request", (request) => {
+                        if (
+                            request.isNavigationRequest() &&
+                            request.frame() === current.mainFrame() &&
+                            new URL(request.url()).pathname === "/guide"
+                        )
+                            documents++;
+                    });
+                    const result = await section(current, phase);
+                    const types = await current.evaluate(() => JSON.parse(sessionStorage.getItem("guideVisits")));
+                    const expected = phase === "direct" ? ["navigate"] : ["navigate", "reload"];
+                    assert(
+                        result.direct &&
+                            result.refresh === (phase === "refresh") &&
+                            documents === expected.length &&
+                            JSON.stringify(types) === JSON.stringify(expected),
+                        `${phase}: expected ${expected.length} guide document(s) with navigation ${expected}; got ${documents} with ${types}`,
+                    );
+                },
+            );
+        }
     });
     const results = [];
     const failures = [];
