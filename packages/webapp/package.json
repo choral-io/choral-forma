@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build && vite build --mode static --outDir dist-static",
     "check": "tsc --noEmit",
     "preview": "vite preview",
+    "test:tooling": "node --test \"scripts/*.test.mjs\"",
     "test:mermaid-worker-upgrade": "node scripts/mermaid-worker-upgrade-gate.mjs",
     "generate:link-icon-font": "node scripts/generate-link-icon-font.mjs"
   },

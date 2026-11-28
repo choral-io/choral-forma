@@ -56,7 +56,7 @@ jobs:
           set -euo pipefail
           test "${GITHUB_REF}" = "refs/heads/main"
           [[ "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]
-          node scripts/check-release-version.mjs "v${RELEASE_VERSION}"
+          node scripts/release-version.mjs check "v${RELEASE_VERSION}"
           test "$(git rev-parse HEAD)" = "${SOURCE_SHA}"
           {
             echo "version=${RELEASE_VERSION}"

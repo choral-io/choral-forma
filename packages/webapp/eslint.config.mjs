@@ -25,7 +25,7 @@ export default defineConfig(
                 // classList tokens are checked individually: unknown tokens are caught, but conflicts
                 // or duplicates across arguments/calls are not. Do not combine replace() arguments
                 // as a class list: its old/new tokens are alternatives, not simultaneous classes.
-                // Coverage and known gaps are exercised by scripts/webapp-style-lint.test.mjs.
+                // Coverage and known gaps are exercised by the package's scripts/webapp-style-lint.test.mjs.
                 selectors: [
                     ...getDefaultSelectors(),
                     {

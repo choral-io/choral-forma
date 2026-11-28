@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+
 import { mermaidGeometryChecks } from "./markdown-mermaid-geometry.mjs";
 
 export function markdownBrowserPhases(hosts, sourceIds) {
@@ -125,33 +127,18 @@ export function markdownBrowserPhases(hosts, sourceIds) {
 }
 
 export function validateMarkdownBrowserPhase(result, phase) {
-    if (
-        result?.status !== "FORMA_MARKDOWN_BROWSER_PASSED" ||
-        !Array.isArray(result.results) ||
-        !phase.expectedResults?.length ||
-        JSON.stringify(result.results) !== JSON.stringify(phase.expectedResults)
-    )
-        throw new Error(`Browser phase ${phase.name} did not report its complete expected coverage`);
+    assert.ok(phase.expectedResults?.length, `Browser phase ${phase.name} needs expected coverage`);
+    assert.deepEqual(
+        result?.results,
+        phase.expectedResults,
+        `Browser phase ${phase.name} did not report its complete expected coverage`,
+    );
     if (phase.expectedSourceCases) {
-        const actual = result.sourceCases;
-        if (
-            !actual ||
-            typeof actual !== "object" ||
-            Array.isArray(actual) ||
-            JSON.stringify(Object.keys(actual).sort()) !==
-                JSON.stringify(Object.keys(phase.expectedSourceCases).sort()) ||
-            !Object.entries(phase.expectedSourceCases).every(
-                ([family, ids]) => JSON.stringify(actual[family]) === JSON.stringify(ids),
-            )
-        )
-            throw new Error(`Browser phase ${phase.name} did not report complete source-case coverage`);
+        assert.deepEqual(
+            result.sourceCases,
+            phase.expectedSourceCases,
+            `Browser phase ${phase.name} did not report complete source-case coverage`,
+        );
     }
     return result;
-}
-
-export function parseMarkdownBrowserPhase(output, phase) {
-    if (/^### Error(?:\r?\n|$)/mu.test(output)) throw new Error(`Browser phase ${phase.name}: ${output}`);
-    const reports = [...output.matchAll(/^### Result\s*\n([^\n]+)/gmu)];
-    if (reports.length !== 1) throw new Error(`Browser phase ${phase.name} must report exactly one result`);
-    return validateMarkdownBrowserPhase(JSON.parse(reports[0][1]), phase);
 }

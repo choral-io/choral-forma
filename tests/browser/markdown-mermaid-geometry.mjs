@@ -5,11 +5,10 @@ export const mermaidGeometryChecks = [
     "subgraph self-loop preserves the original source",
 ];
 
-/** Serialized into playwright-cli and run against both Markdown readers. */
-export async function markdownMermaidGeometry(page, options) {
+/** Checks the rendered diagrams in both Markdown readers. */
+export async function markdownMermaidGeometry(browser, options) {
     const results = [];
     const failures = [];
-    const browser = page.context().browser();
     for (const host of options.hosts) {
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
         try {
@@ -147,5 +146,5 @@ export async function markdownMermaidGeometry(page, options) {
         }
     }
     if (failures.length) throw new Error(failures.join("\n"));
-    return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases: {} };
+    return { results, sourceCases: {} };
 }

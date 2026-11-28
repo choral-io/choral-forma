@@ -1,4 +1,8 @@
-export const staticNavigationBrowserAssertions = 24;
+const staticNavigationBrowserAssertions = 24;
+
+export function expectedStaticBrowserAssertions(samples, fixture) {
+    return samples.length * 4 + (fixture ? 4 + staticNavigationBrowserAssertions : 0);
+}
 
 /** Runs in Playwright's isolated browser runner against the generated fixture. */
 export async function runStaticNavigationFailureScenarios(parentPage, { origin, root, base, fixture }, observe) {

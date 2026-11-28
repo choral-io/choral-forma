@@ -1,11 +1,12 @@
-/** Runs against real WebApp/static hosts; serialized into playwright-cli's isolated runner. */
-export async function markdownBrowserScenarios(page, options, observeReader) {
+import { observeReader } from "../../scripts/reader-browser-diagnostics.mjs";
+
+/** Runs against the real WebApp and static hosts in fresh browser contexts. */
+export async function markdownBrowserScenarios(browser, options, attach) {
     const assert = (condition, message) => {
         if (!condition) throw new Error(message);
     };
     const results = [];
     const sourceCases = {};
-    const browser = page.context().browser();
     const isWebKit = browser.browserType().name() === "webkit";
     const observers = new WeakMap();
     async function observedPage(context) {
@@ -14,161 +15,35 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
         return current;
     }
     const failure = async (current, name, error, diagnostics = {}) => {
-        const navigation = await observers.get(current)(error.expectedId);
+        const navigation = await observers
+            .get(current)(error.expectedId)
+            .catch((captureError) => ({
+                captureError: captureError.message,
+            }));
+        const path = `${options.artifacts}/${name}-failure.png`;
         let screenshotError;
         try {
             await current.screenshot({
-                path: `${options.artifacts}/${name}-failure.png`,
+                path,
                 fullPage: true,
                 timeout: 5000,
             });
         } catch (captureError) {
             screenshotError = captureError.message;
         }
-        throw new Error(
-            `${error.stack ?? error}\nDiagnostics: ${JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation })}`,
-        );
+        const details = JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation });
+        try {
+            await attach("markdown-diagnostics", { body: details, contentType: "application/json" });
+            if (!screenshotError) await attach(`${name}-failure`, { path, contentType: "image/png" });
+        } catch (attachmentError) {
+            throw new Error(`${error.message}\nDiagnostics: ${details}\nAttachment error: ${attachmentError.message}`, {
+                cause: error,
+            });
+        }
+        throw error;
     };
     const footnoteBackref = (current, id) =>
         current.locator(`a[data-footnote-backref][href$="#${encodeURIComponent(id)}"]`);
-    if (options.mode === "getting-started-directory") {
-        for (const host of options.hosts) {
-            const surfaces =
-                host.name === "static"
-                    ? [
-                          ["static enhanced", true],
-                          ["static without JavaScript", false],
-                      ]
-                    : [["WebApp", true]];
-            for (const [surface, javaScriptEnabled] of surfaces) {
-                const label = `${surface}: directory and exact index document`;
-                const context = await browser.newContext({ javaScriptEnabled });
-                context.setDefaultTimeout(12_000);
-                if (javaScriptEnabled) {
-                    await context.addInitScript(() => {
-                        Object.defineProperty(navigator, "clipboard", {
-                            value: {
-                                async writeText(value) {
-                                    window.formaTestCopiedPath = value;
-                                },
-                            },
-                        });
-                    });
-                }
-                const current = await observedPage(context);
-                const base = host.origin + host.root;
-                const main = current.locator(javaScriptEnabled ? "[data-enhancement-ready] main" : "main");
-                const sourcePath = "notes/index.md";
-                const fragmentState = javaScriptEnabled ? "focus" : "target";
-                const listing = javaScriptEnabled
-                    ? main.getByRole("list", { name: "Pages", exact: true })
-                    : main
-                          .locator("section")
-                          .filter({ has: current.getByRole("heading", { name: "Entries", exact: true }) })
-                          .getByRole("list");
-                const summary = main
-                    .locator("header")
-                    .getByText("Find the main guides in the getting-started workspace.", { exact: true });
-                const introduction = main.locator('[data-reader="markdown"]');
-                const openingParagraph = introduction.getByText(
-                    "These notes show how to organize, connect, read, and publish your workspace pages.",
-                    { exact: true },
-                );
-                const authoredLink = introduction.getByRole("link", {
-                    name: "Learn how to link notes",
-                    exact: true,
-                });
-                const closingParagraph = introduction.getByText(
-                    "For local browsing and static publishing, start with the Getting Started guide.",
-                    { exact: true },
-                );
-                const waitForRoute = (path, hash = "") =>
-                    current.waitForURL(
-                        (url) => url.origin + url.pathname.replace(/\/$/u, "") + url.hash === base + path + hash,
-                    );
-                const checkSourceCopy = async (sourcePath) => {
-                    await main.locator(`header code[title="${sourcePath}"]`).waitFor();
-                    await main.getByRole("button", { name: `Copy source path ${sourcePath}`, exact: true }).click();
-                    await main.getByRole("button", { name: `Copied source path ${sourcePath}`, exact: true }).waitFor();
-                    const copied = await current.evaluate(() => {
-                        const path = window.formaTestCopiedPath;
-                        delete window.formaTestCopiedPath;
-                        return path;
-                    });
-                    assert(copied === sourcePath, `${label}: expected to copy ${sourcePath}, got ${copied}`);
-                };
-                try {
-                    const response = await current.goto(base + "/notes#start-here");
-                    assert(response?.ok(), `${label}: directory response ${response?.status()}`);
-                    await waitForRoute("/notes", "#start-here");
-                    await main.getByRole("heading", { level: 1, name: "Notes Overview", exact: true }).waitFor();
-                    await summary.waitFor({ state: "visible" });
-                    await main.locator(`#start-here:${fragmentState}`).waitFor();
-                    await listing.locator(`a[href="${host.root}/notes/markdown-reader.md"]`).waitFor();
-                    const orderedContent = [openingParagraph, authoredLink, listing, closingParagraph];
-                    await Promise.all(orderedContent.map((element) => element.waitFor({ state: "visible" })));
-                    const authoredTarget = base + "/notes/connect-pages.md#internal-links";
-                    assert(
-                        new URL(await authoredLink.getAttribute("href"), current.url()).href === authoredTarget,
-                        `${label}: introductory link did not resolve from the directory`,
-                    );
-
-                    const elements = await Promise.all(orderedContent.map((element) => element.elementHandle()));
-                    const inOrder = await current.evaluate(
-                        (nodes) =>
-                            nodes
-                                .slice(1)
-                                .every((node, index) =>
-                                    Boolean(
-                                        nodes[index].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
-                                    ),
-                                ),
-                        elements,
-                    );
-                    assert(
-                        inOrder,
-                        `${label}: expected the directory list after the introductory content and before the closing paragraph`,
-                    );
-                    assert(
-                        (await main.locator('a[href$="/.index.md"]').count()) === 0,
-                        `${label}: directory exposed its intro as a page`,
-                    );
-                    for (const path of ["/notes/.index.md", "/-/raw/notes/.index.md"]) {
-                        const hidden = await context.request.get(base + path);
-                        assert(hidden.status() === 404, `${label}: ${path} returned HTTP ${hidden.status()}`);
-                    }
-                    await main.locator('header code[title="notes"]').waitFor();
-                    if (javaScriptEnabled) await checkSourceCopy("notes");
-                    await listing.locator(`a[href="${host.root}/${sourcePath}"]`).click();
-                    await waitForRoute(`/${sourcePath}`);
-                    await main
-                        .getByRole("heading", { level: 1, name: "Index Files and Directory Pages", exact: true })
-                        .waitFor();
-                    await main.getByRole("heading", { level: 2, name: "Exact Document Path", exact: true }).waitFor();
-                    await listing.waitFor({ state: "detached" });
-                    if (javaScriptEnabled) await checkSourceCopy(sourcePath);
-                    await main.getByRole("link", { name: "Notes directory", exact: true }).click();
-                    await waitForRoute("/notes", "#start-here");
-                    await authoredLink.click();
-                    await waitForRoute("/notes/connect-pages.md", "#internal-links");
-                    await main.locator(`#internal-links:${fragmentState}`).waitFor();
-                    results.push(label);
-                } catch (error) {
-                    await failure(
-                        current,
-                        `getting-started-${host.name}-${javaScriptEnabled ? "js" : "no-js"}`,
-                        error,
-                        {
-                            surface,
-                        },
-                    );
-                } finally {
-                    await context.close();
-                }
-            }
-        }
-        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
-    }
     if (options.mode === "route-matrix") {
         const source = "/notes/query-fragment-navigation.md";
         const target = "/notes/contract-target.md";
@@ -244,7 +119,7 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                 }
             }
         }
-        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+        return { results, sourceCases };
     }
     const expectFootnoteLanding = async (current, label, { id, fragment = id, search = "", foldCount }) => {
         try {
@@ -531,7 +406,7 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
                 await context.close();
             }
         }
-        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases: { disclosures: completed } };
+        return { results, sourceCases: { disclosures: completed } };
     }
     const readingSyntax = async (current, host, noScript = false) => {
         assert(options.readingCases?.length > 0, `${host.name}: P1 source cases missing`);
@@ -2027,7 +1902,7 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
         }
     }
     if (options.mode === "enhanced" || options.mode === "navigation") {
-        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+        return { results, sourceCases };
     }
     const host = options.hosts.find((host) => host.name === "static");
     const context = await browser.newContext({ javaScriptEnabled: false });
@@ -2117,5 +1992,5 @@ export async function markdownBrowserScenarios(page, options, observeReader) {
     } finally {
         await context.close();
     }
-    return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
+    return { results, sourceCases };
 }

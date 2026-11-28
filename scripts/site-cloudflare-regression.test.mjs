@@ -1,22 +1,28 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { appendFile, chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { appendFile, mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { chromium } from "@playwright/test";
+
 import {
+    browserCoverage,
     command,
-    fileTreeDigest,
     localGateInputs,
     localSourceIdentity,
     missingInputs,
     readHostConfig,
     strictGateInputs,
     verifyReport,
+    waitForBrowserRunner,
 } from "./site-cloudflare-regression.mjs";
+import { fileTreeDigest } from "./static-site-artifact.mjs";
 
 const execute = promisify(execFile);
 const script = fileURLToPath(new URL("./site-cloudflare-regression.mjs", import.meta.url));
@@ -143,6 +149,63 @@ test("the full-file fingerprint rejects links and is stable independent of creat
     }
 });
 
+function coverageAttachment(record) {
+    return {
+        name: "cloudflare-browser-coverage",
+        contentType: "application/json",
+        body: Buffer.from(JSON.stringify(record)).toString("base64"),
+    };
+}
+
+test("a browser case must run exactly once and report its complete assertion coverage", () => {
+    const name = "positive-root";
+    const evidence = { name, assertions: 96, browserVersion: "159.0.8154.6" };
+    const result = { status: "passed", retry: 0, attachments: [coverageAttachment(evidence)] };
+    const test = { status: "expected", expectedStatus: "passed", results: [result] };
+    const spec = { title: name, tests: [test] };
+    const report = { errors: [], suites: [{ suites: [{ specs: [spec] }] }] };
+    const withSpecs = (specs) => ({ ...report, suites: [{ specs }] });
+    const withTest = (overrides) => withSpecs([{ ...spec, tests: [{ ...test, ...overrides }] }]);
+    const withResult = (overrides) => withTest({ results: [{ ...result, ...overrides }] });
+    const withEvidence = (overrides) =>
+        withResult({ attachments: [coverageAttachment({ ...evidence, ...overrides })] });
+
+    assert.deepEqual(browserCoverage(report, name, 96), { assertions: 96, browserVersion: "159.0.8154.6" });
+    for (const invalid of [withSpecs([]), withSpecs([spec, spec]), withSpecs([{ ...spec, title: "candidate" }])]) {
+        assert.throws(() => browserCoverage(invalid, name, 96), /Expected exactly one Playwright test/u);
+    }
+    for (const invalid of [
+        withTest({ status: "skipped", expectedStatus: "skipped", results: [] }),
+        withResult({ status: "interrupted" }),
+        withResult({ status: "failed" }),
+        withTest({ expectedStatus: "failed", results: [{ ...result, status: "failed" }] }),
+        withTest({
+            status: "flaky",
+            results: [
+                { ...result, status: "failed" },
+                { ...result, retry: 1 },
+            ],
+        }),
+        withResult({ retry: 1 }),
+        withSpecs([{ ...spec, tests: [test, test] }]),
+    ]) {
+        assert.throws(() => browserCoverage(invalid, name, 96), /must run once and pass/u);
+    }
+    assert.throws(
+        () => browserCoverage({ ...report, errors: [{ message: "runner failed" }] }, name, 96),
+        /Playwright errors/u,
+    );
+    for (const attachments of [[], [coverageAttachment(evidence), coverageAttachment(evidence)]]) {
+        assert.throws(
+            () => browserCoverage(withResult({ attachments }), name, 96),
+            /Missing or duplicate browser coverage/u,
+        );
+    }
+    assert.throws(() => browserCoverage(withEvidence({ name: "candidate" }), name, 96), /candidate/u);
+    assert.throws(() => browserCoverage(withEvidence({ assertions: 95 }), name, 96), /Browser assertions incomplete/u);
+    assert.throws(() => browserCoverage(withEvidence({ browserVersion: "" }), name, 96), /Missing Chromium version/u);
+});
+
 test("a missing browser fails the real entrypoint and replaces any stale passed report", async (t) => {
     const options = await fixture(t);
     await assert.rejects(
@@ -158,8 +221,6 @@ test("a missing browser fails the real entrypoint and replaces any stale passed 
             options.report,
             "--forma-bin",
             process.execPath,
-            "--playwright-cli",
-            process.execPath,
             "--chromium-executable",
             join(options.root, "missing-browser"),
         ]),
@@ -170,6 +231,7 @@ test("a missing browser fails the real entrypoint and replaces any stale passed 
     assert.equal(report.cleanup.status, "passed");
     assert.match(report.failures[0], /missing-browser/u);
     t.after(() => rm(report.evidenceDirectory, { force: true, recursive: true }));
+    await assert.rejects(verifyReport(options), /passed/u);
 });
 
 test("a subprocess timeout fails the gate command", async () => {
@@ -179,6 +241,31 @@ test("a subprocess timeout fails the gate command", async () => {
     });
 });
 
+test("a browser runner that exits zero after the outer deadline is rejected", async () => {
+    const { promise: closed, resolve, reject } = Promise.withResolvers();
+    const signals = [];
+    const child = {
+        exitCode: null,
+        signalCode: null,
+        kill(signal) {
+            signals.push(signal);
+            this.exitCode = 0;
+            resolve([0, null]);
+            return true;
+        },
+    };
+    const deadline = setTimeout(() => reject(new Error("Browser runner was never interrupted")), 5_000);
+    try {
+        await assert.rejects(waitForBrowserRunner(child, closed, new AbortController().signal, 1), {
+            name: "TimeoutError",
+        });
+        assert.deepEqual(signals, ["SIGINT"]);
+        assert.deepEqual(await closed, [0, null]);
+    } finally {
+        clearTimeout(deadline);
+    }
+});
+
 test("names every input a gate or verify-only run lacks", () => {
     assert.deepEqual(missingInputs({ config: "wrangler.jsonc" }, true), ["artifact-dir", "source-sha", "report"]);
     assert.deepEqual(missingInputs({}, false), [
@@ -186,93 +273,36 @@ test("names every input a gate or verify-only run lacks", () => {
         "artifact-dir",
         "source-sha",
         "config",
-        "playwright-cli",
         "chromium-executable",
         "report",
     ]);
 });
 
-test("fills a local gate run with the repository's tools and the cached Chromium", async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "forma-site-local-inputs-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const bin = join(root, "bin");
-    await mkdir(bin);
-    const cli = join(bin, process.platform === "win32" ? "playwright-cli.cmd" : "playwright-cli");
-    await writeFile(cli, "");
-    await chmod(cli, 0o755);
-    const parts = {
-        darwin: ["chrome-mac-arm64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"],
-        linux: ["chrome-linux64", "chrome"],
-        win32: ["chrome-win64", "chrome.exe"],
-    }[process.platform];
-    const browsers = join(root, "browsers");
-    for (const build of ["chromium-1200", "chromium-1254", "chromium_headless_shell-1300"]) {
-        const executable = join(browsers, build, ...parts);
-        await mkdir(join(executable, ".."), { recursive: true });
-        await writeFile(executable, "");
-        await chmod(executable, 0o755);
-    }
-    const environment = { PATH: bin, PATHEXT: ".CMD", PLAYWRIGHT_BROWSERS_PATH: browsers };
-
-    const filled = await localGateInputs({ "artifact-dir": join(root, "site"), "source-sha": sourceSha }, environment);
-    assert.equal(filled["playwright-cli"], cli);
-    assert.equal(filled["chromium-executable"], join(browsers, "chromium-1254", ...parts));
-    assert.equal(filled["artifact-dir"], join(root, "site"));
+test("fills a local gate run with the repository's tools and pinned Chromium", async () => {
+    const given = { "artifact-dir": "site", "source-sha": sourceSha };
+    const filled = await localGateInputs(given, {});
+    assert.equal(filled["chromium-executable"], chromium.executablePath());
+    assert.equal(filled["artifact-dir"], "site");
     assert.equal(filled["source-sha"], sourceSha);
     assert.match(filled.config, /wrangler\.jsonc$/u);
     assert.deepEqual(missingInputs(filled, false), []);
 
-    // Given inputs and environment overrides win over discovery.
-    const overridden = await localGateInputs(
-        { "artifact-dir": "site", "source-sha": sourceSha, "playwright-cli": "cli", "report": "r.json" },
-        { ...environment, FORMA_SITE_CHROMIUM: "chrome" },
-    );
-    assert.equal(overridden["playwright-cli"], "cli");
-    assert.equal(overridden["chromium-executable"], "chrome");
-    assert.equal(overridden.report, "r.json");
-
-    const bare = await localGateInputs({ "artifact-dir": "site", "source-sha": sourceSha }, { PATH: "" });
-    assert.deepEqual(missingInputs(bare, false), ["playwright-cli", "chromium-executable"]);
+    const environment = { FORMA_SITE_CHROMIUM: "env-chrome" };
+    assert.equal((await localGateInputs(given, environment))["chromium-executable"], "env-chrome");
+    const overridden = await localGateInputs({ ...given, "chromium-executable": "explicit-chrome" }, environment);
+    assert.equal(overridden["chromium-executable"], "explicit-chrome");
 });
 
-test("preparation failures replace stale success, including missing tools and failed builds", async (t) => {
+test("a failed local preparation build replaces any stale passed report", async (t) => {
     const options = await fixture(t);
     const environment = {
         ...process.env,
         CI: "false",
         GITHUB_ACTIONS: "false",
-        PATH: "",
-        HOME: options.root,
-        PLAYWRIGHT_BROWSERS_PATH: options.root,
     };
-    delete environment.FORMA_SITE_CHROMIUM;
-    delete environment.FORMA_SITE_PLAYWRIGHT_CLI;
-    const common = [
-        script,
-        "--source-sha",
-        options.sourceSha,
-        "--config",
-        options.config,
-        "--report",
-        options.report,
-        "--forma-bin",
-        process.execPath,
-        "--playwright-cli",
-        process.execPath,
-    ];
-    await assert.rejects(
-        execute(process.execPath, [...common, "--artifact-dir", options.artifactDir], { env: environment }),
-        /Missing --chromium-executable/u,
-    );
-    let report = JSON.parse(await readFile(options.report, "utf8"));
-    assert.equal(report.status, "failed");
-    assert.equal(report.completed, false);
-    assert.match(report.failures[0], /Missing --chromium-executable/u);
 
     // Node is deliberately not a Forma binary: the auto-build must fail without starting browsers.
-    const gitPath = process.env.PATH;
     const head = (await execute("git", ["rev-parse", "HEAD"])).stdout.trim();
-    await writeFile(options.report, JSON.stringify(options.valid));
     await assert.rejects(
         execute(
             process.execPath,
@@ -286,15 +316,13 @@ test("preparation failures replace stale success, including missing tools and fa
                 options.report,
                 "--forma-bin",
                 process.execPath,
-                "--playwright-cli",
-                process.execPath,
                 "--chromium-executable",
                 process.execPath,
             ],
-            { env: { ...environment, PATH: gitPath } },
+            { env: environment },
         ),
     );
-    report = JSON.parse(await readFile(options.report, "utf8"));
+    const report = JSON.parse(await readFile(options.report, "utf8"));
     assert.equal(report.status, "failed");
     assert.equal(report.completed, false);
     assert.match(report.failures[0], /Command failed/u);
@@ -310,7 +338,7 @@ test("CI and verify-only never discover missing inputs; verification leaves repo
             execute(process.execPath, [script, "--report", options.report], {
                 env: { ...process.env, CI: "false", GITHUB_ACTIONS: "false", ...environment },
             }),
-            /Missing --forma-bin, --artifact-dir, --source-sha, --config, --playwright-cli, --chromium-executable/u,
+            /Missing --forma-bin, --artifact-dir, --source-sha, --config, --chromium-executable/u,
         );
         assert.equal(JSON.parse(await readFile(options.report, "utf8")).status, "failed");
     }
@@ -324,6 +352,64 @@ test("CI and verify-only never discover missing inputs; verification leaves repo
     );
     assert.equal(await readFile(options.report, "utf8"), original);
 });
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+    test(`verify-only interrupted by ${signal} produces no success and leaves the report untouched`, async (t) => {
+        if (process.platform === "win32") return t.skip("The test requires a POSIX FIFO and process signals");
+        const { root, artifactDir, sourceSha, report } = await fixture(t);
+        const original = await readFile(report);
+        const config = join(root, "blocked-config.jsonc");
+        await execute("mkfifo", [config]);
+        const running = execute(
+            process.execPath,
+            [
+                script,
+                "--verify-only",
+                "--artifact-dir",
+                artifactDir,
+                "--source-sha",
+                sourceSha,
+                "--config",
+                config,
+                "--report",
+                report,
+            ],
+            { timeout: 10_000, killSignal: "SIGKILL" },
+        );
+        const result = running.then(
+            ({ stdout }) => ({ stdout, signal: null }),
+            ({ stdout, signal }) => ({ stdout, signal }),
+        );
+        let writer;
+        try {
+            // The nonblocking write end opens only once verification reaches the config read.
+            while (!writer) {
+                writer = await open(config, constants.O_WRONLY | constants.O_NONBLOCK).catch((error) => {
+                    if (error.code !== "ENXIO") throw error;
+                });
+                if (writer) break;
+                assert.equal(running.child.exitCode, null, "Verifier exited before reading the configuration");
+                assert.equal(running.child.signalCode, null, "Verifier stopped before reading the configuration");
+                await delay(10);
+            }
+            assert(running.child.kill(signal));
+            // Release the unchanged config only if the verifier keeps running after the signal.
+            if ((await Promise.race([result, delay(100)])) === undefined) {
+                await writer.writeFile(configSource).catch((error) => {
+                    if (error.code !== "EPIPE") throw error;
+                });
+            }
+            await writer.close();
+            writer = undefined;
+            assert.deepEqual(await result, { stdout: "", signal });
+        } finally {
+            await writer?.close();
+            if (running.child.exitCode === null && running.child.signalCode === null) running.child.kill();
+            await result;
+        }
+        assert.deepEqual(await readFile(report), original);
+    });
+}
 
 test("a temporary directory failure preserves the failed report and its cause", async (t) => {
     const options = await fixture(t);
@@ -343,8 +429,6 @@ test("a temporary directory failure preserves the failed report and its cause", 
                 "--report",
                 options.report,
                 "--forma-bin",
-                process.execPath,
-                "--playwright-cli",
                 process.execPath,
                 "--chromium-executable",
                 process.execPath,

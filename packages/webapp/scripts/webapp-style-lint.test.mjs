@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const cwd = fileURLToPath(new URL("../packages/webapp/", import.meta.url));
+const cwd = fileURLToPath(new URL("../", import.meta.url));
 const eslint = new ESLint({ cwd });
 // Use a real included file so projectService checks the probe instead of rejecting its path.
 // lintText never writes the probe into the source file. Keep the actual repository config loaded.

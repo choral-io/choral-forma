@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
 
-import { terminateChildProcess } from "../packages/webapp/scripts/child-process.mjs";
+import { terminateChildProcess } from "./child-process.mjs";
 
 test("waits for the child close event after requesting termination", async () => {
     const child = new EventEmitter();

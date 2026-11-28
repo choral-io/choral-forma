@@ -61,11 +61,11 @@ run = "node scripts/lsp-performance-benchmark.mjs --mode baseline"
 
 [tasks."version:set"]
 description = "Set the aligned Forma release version"
-run = "node scripts/set-release-version.mjs"
+run = "node scripts/release-version.mjs set"
 
 [tasks."version:check"]
 description = "Check aligned Forma release versions"
-run = "node scripts/check-release-version.mjs"
+run = "node scripts/release-version.mjs check"
 
 [tasks."release:verify"]
 description = "Verify a published Forma release and managed CLI installation"
@@ -80,11 +80,11 @@ description = "Run all project checks"
 depends = ["check:pnpm", "test:pnpm", "check:rust", "check:zed", "test:rust"]
 
 [tasks."test:markdown:browser"]
-description = "Run real WebApp and static Markdown browser regressions (requires playwright-cli and installed browser)"
+description = "Run WebApp and static Markdown regressions with Playwright Test and an installed browser"
 depends = ["build:pnpm"]
-run = "cargo build --locked --bin forma && node scripts/markdown-browser-regression.mjs"
+run = "cargo build --locked --bin forma && pnpm test:browser:markdown"
 
 [tasks."test:site:cloudflare"]
-description = "Build the production static site and verify it with the local Cloudflare runtime and isolated Chromium (requires playwright-cli and installed Chromium)"
+description = "Build the production static site and verify it with local Cloudflare and Playwright Test (requires installed Chromium)"
 depends = ["build:pnpm"]
 run = "cargo build --locked --bin forma && node scripts/site-cloudflare-regression.mjs"

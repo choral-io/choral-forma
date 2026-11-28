@@ -15,8 +15,11 @@
   "scripts": {
     "lint": "pnpm --recursive --if-present lint",
     "build": "pnpm --recursive --if-present build",
-    "test": "vitest run extensions/vscode/src packages/graph-view/src packages/shared/src packages/temporal-view/src packages/webapp/src && node --test scripts/*.test.mjs",
-    "check": "pnpm peers check && node scripts/check-release-version.mjs && pnpm --recursive --if-present check && prettier --check . --cache",
+    "test": "vitest run extensions/vscode/src packages/graph-view/src packages/shared/src packages/temporal-view/src packages/webapp/src && node --test scripts/*.test.mjs tests/browser/*.test.mjs && pnpm --filter @choral-forma/webapp test:tooling",
+    "test:browser:getting-started": "playwright test --config tests/browser/playwright.config.mjs",
+    "test:browser:markdown": "playwright test --config tests/browser/markdown.config.mjs",
+    "test:browser:reader": "playwright test --config tests/browser/reader.config.mjs",
+    "check": "pnpm peers check && node scripts/release-version.mjs check && pnpm --recursive --if-present check && prettier --check . --cache",
     "check:examples": "node scripts/check-example-workspaces.mjs",
     "format": "prettier --write . --cache",
     "site:deploy": "wrangler deploy",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "~10.0.1",
+    "@playwright/test": "1.65.1",
     "@types/node": "~26.6.11",
     "eslint": "~10.15.0",
     "eslint-config-prettier": "~10.1.8",

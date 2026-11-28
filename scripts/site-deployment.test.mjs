@@ -104,8 +104,9 @@ test("binds the named static artifact to the current remote main commit", () => 
     assert.equal(build.steps[gate]["continue-on-error"], undefined);
     assert.match(
         build.steps[gate].run,
-        /--forma-bin.*--artifact-dir.*--source-sha.*--config.*--playwright-cli.*--chromium-executable.*--report/su,
+        /--forma-bin.*--artifact-dir.*--source-sha.*--config.*--chromium-executable.*--report/su,
     );
+    assert.doesNotMatch(build.steps[gate].run, /--playwright-cli\b/u);
     const verify = deploy.steps.findIndex((step) => step.run?.includes("--verify-only"));
     const publish = deploy.steps.findIndex((step) => step.run?.includes("pnpm site:deploy"));
     assert(verify >= 0 && verify < publish);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { constants } from "node:fs";
+import { constants, renameSync } from "node:fs";
 import {
     access,
     appendFile,
@@ -10,15 +10,14 @@ import {
     lstat,
     mkdir,
     mkdtemp,
+    open,
     readFile,
-    readdir,
     readlink,
     realpath,
-    rename,
     rm,
-    stat,
     writeFile,
 } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -28,68 +27,32 @@ import { parseArgs, promisify } from "node:util";
 
 import ts from "typescript";
 
-import { observeReader, sectionHeading } from "./reader-browser-diagnostics.mjs";
-
 import {
-    runStaticNavigationFailureScenarios,
-    staticNavigationBrowserAssertions,
-} from "./static-navigation-browser-scenarios.mjs";
+    artifactFile,
+    bootstrap,
+    fileTreeDigest,
+    HostMismatch,
+    readManifest,
+    routeIdentity,
+    sameTarget,
+    sha256,
+    validateEnvelope,
+} from "./static-site-artifact.mjs";
+
+import { expectedStaticBrowserAssertions } from "./static-navigation-browser-scenarios.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const wrangler = resolve(root, "node_modules", ".bin", "wrangler");
 const execute = promisify(execFile);
-const shaPattern = /^[0-9a-f]{64}$/u;
-const artifactSchema = 4;
+const require = createRequire(import.meta.url);
 const pass = /^(passed|warning)$/u;
 const requiredGroups = ["positive", "negative", "candidate"];
 const selector = 'script[data-forma-static-workspace][type="application/json"]';
 const schema = 1;
 
-class HostMismatch extends Error {}
-
-function sha256(data) {
-    return createHash("sha256").update(data).digest("hex");
-}
-
 function assertOutside(directory, path, description) {
     const file = relative(directory, path);
     assert(file === ".." || file.startsWith(`..${sep}`) || isAbsolute(file), description);
-}
-
-function artifactFile(directory, path) {
-    assert(typeof path === "string" && !path.includes("\\"));
-    assert(
-        path.split("/").every((part) => part && part !== "." && part !== ".."),
-        `Unsafe artifact path: ${path}`,
-    );
-    return resolve(directory, path);
-}
-
-export async function fileTreeDigest(directory) {
-    const files = [];
-    async function visit(path) {
-        const target = path ? artifactFile(directory, path) : directory;
-        const item = await lstat(target);
-        if (item.isDirectory()) {
-            for (const child of await readdir(target)) {
-                await visit(path ? `${path}/${child}` : child);
-            }
-        } else {
-            assert(item.isFile(), `Artifact entry is not a regular file: ${path}`);
-            files.push(path);
-        }
-    }
-    await visit("");
-    files.sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
-    const tree = createHash("sha256");
-    for (const path of files) {
-        const utf8 = Buffer.from(path);
-        const length = Buffer.alloc(8);
-        length.writeBigUInt64BE(BigInt(utf8.length));
-        tree.update(length).update(utf8);
-        tree.update(Buffer.from(sha256(await readFile(artifactFile(directory, path))), "hex"));
-    }
-    return { treeSha256: tree.digest("hex"), fileCount: files.length };
 }
 
 export async function readHostConfig(path) {
@@ -131,49 +94,6 @@ export async function readHostConfig(path) {
         configSha256: sha256(content),
         localHostConfigSha256: sha256(JSON.stringify(local)),
     };
-}
-
-function bootstrap(html) {
-    const data = html.match(/<script\s+data-forma-static-workspace\s+type="application\/json">([^]*?)<\/script>/u);
-    if (!data) throw new HostMismatch("HTML is missing the Forma bootstrap");
-    const config = JSON.parse(data[1]);
-    assert.equal(config.runtimeVersion, 1);
-    assert.equal(config.dataSchemaVersion, artifactSchema);
-    assert.match(config.artifactId, shaPattern);
-    assert.match(config.rootPath, /^\/(?:[A-Za-z0-9_~.-]+(?:\/[A-Za-z0-9_~.-]+)*)?$/u);
-    assert(!config.rootPath.split("/").some((segment) => segment === "." || segment === ".."));
-    const prefix = config.rootPath === "/" ? "" : config.rootPath;
-    assert.equal(config.dataBaseUrl, `${prefix}/-/data/${config.artifactId}`);
-    return config;
-}
-
-function validateEnvelope(record, artifactId) {
-    assert.equal(record.schemaVersion, artifactSchema);
-    assert.equal(record.artifactId, artifactId);
-}
-
-function routeIdentity({ id, kind, path, outputPath, sourcePath, taxonomyId }) {
-    return { id, kind, path, outputPath, sourcePath, taxonomyId };
-}
-
-function sameTarget(actual, expected) {
-    return JSON.stringify(routeIdentity(actual ?? {})) === JSON.stringify(routeIdentity(expected));
-}
-
-export async function readManifest(directory) {
-    const config = bootstrap(await readFile(artifactFile(directory, "index.html"), "utf8"));
-    const dataPath = `-/data/${config.artifactId}`;
-    const manifest = JSON.parse(await readFile(artifactFile(directory, `${dataPath}/dashboard.json`), "utf8"));
-    validateEnvelope(manifest, config.artifactId);
-    assert.match(manifest.status, pass);
-    for (const key of ["routes", "entries", "directories", "views", "resources"]) assert(Array.isArray(manifest[key]));
-    assert.equal(new Set(manifest.routes.map(({ path }) => path)).size, manifest.routes.length);
-    const home = manifest.routes.find(({ kind }) => kind === "home");
-    assert(home && sameTarget(config.pageTarget, home) && config.pageRoutePath === home.path);
-    const details = [...manifest.entries.flatMap((entry) => [entry, ...entry.variants]), ...manifest.views];
-    assert.equal(new Set(details.map((detail) => detail.dataPath)).size, details.length);
-    for (const detail of details) assert.match(detail.dataPath, /^(?:entries|views)\/[0-9a-f]{64}\.json$/u);
-    return { config, dataPath, manifest, details };
 }
 
 async function candidateBinding({ artifactDir, sourceSha, config, report }) {
@@ -366,21 +286,22 @@ async function port() {
     return value;
 }
 
-async function stopService(processId, closed) {
-    function kill(signal) {
-        try {
-            process.kill(-processId, signal);
-        } catch (error) {
-            if (error.code !== "ESRCH") throw error;
-        }
+function signalGroup(processId, signal) {
+    try {
+        process.kill(-processId, signal);
+    } catch (error) {
+        if (error.code !== "ESRCH") throw error;
     }
-    kill("SIGTERM");
-    const timeout = setTimeout(() => kill("SIGKILL"), 4_000);
+}
+
+async function stopService(processId, closed) {
+    signalGroup(processId, "SIGTERM");
+    const timeout = setTimeout(() => signalGroup(processId, "SIGKILL"), 4_000);
     try {
         return await closed;
     } finally {
         clearTimeout(timeout);
-        kill("SIGKILL");
+        signalGroup(processId, "SIGKILL");
     }
 }
 
@@ -447,11 +368,17 @@ async function withLocalService(context, name, binary, cwd, args, operation) {
         log += chunk;
     });
     const closed = once(child, "close");
+    let spawnError;
+    void closed.catch((error) => {
+        spawnError = error;
+    });
+    let failure;
     try {
         const startup = AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
         let ready = false;
         while (!ready) {
             startup.throwIfAborted();
+            if (spawnError) throw spawnError;
             if (child.exitCode !== null || child.signalCode !== null)
                 throw new Error(`Local process exited during ${name} startup`);
             const probe = await fetch(origin, { signal: startup }).catch(() => undefined);
@@ -465,15 +392,24 @@ async function withLocalService(context, name, binary, cwd, args, operation) {
         return await operation(origin);
     } catch (error) {
         error.message += `\nLocal process ${name}: ${log.slice(-2000)}`;
+        failure = error;
         throw error;
     } finally {
-        if (child.pid) {
-            const [code, termination] = await stopService(child.pid, closed);
-            processes.push({ name, code, termination });
-        } else {
-            await closed;
+        try {
+            if (child.pid) {
+                const [code, termination] = await stopService(child.pid, closed);
+                processes.push({ name, code, termination });
+            }
+        } catch (error) {
+            processes.push({ name, cleanupError: error.message });
+            throw failure
+                ? new AggregateError([failure, error], `${failure.message}\nCleanup of ${name}: ${error.message}`, {
+                      cause: failure,
+                  })
+                : error;
+        } finally {
+            await writeFile(resolve(temporary, `${name}-service.log`), log);
         }
-        await writeFile(resolve(temporary, `${name}-service.log`), log);
     }
 }
 
@@ -493,194 +429,122 @@ export function command(bin, args, options) {
     });
 }
 
-async function browserProbe(context, origin, name, data, samples, fixture) {
-    const { temporary, options, signal, processes } = context;
-    const session = `forma-site-${process.pid}-${name}`;
-    const configuration = resolve(temporary, `${name}-browser.json`);
-    await writeFile(
-        configuration,
-        JSON.stringify({
-            browser: {
-                browserName: "chromium",
-                launchOptions: { executablePath: options.chromiumExecutable, headless: true },
-                contextOptions: { reducedMotion: "no-preference" },
-            },
-        }),
+export function browserCoverage(report, name, expectedAssertions) {
+    function specs(suite) {
+        return [...(suite.specs ?? []), ...(suite.suites ?? []).flatMap(specs)];
+    }
+    assert.deepEqual(report.errors, [], `Playwright errors for ${name}`);
+    const [spec, ...otherSpecs] = report.suites.flatMap(specs);
+    assert(spec?.title === name && otherSpecs.length === 0, `Expected exactly one Playwright test named ${name}`);
+    const [test, ...otherTests] = spec.tests;
+    const [result, ...otherAttempts] = test?.results ?? [];
+    assert(
+        otherTests.length === 0 &&
+            otherAttempts.length === 0 &&
+            test?.expectedStatus === "passed" &&
+            test.status === "expected" &&
+            result?.status === "passed" &&
+            result.retry === 0,
+        `Browser test ${name} must run once and pass (expected ${test?.expectedStatus}, got ${result?.status})`,
     );
-    const outputPath = resolve(temporary, `${name}-browser.js`);
-    const browserInputs = { origin, samples, fixture, base: data.config.dataBaseUrl, root: data.config.rootPath };
-    await writeFile(
-        outputPath,
-        `async (page) => { return (${browserChecks.toString()})(page, ${JSON.stringify(browserInputs)}, ${runStaticNavigationFailureScenarios.toString()}, ${observeReader}, ${sectionHeading}); }`,
+    const [coverage, ...duplicates] = result.attachments.filter(
+        (attachment) => attachment.name === "cloudflare-browser-coverage",
     );
-    const invoke = async (args, cleanup = false) => {
-        try {
-            const { stdout, stderr } = await command(options.playwrightCli, [`-s=${session}`, ...args], {
-                cwd: temporary,
-                signal: cleanup ? undefined : signal,
-                timeout: cleanup ? 15_000 : 120_000,
-            });
-            if (/^### Error\b/mu.test(stdout + stderr)) throw new Error(stdout + stderr);
-            return stdout;
-        } catch (error) {
-            const detail = `${error.message}\n${error.stdout ?? ""}${error.stderr ?? ""}`;
-            await writeFile(resolve(temporary, `${name}-${args[0]}-browser-failed.log`), detail);
-            throw new Error(detail, { cause: error });
-        }
+    assert(coverage?.body && duplicates.length === 0, `Missing or duplicate browser coverage for ${name}`);
+    const record = JSON.parse(Buffer.from(coverage.body, "base64").toString());
+    assert.equal(record.name, name);
+    assert.equal(record.assertions, expectedAssertions, "Browser assertions incomplete");
+    assert(typeof record.browserVersion === "string" && record.browserVersion.trim(), "Missing Chromium version");
+    return { assertions: record.assertions, browserVersion: record.browserVersion };
+}
+
+export async function waitForBrowserRunner(child, closed, signal, timeout = 140_000) {
+    const runSignal = AbortSignal.any([signal, AbortSignal.timeout(timeout)]);
+    let force;
+    const stop = () => {
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        child.kill("SIGINT");
+        if (child.pid) force = setTimeout(() => signalGroup(child.pid, "SIGKILL"), 4_000);
     };
+    if (runSignal.aborted) stop();
+    else runSignal.addEventListener("abort", stop, { once: true });
     try {
-        await invoke(["open", "--config", configuration, "--idle-timeout", "150000"]);
-        const output = await invoke(["run-code", "--filename", outputPath]);
-        await writeFile(resolve(temporary, `${name}-browser.log`), output);
-        const record = output.match(/FORMA_CHECKS_(\d+)_([0-9a-f]+)/u);
-        assert(record, `No test completion marker from Playwright: ${output}`);
-        assert.equal(
-            Number(record[1]),
-            samples.length * 4 + (fixture ? 4 + staticNavigationBrowserAssertions : 0),
-            "Browser assertions incomplete",
-        );
-        return { assertions: Number(record[1]), browserVersion: Buffer.from(record[2], "hex").toString() };
+        const status = await closed;
+        runSignal.throwIfAborted();
+        return status;
     } finally {
-        try {
-            await invoke(["close"], true);
-            processes.push({ name: `${name}-browser`, code: 0 });
-        } catch (error) {
-            processes.push({ name: `${name}-browser`, cleanupError: error.message });
-            throw error;
-        }
+        clearTimeout(force);
+        runSignal.removeEventListener("abort", stop);
     }
 }
 
-async function browserChecks(
-    page,
-    { origin, samples, fixture, base, root },
-    runNavigationScenarios,
-    observe,
-    headingForSection,
-) {
-    let assertions = 0;
-    function expect(condition, diagnostic) {
-        if (!condition) throw new Error(diagnostic);
-    }
-    const browser = page.context().browser();
-    const withoutJavaScript = await browser.newContext({ javaScriptEnabled: false, reducedMotion: "no-preference" });
-    const rpcRequests = [];
-    page.on("request", (request) => {
-        if (new URL(request.url()).pathname.endsWith("/-/rpc")) rpcRequests.push(request.url());
-    });
-    async function verifyLinkIcons(surface) {
-        await surface.evaluate(async () => {
-            const family = "Lucide Link Icons";
-            for (const [kind, glyph] of Object.entries({ external: "\ue0b9", anchor: "\ue0ef" })) {
-                const link = document.querySelector(`main a[data-link-kind="${kind}"]`);
-                if (!link) throw new Error(`Missing ${kind} link in the browser fixture`);
-                const icon = getComputedStyle(link, "::after");
-                if (!icon.content.includes(glyph) || !icon.fontFamily.includes(family))
-                    throw new Error(`Incorrect ${kind} link icon style`);
-                const faces = await document.fonts.load(`16px "${family}"`, glyph).catch((error) => {
-                    throw new Error(`Could not load the ${kind} link icon font: ${error.message}`);
-                });
-                if (faces.length === 0) throw new Error(`Missing font face for the ${kind} link icon`);
-            }
-        });
-        assertions += 1;
-    }
-    async function currentTarget(probe, initialHeading) {
-        await page.locator("[data-enhancement-ready][data-workspace-route]").waitFor({ timeout: 12_000 });
-        const routes = await page.locator("[data-enhancement-ready]").getAttribute("data-workspace-route");
-        expect(routes === probe.target.path, `Unexpected enhanced route ${routes}, expected ${probe.target.path}`);
-        const boot = await page.locator("script[data-forma-static-workspace]").textContent();
-        const target = JSON.parse(boot).pageTarget;
-        expect(
-            target.id === probe.target.id &&
-                target.kind === probe.target.kind &&
-                target.sourcePath === probe.target.sourcePath &&
-                target.taxonomyId === probe.target.taxonomyId,
-            `HTML target changed for ${probe.path}`,
-        );
-        expect(
-            !(await page.locator("[data-static-fallback]").count()),
-            `Static fallback survived enhancement: ${probe.path}`,
-        );
-        const main = page.locator("[data-enhancement-ready] main");
-        if (["entry", "view", "taxonomy", "taxonomyTerm"].includes(probe.target.kind)) {
-            await main
-                .getByRole("heading", { level: 1, name: initialHeading, exact: true })
-                .and(main.locator("h1").first())
-                .waitFor({ timeout: 12_000 });
-        } else {
-            await main.locator("h1").first().waitFor({ timeout: 12_000 });
-        }
-    }
-    const enhancedSnapshot = await observe(page);
-    let snapshot = enhancedSnapshot;
+async function browserProbe(context, origin, name, data, samples, fixture) {
+    const { temporary, options, signal, processes } = context;
+    signal.throwIfAborted();
+    const directory = resolve(temporary, `${name}-browser`);
+    await mkdir(directory);
+    const input = resolve(directory, "input.json");
+    const report = resolve(directory, "report.json");
+    const log = resolve(directory, "runner.log");
+    await writeFile(
+        input,
+        JSON.stringify({
+            [name]: { origin, samples, fixture, base: data.config.dataBaseUrl, root: data.config.rootPath },
+        }),
+    );
+    const cli = require.resolve("@playwright/test/cli");
+    const output = await open(log, "w");
+    const child = spawn(
+        process.execPath,
+        [
+            cli,
+            "test",
+            "--config",
+            resolve(root, "tests/browser/cloudflare.config.mjs"),
+            "--grep",
+            ` ${name}$`,
+            "--output",
+            resolve(directory, "artifacts"),
+        ],
+        {
+            cwd: root,
+            detached: true,
+            stdio: ["ignore", output.fd, output.fd],
+            env: {
+                ...hostEnvironment(temporary),
+                FORMA_CLOUDFLARE_BROWSER_INPUT: input,
+                FORMA_SITE_CHROMIUM: options.chromiumExecutable,
+                PLAYWRIGHT_JSON_OUTPUT_FILE: report,
+            },
+        },
+    );
+    const closed = once(child, "close");
     try {
-        const staticPage = await withoutJavaScript.newPage();
-        const initialSnapshot = await observe(staticPage);
-        for (const probe of samples) {
-            const url = origin + probe.path + "?keep=1&keep=2";
-            snapshot = initialSnapshot;
-            const response = await staticPage.goto(url);
-            expect(
-                response.status() === 200 && (await staticPage.locator("[data-static-fallback]").count()) === 1,
-                `Initial static HTML failed ${probe.path}`,
-            );
-            const initialHeading = (await staticPage.locator("main h1").first().innerText()).trim();
-            assertions += 1;
-            const staticReload = await staticPage.reload();
-            expect(
-                staticReload.status() === 200 && (await staticPage.locator("[data-static-fallback]").count()) === 1,
-                `Static refresh failed ${probe.path}`,
-            );
-            assertions += 1;
-            snapshot = enhancedSnapshot;
-            await page.goto(url);
-            await currentTarget(probe, initialHeading);
-            expect(new URL(page.url()).search === "?keep=1&keep=2", `Canonical route lost the query: ${probe.path}`);
-            assertions += 1;
-            await page.reload();
-            await currentTarget(probe, initialHeading);
-            assertions += 1;
-        }
-        if (fixture) {
-            const home = origin + (root === "/" ? "/" : root);
-            const target = root === "/" ? fixture.target : root + fixture.target;
-            const url = origin + target + "?keep=1&keep=2#fixture-section";
-            snapshot = initialSnapshot;
-            await staticPage.goto(url);
-            expect(
-                await staticPage.evaluate(() => document.querySelector(":target")?.id === "fixture-section"),
-                "Static direct fragment did not identify the section",
-            );
-            assertions += 1;
-            await staticPage.goto(home);
-            await staticPage.getByRole("link", { name: "Cloudflare fixture link", exact: true }).click();
-            await staticPage.waitForURL(url);
-            expect(
-                await staticPage.evaluate(() => document.querySelector(":target")?.id === "fixture-section"),
-                "Static link click did not retain the explicit query and fragment",
-            );
-            assertions += 1;
-            snapshot = enhancedSnapshot;
-            await page.goto(url);
-            await headingForSection(page, "fixture-section", "Fixture Section").waitFor({ timeout: 12_000 });
-            expect(
-                await page.evaluate(
-                    () => location.hash === "#fixture-section" && !!document.getElementById("fixture-section"),
-                ),
-                "Direct enhancement did not retain the fragment target",
-            );
-            assertions += 1;
-            await verifyLinkIcons(page);
-            assertions += await runNavigationScenarios(page, { origin, base, root, fixture }, observe);
-        }
-        expect(rpcRequests.length === 0, `Static enhancement attempted RPC: ${rpcRequests.join(", ")}`);
-        // CLI result formatting is human-oriented. This line supplies a machine-readable completion sentinel.
-        return `FORMA_CHECKS_${assertions}_${Buffer.from(await browser.version()).toString("hex")}`;
+        const [code, termination] = await waitForBrowserRunner(child, closed, signal);
+        assert.equal(code, 0, `Playwright Test failed for ${name} (${termination ?? code})`);
+        const { assertions, browserVersion } = browserCoverage(
+            JSON.parse(await readFile(report, "utf8")),
+            name,
+            expectedStaticBrowserAssertions(samples, fixture),
+        );
+        context.browserVersion ??= browserVersion;
+        assert.equal(browserVersion, context.browserVersion, "Chromium version changed across checks");
+        return assertions;
     } catch (error) {
-        throw new Error(`${error.message}\nDiagnostics: ${JSON.stringify(await snapshot())}`, { cause: error });
+        const detail = await readFile(log, "utf8").catch(() => "");
+        throw new Error(`${error.message}\n${detail.trimEnd()}`, { cause: error });
     } finally {
-        await withoutJavaScript.close();
+        try {
+            if (child.pid) {
+                const [code, termination] = await stopService(child.pid, closed);
+                processes.push({ name: `${name}-browser`, code, termination });
+            }
+        } catch (error) {
+            processes.push({ name: `${name}-browser`, cleanupError: error.message });
+            throw error;
+        } finally {
+            await output.close();
+        }
     }
 }
 
@@ -822,7 +686,7 @@ async function positiveGroup(context) {
                 const probe = await probeArtifact(origin, output, data, context.signal);
                 result.http = probe.assertions;
                 assertions += probe.assertions;
-                const browser = await browserProbe(context, origin, `positive-${name}`, data, probe.samples, {
+                result.browser = await browserProbe(context, origin, `positive-${name}`, data, probe.samples, {
                     target: fixture.routePath,
                     dataPath: fixture.dataPath,
                     otherPath: other.routePath,
@@ -830,10 +694,7 @@ async function positiveGroup(context) {
                     viewPath: view.routePath,
                     viewTitle: view.title,
                 });
-                if (context.browserVersion) assert.equal(browser.browserVersion, context.browserVersion);
-                context.browserVersion = browser.browserVersion;
-                result.browser = browser.assertions;
-                assertions += browser.assertions;
+                assertions += result.browser;
             });
             result.status = "passed";
         } catch (error) {
@@ -1045,27 +906,27 @@ async function candidateGroup(context, data) {
     return withHost(context, context.options.artifactDir, "candidate", async (origin) => {
         const probe = await probeArtifact(origin, context.options.artifactDir, data, context.signal);
         const browser = await browserProbe(context, origin, "candidate", data, probe.samples);
-        if (context.browserVersion) assert.equal(browser.browserVersion, context.browserVersion);
-        context.browserVersion = browser.browserVersion;
         return {
-            assertions: probe.assertions + browser.assertions,
+            assertions: probe.assertions + browser,
             http: probe.assertions,
-            browser: browser.assertions,
+            browser,
         };
     });
 }
 
-async function writeReport(path, report) {
+async function writeReport(path, report, signal) {
     const staging = `${path}.${process.pid}.tmp`;
     try {
         await writeFile(staging, `${JSON.stringify(report, null, 2)}\n`, { flag: "wx" });
-        await rename(staging, path);
-    } finally {
+        signal?.throwIfAborted();
+        renameSync(staging, path);
+    } catch (error) {
         await rm(staging, { force: true });
+        throw error;
     }
 }
 
-async function executeGate(options) {
+async function executeGate(options, signal) {
     const { artifactDir, report: reportPath } = options;
     const reportDirectory = await realpath(dirname(reportPath));
     assertOutside(
@@ -1084,37 +945,33 @@ async function executeGate(options) {
         cleanup: { status: "failed", processes: [] },
         failures: [],
     };
-    const abort = new AbortController();
     if (options.localSource) report.localSource = options.localSource;
-    const onInterrupt = () => abort.abort(new Error("Cloudflare verification interrupted"));
-    process.on("SIGINT", onInterrupt);
-    process.on("SIGTERM", onInterrupt);
     try {
         const { binding, data, host } = await candidateBinding(options);
         Object.assign(report, binding);
-        const context = { options, host, temporary, signal: abort.signal, processes: report.cleanup.processes };
-        for (const binary of [options.formaBin, options.playwrightCli, options.chromiumExecutable, wrangler]) {
+        const context = { options, host, temporary, signal, processes: report.cleanup.processes };
+        for (const binary of [options.formaBin, options.chromiumExecutable, wrangler]) {
             await access(binary, constants.X_OK);
         }
         for (const [key, bin] of [
             ["forma", options.formaBin],
             ["wrangler", wrangler],
-            ["playwright", options.playwrightCli],
         ]) {
             const { stdout, stderr } = await command(bin, ["--version"], {
                 cwd: temporary,
-                signal: abort.signal,
+                signal,
                 env: hostEnvironment(temporary),
             });
             report.versions[key] = stdout.trim() || stderr.trim().split("\n")[0];
             assert(report.versions[key], `Version missing for ${key}`);
         }
+        report.versions.playwright = require("@playwright/test/package.json").version;
         for (const [name, run] of [
             ["positive", positiveGroup],
             ["negative", negativeGroup],
             ["candidate", candidateGroup],
         ]) {
-            abort.signal.throwIfAborted();
+            signal.throwIfAborted();
             try {
                 report.groups[name] = { status: "passed", ...(await run(context, data)) };
             } catch (error) {
@@ -1131,24 +988,33 @@ async function executeGate(options) {
                 options.localSource,
                 "Local candidate source changed during verification",
             );
-        abort.signal.throwIfAborted();
+        signal.throwIfAborted();
         report.completed = requiredGroups.every((name) => report.groups[name]?.status === "passed");
         if (!report.completed) report.evidenceDirectory = temporary;
     } catch (error) {
         report.failures.push(error.stack ?? String(error));
         report.evidenceDirectory = temporary;
     } finally {
-        process.removeListener("SIGINT", onInterrupt);
-        process.removeListener("SIGTERM", onInterrupt);
         try {
             assert(!report.cleanup.processes.some(({ cleanupError }) => cleanupError), "Process cleanup failed");
-            if (report.completed) await rm(temporary, { recursive: true, force: true });
+            if (report.completed && !signal.aborted) await rm(temporary, { recursive: true, force: true });
             report.cleanup.status = "passed";
         } catch (error) {
             report.failures.push(error.stack ?? String(error));
         }
-        if (report.completed && report.failures.length === 0) report.status = "passed";
-        await writeReport(reportPath, report);
+        if (report.completed && report.failures.length === 0) {
+            report.status = "passed";
+            try {
+                await writeReport(reportPath, report, signal);
+            } catch (error) {
+                report.status = "failed";
+                report.completed = false;
+                report.failures.push(error.stack ?? String(error));
+                await writeReport(reportPath, report);
+            }
+        } else {
+            await writeReport(reportPath, report);
+        }
     }
     assert.equal(
         report.status,
@@ -1158,15 +1024,7 @@ async function executeGate(options) {
     console.log(JSON.stringify({ status: report.status, report: reportPath, groups: report.groups }));
 }
 
-const gateInputs = [
-    "forma-bin",
-    "artifact-dir",
-    "source-sha",
-    "config",
-    "playwright-cli",
-    "chromium-executable",
-    "report",
-];
+const gateInputs = ["forma-bin", "artifact-dir", "source-sha", "config", "chromium-executable", "report"];
 const verifyInputs = ["artifact-dir", "source-sha", "config", "report"];
 /** The origin CI builds the production artifact for; local candidates use the same one. */
 const productionBaseUrl = "https://forma.choral.io";
@@ -1220,18 +1078,17 @@ export function missingInputs(values, verifyOnly) {
 /**
  * Fills the gate's inputs for a local run, the way CI prepares them: the debug `forma` binary,
  * a fresh production artifact with its source marker, the checked-out commit, the repository's
- * deployment configuration, and the Playwright CLI and Chromium found on this machine. Inputs
+ * deployment configuration, and pinned Playwright Chromium. Inputs
  * given on the command line are kept. CI always passes every input explicitly.
  */
-export async function localGateInputs(values, environment = process.env) {
+export async function localGateInputs(values, environment = process.env, signal) {
     const filled = { ...values };
     filled["forma-bin"] ??= resolve(root, "target", "debug", process.platform === "win32" ? "forma.exe" : "forma");
     filled.config ??= resolve(root, "wrangler.jsonc");
     filled.report ??= resolve(localDirectory, "report.json");
-    filled["source-sha"] ??= (await execute("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
-    filled["playwright-cli"] ??=
-        environment.FORMA_SITE_PLAYWRIGHT_CLI ?? (await findOnPath("playwright-cli", environment));
-    filled["chromium-executable"] ??= environment.FORMA_SITE_CHROMIUM ?? (await findPlaywrightChromium(environment));
+    filled["source-sha"] ??= (await execute("git", ["rev-parse", "HEAD"], { cwd: root, signal })).stdout.trim();
+    filled["chromium-executable"] ??=
+        environment.FORMA_SITE_CHROMIUM ?? (await import("@playwright/test")).chromium.executablePath();
     if (!filled["artifact-dir"]) {
         filled.localSource = await localSourceIdentity(root, filled["forma-bin"]);
         assert.equal(
@@ -1244,7 +1101,7 @@ export async function localGateInputs(values, environment = process.env) {
         await execute(
             filled["forma-bin"],
             ["site", "build", "--out", artifactDir, "--base-url", productionBaseUrl, "--json"],
-            { cwd: root, maxBuffer: 64 * 1024 * 1024 },
+            { cwd: root, maxBuffer: 64 * 1024 * 1024, signal },
         );
         await writeFile(resolve(artifactDir, "-", ".forma-source-sha"), `${filled["source-sha"]}\n`);
         filled["artifact-dir"] = artifactDir;
@@ -1252,85 +1109,29 @@ export async function localGateInputs(values, environment = process.env) {
     return filled;
 }
 
-async function findOnPath(name, environment) {
-    const extensions = process.platform === "win32" ? (environment.PATHEXT ?? ".EXE;.CMD").split(";") : [""];
-    for (const directory of (environment.PATH ?? "").split(process.platform === "win32" ? ";" : ":")) {
-        for (const extension of extensions) {
-            const candidate = resolve(directory || ".", `${name}${extension}`);
-            if (await isExecutable(candidate)) return candidate;
-        }
-    }
-    return undefined;
+function bindingOptions(values, verifyOnly) {
+    const missing = missingInputs(values, verifyOnly);
+    assert(
+        missing.length === 0,
+        `Missing ${missing.map((name) => `--${name}`).join(", ")}. ` +
+            (verifyOnly
+                ? "--verify-only checks a report against an existing artifact, so every input is required."
+                : "Install Chromium with `pnpm exec playwright install chromium --no-shell`, or set FORMA_SITE_CHROMIUM."),
+    );
+    return {
+        artifactDir: resolve(values["artifact-dir"]),
+        sourceSha: values["source-sha"],
+        config: resolve(values.config),
+        report: resolve(values.report),
+    };
 }
 
-/** The newest Chromium in the Playwright browser cache, where `playwright install chromium` puts it. */
-async function findPlaywrightChromium(environment) {
-    const cache =
-        environment.PLAYWRIGHT_BROWSERS_PATH ??
-        (process.platform === "darwin"
-            ? resolve(environment.HOME ?? "", "Library", "Caches", "ms-playwright")
-            : process.platform === "win32"
-              ? resolve(environment.LOCALAPPDATA ?? "", "ms-playwright")
-              : resolve(environment.HOME ?? "", ".cache", "ms-playwright"));
-    const builds = (await readdir(cache).catch(() => []))
-        .map((name) => /^chromium-(\d+)$/u.exec(name))
-        .filter(Boolean)
-        .sort((left, right) => Number(right[1]) - Number(left[1]))
-        .map((match) => match[0]);
-    const executables =
-        {
-            darwin: [
-                ["chrome-mac-arm64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"],
-                ["chrome-mac-x64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"],
-                ["chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"],
-            ],
-            linux: [
-                ["chrome-linux64", "chrome"],
-                ["chrome-linux", "chrome"],
-            ],
-            win32: [
-                ["chrome-win64", "chrome.exe"],
-                ["chrome-win", "chrome.exe"],
-            ],
-        }[process.platform] ?? [];
-    for (const build of builds) {
-        for (const parts of executables) {
-            const candidate = resolve(cache, build, ...parts);
-            if (await isExecutable(candidate)) return candidate;
-        }
-    }
-    return undefined;
-}
-
-async function isExecutable(path) {
-    try {
-        await access(path, constants.X_OK);
-        return (await stat(path)).isFile();
-    } catch {
-        return false;
-    }
-}
-
-async function main() {
-    const { values: given } = parseArgs({
-        options: {
-            "forma-bin": { type: "string" },
-            "artifact-dir": { type: "string" },
-            "source-sha": { type: "string" },
-            "config": { type: "string" },
-            "playwright-cli": { type: "string" },
-            "chromium-executable": { type: "string" },
-            "report": { type: "string" },
-            "verify-only": { type: "boolean" },
-        },
-    });
-    const verifyOnly = given["verify-only"] === true;
+async function runGate(given, signal) {
     // CI must name its exact artifact and tools; only a local gate run fills them in.
     const strict = strictGateInputs();
     // Invalidate the previous success before discovery or a build can fail.
-    // Verification must never rewrite the report it is checking.
-    const reportPath = given.report ?? (!strict && !verifyOnly ? resolve(localDirectory, "report.json") : undefined);
-    if (!verifyOnly && reportPath) {
+    const reportPath = given.report ?? (!strict ? resolve(localDirectory, "report.json") : undefined);
+    if (reportPath) {
         const artifactDir = resolve(given["artifact-dir"] ?? resolve(localDirectory, "site"));
         assertOutside(artifactDir, resolve(reportPath), "Report must be outside the artifact directory");
         await mkdir(dirname(resolve(reportPath)), { recursive: true });
@@ -1352,39 +1153,54 @@ async function main() {
         });
     }
     try {
-        const values = verifyOnly || strict ? given : await localGateInputs(given);
-        const missing = missingInputs(values, verifyOnly);
-        assert(
-            missing.length === 0,
-            `Missing ${missing.map((name) => `--${name}`).join(", ")}. ` +
-                (verifyOnly
-                    ? "--verify-only checks a report against an existing artifact, so every input is required."
-                    : "Install Chromium with `playwright-cli install chromium`, or set FORMA_SITE_PLAYWRIGHT_CLI and FORMA_SITE_CHROMIUM."),
+        signal.throwIfAborted();
+        const values = strict ? given : await localGateInputs(given, process.env, signal);
+        signal.throwIfAborted();
+        await executeGate(
+            {
+                ...bindingOptions(values, false),
+                formaBin: resolve(values["forma-bin"]),
+                chromiumExecutable: resolve(values["chromium-executable"]),
+                localSource: values.localSource,
+            },
+            signal,
         );
-        const options = {
-            artifactDir: resolve(values["artifact-dir"]),
-            sourceSha: values["source-sha"],
-            config: resolve(values.config),
-            report: resolve(values.report),
-        };
-        if (verifyOnly) {
-            console.log(JSON.stringify(await verifyReport(options)));
-            return;
-        }
-        await executeGate({
-            ...options,
-            formaBin: resolve(values["forma-bin"]),
-            playwrightCli: resolve(values["playwright-cli"]),
-            chromiumExecutable: resolve(values["chromium-executable"]),
-            localSource: values.localSource,
-        });
     } catch (error) {
-        if (!verifyOnly && reportPath) {
+        if (reportPath) {
             const report = JSON.parse(await readFile(resolve(reportPath), "utf8"));
             if (report.phase === "preparing")
                 await writeReport(resolve(reportPath), { ...report, failures: [error.message] });
         }
         throw error;
+    }
+}
+
+async function main() {
+    const { values: given } = parseArgs({
+        options: {
+            "forma-bin": { type: "string" },
+            "artifact-dir": { type: "string" },
+            "source-sha": { type: "string" },
+            "config": { type: "string" },
+            "chromium-executable": { type: "string" },
+            "report": { type: "string" },
+            "verify-only": { type: "boolean" },
+        },
+    });
+    if (given["verify-only"]) {
+        console.log(JSON.stringify(await verifyReport(bindingOptions(given, true))));
+        return;
+    }
+
+    const abort = new AbortController();
+    const interrupt = () => abort.abort(new Error("Cloudflare verification interrupted"));
+    process.on("SIGINT", interrupt);
+    process.on("SIGTERM", interrupt);
+    try {
+        await runGate(given, abort.signal);
+    } finally {
+        process.removeListener("SIGINT", interrupt);
+        process.removeListener("SIGTERM", interrupt);
     }
 }
 

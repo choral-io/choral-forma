@@ -1,117 +1,18 @@
 import { execFile, spawn } from "node:child_process";
-import { once } from "node:events";
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, extname, join, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { describeBrowserEvidenceError, writeBrowserEvidence } from "./markdown-browser-evidence.mjs";
-import { markdownBrowserPhases, parseMarkdownBrowserPhase } from "./markdown-browser-protocol.mjs";
-import { markdownBrowserScenarios } from "./markdown-browser-scenarios.mjs";
-import { markdownMermaidGeometry } from "./markdown-mermaid-geometry.mjs";
-import { observeReader } from "./reader-browser-diagnostics.mjs";
-import { readerBrowserChecks, readerBrowserRegressionSource } from "./reader-browser-regressions.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const execute = promisify(execFile);
+import { closeStaticServer, startStaticServer } from "../../scripts/browser-static-host.mjs";
+import { describeBrowserEvidenceError } from "./markdown-evidence.mjs";
+
+const root = fileURLToPath(new URL("../../", import.meta.url));
 const binary = join(root, "target", "debug", process.platform === "win32" ? "forma.exe" : "forma");
-const gettingStartedOnly = process.argv[2] === "--getting-started";
-await mkdir(join(root, "packages/webapp/.tmp"), { recursive: true });
-const artifacts = await mkdtemp(join(root, "packages/webapp/.tmp/markdown-browser-"));
-const temporary = await mkdtemp(join(await realpath(tmpdir()), "forma-markdown-browser-"));
-const workspace = gettingStartedOnly ? join(root, "examples/getting-started-workspace") : join(temporary, "workspace");
-const site = join(temporary, "site");
-const session = `forma-md-${process.pid}`;
-const cli = process.env.PLAYWRIGHT_CLI ?? process.env.FORMA_SITE_PLAYWRIGHT_CLI ?? "playwright-cli";
-const abort = new AbortController();
-let interrupted;
-let testResult;
-let cleanupPromise;
-const backends = [];
-const staticServers = [];
-let browserStarted = false;
-let backendLog = "";
-const mime = {
-    ".html": "text/html",
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".json": "application/json",
-    ".svg": "image/svg+xml",
-    ".txt": "text/plain; charset=utf-8",
-    ".woff2": "font/woff2",
-};
+const execute = promisify(execFile);
 
-async function command(file, args, timeout = 60_000, cleaning = false, label = "command") {
-    let active;
-    let watchdog;
-    try {
-        if (!cleaning) abort.signal.throwIfAborted();
-        const running = execute(file, args, {
-            cwd: root,
-            timeout,
-            maxBuffer: 8 * 1024 * 1024,
-            signal: cleaning ? undefined : abort.signal,
-            killSignal: "SIGTERM",
-        });
-        active = running.child;
-        watchdog = setTimeout(() => {
-            if (active?.pid && active.exitCode === null && active.signalCode === null) active.kill("SIGKILL");
-        }, timeout + 5000);
-        const result = await running;
-        const output = result.stdout + result.stderr;
-        await writeFile(join(artifacts, `${label}.log`), output);
-        return output;
-    } catch (error) {
-        await writeFile(
-            join(artifacts, `${label}.log`),
-            `${error.stdout ?? ""}${error.stderr ?? ""}\n${describeBrowserEvidenceError(error)}`,
-        );
-        throw error;
-    } finally {
-        // In particular, let playwright-cli forward SIGTERM to its starting daemon.
-        try {
-            await stop(active);
-        } finally {
-            clearTimeout(watchdog);
-        }
-    }
-}
-async function browserCommand(...args) {
-    const output = await command(
-        cli,
-        [`-s=${session}`, ...args],
-        args[0] === "close" ? 10_000 : 120_000,
-        args[0] === "close",
-        args[0],
-    );
-    if (/^### Error(?:\r?\n|$)/mu.test(output)) throw new Error(output);
-    return output;
-}
-async function stop(child) {
-    if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
-    const closed = once(child, "close");
-    child.kill("SIGTERM");
-    const kill = setTimeout(() => child.kill("SIGKILL"), 5000);
-    try {
-        await closed;
-    } finally {
-        clearTimeout(kill);
-    }
-}
-for (const [signal, code] of [
-    ["SIGINT", 130],
-    ["SIGTERM", 143],
-]) {
-    process.on(signal, () => {
-        if (interrupted) return;
-        interrupted = signal;
-        process.exitCode = code;
-        abort.abort(new Error(`Interrupted by ${signal}`));
-    });
-}
-
-async function prepareMarkdownWorkspace() {
+async function prepareMarkdownWorkspace(workspace) {
     const calloutBoundaries = JSON.parse(
         await readFile(join(root, "fixtures/forma-validation/cases/markdown-callout-boundaries.json"), "utf8"),
     );
@@ -584,289 +485,196 @@ async function prepareMarkdownWorkspace() {
     return { calloutBoundaries, readingCases, disclosureCases };
 }
 
-try {
-    console.log(`Artifacts: ${artifacts}`);
-    await writeFile(join(artifacts, "run.json"), JSON.stringify({ session, temporary, pid: process.pid }));
-    await command(cli, ["--version"], 10_000, false, "version");
-    const markdownCases = gettingStartedOnly ? undefined : await prepareMarkdownWorkspace();
-    abort.signal.throwIfAborted();
-    const rpcWebapp = join(temporary, "webapp");
-    await cp(join(root, "packages/webapp/dist"), rpcWebapp, { recursive: true });
-    async function startRpc(prefix) {
-        const backend = spawn(
-            binary,
-            [
-                "serve",
-                "-w",
-                workspace,
-                "--webapp-dir",
-                rpcWebapp,
-                "--bind",
-                "127.0.0.1:0",
-                "--root-path",
-                prefix || "/",
-            ],
-            { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
-        );
-        backends.push(backend);
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error("WebApp server did not become ready")), 30_000);
-            const finish = (error, value) => {
-                clearTimeout(timer);
-                error ? reject(error) : resolve(value);
-            };
-            abort.signal.addEventListener("abort", () => finish(abort.signal.reason), { once: true });
-            const consume = (data) => {
-                backendLog += data;
-                const match = String(data).match(/forma serve listening on (http:\/\/127\.0\.0\.1:\d+)/u);
-                if (match) finish(undefined, match[1]);
-            };
-            backend.stdout.on("data", consume);
-            backend.stderr.on("data", consume);
-            backend.once("error", (error) => finish(error));
-            backend.once("exit", (code) => finish(new Error(`WebApp exited ${code}: ${backendLog}`)));
-        });
-    }
-    async function startStatic(prefix, directory, label) {
-        const server = createServer(async (request, response) => {
-            try {
-                const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
-                if (pathname === "/favicon.ico") {
-                    response.writeHead(204);
-                    response.end();
-                    return;
-                }
-                if (!pathname.startsWith(prefix + "/")) throw new Error("Outside root");
-                let file = resolve(directory, pathname.slice(prefix.length + 1));
-                if (file !== directory && !file.startsWith(directory + sep)) throw new Error("Outside site");
-                if ((await stat(file)).isDirectory()) file = join(file, "index.html");
-                response.setHeader("Content-Type", mime[extname(file)] ?? "application/octet-stream");
-                response.end(await readFile(file));
-            } catch {
-                response.writeHead(404);
-                response.end("Not found");
-            }
-        });
-        staticServers.push(server);
-        server.listen(0, "127.0.0.1");
-        await once(server, "listening");
-        const origin = `http://127.0.0.1:${server.address().port}`;
-        const build = await command(
-            binary,
-            [
-                "site",
-                "build",
-                "-w",
-                workspace,
-                "--out",
-                directory,
-                "--base-url",
-                origin,
-                "--root-path",
-                prefix || "/",
-                "--json",
-            ],
-            60_000,
-            false,
-            label,
-        );
-        await writeFile(join(artifacts, label + ".json"), build);
-        const { status, diagnostics } = JSON.parse(build);
-        if (gettingStartedOnly) {
-            if (status !== "passed" || diagnostics.length !== 0)
-                throw new Error(`Unexpected Getting Started build diagnostics: ${JSON.stringify(diagnostics)}`);
-            return origin;
-        }
-        const [ambiguity] = diagnostics;
-        if (
-            status !== "warning" ||
-            diagnostics.length !== 1 ||
-            ambiguity.code !== "entryRef.ambiguous" ||
-            ambiguity.path !== "notes/sub/short-path-source.md" ||
-            ambiguity.actual !== "guides/ambiguous.md?x=1#section"
-        )
-            throw new Error(`Unexpected static fixture diagnostics: ${JSON.stringify(diagnostics)}`);
-        return origin;
-    }
-    const origin = await startRpc("");
-    const staticOrigin = await startStatic("/preview", site, "static-build");
-    const options = {
-        artifacts,
-        ...markdownCases,
-        hosts: [
-            { name: "webapp", origin, root: "", graph: "/-/views/graph" },
-            { name: "static", origin: staticOrigin, root: "/preview", graph: "/-/views/graph/" },
-        ],
-    };
-    abort.signal.throwIfAborted();
-    const browserName = process.env.FORMA_BROWSER ?? "chromium";
-    const chromium = browserName === "chromium" && process.env.FORMA_SITE_CHROMIUM;
-    let browserArgs = ["--browser", browserName];
-    if (chromium) {
-        const configuration = join(temporary, "browser.json");
-        await writeFile(
-            configuration,
-            JSON.stringify({
-                browser: { browserName: "chromium", launchOptions: { executablePath: chromium, headless: true } },
-            }),
-        );
-        browserArgs = ["--config", configuration];
-    }
-
-    async function fullSuitePhases() {
-        const previewOrigin = await startRpc("/preview");
-        const staticRootOrigin = await startStatic("", join(temporary, "site-root"), "static-root-build");
-        const routeMatrix = [
-            { name: "webapp", root: "", origin },
-            { name: "webapp", root: "/preview", origin: previewOrigin },
-            { name: "static", root: "", origin: staticRootOrigin },
-            { name: "static", root: "/preview", origin: staticOrigin },
-        ];
-        const { readingCases, calloutBoundaries, disclosureCases } = markdownCases;
-        return [
-            {
-                name: "route-matrix",
-                mode: "route-matrix",
-                hosts: routeMatrix,
-                expectedSourceCases: {},
-                expectedResults: routeMatrix.flatMap(({ name, root }) =>
-                    (name === "static" ? ["initial", "enhanced"] : ["rpc"]).flatMap((surface) => [
-                        `${surface} ${root || "/"}: exact routes and query/fragment`,
-                        `${surface} ${root || "/"}: authored Markdown short-path resolution`,
-                    ]),
-                ),
-            },
-            // Bound each host independently so syntax checks cannot consume the interaction deadline.
-            ...markdownBrowserPhases(options.hosts, {
-                reading: readingCases.map((fixture) => fixture.id),
-                callouts: calloutBoundaries.map((fixture) => fixture.id),
-                disclosures: disclosureCases.map((fixture) => fixture.id),
-            }),
-            {
-                name: "reader-test-regressions",
-                mode: "reader-test-regressions",
-                expectedSourceCases: {},
-                expectedResults: readerBrowserChecks,
-            },
-        ];
-    }
-
-    const phases = gettingStartedOnly
-        ? [
-              {
-                  name: "getting-started-directory",
-                  mode: "getting-started-directory",
-                  expectedSourceCases: {},
-                  expectedResults: [
-                      "WebApp: directory and exact index document",
-                      "static enhanced: directory and exact index document",
-                      "static without JavaScript: directory and exact index document",
-                  ],
-              },
-          ]
-        : await fullSuitePhases();
-    browserStarted = true;
-    await browserCommand("open", ...browserArgs);
-    const results = [];
-    const completedPhases = [];
-    for (const phase of phases) {
-        abort.signal.throwIfAborted();
-        const scenario = join(temporary, `scenarios-${phase.name}.js`);
-        const run = phase.mode === "mermaid-geometry" ? markdownMermaidGeometry : markdownBrowserScenarios;
-        const source =
-            phase.mode === "reader-test-regressions"
-                ? readerBrowserRegressionSource()
-                : `async page => (${run})(page, ${JSON.stringify({ ...options, ...phase })}${run === markdownBrowserScenarios ? `, ${observeReader}` : ""})`;
-        await writeFile(scenario, source);
-        const output = await command(
-            cli,
-            [`-s=${session}`, "run-code", `--filename=${scenario}`],
-            120_000,
-            false,
-            `run-code-${phase.name}`,
-        );
-        const result = parseMarkdownBrowserPhase(output, phase);
-        results.push(...result.results);
-        completedPhases.push({
-            name: phase.name,
-            checks: result.results,
-            sourceCases: result.sourceCases,
-        });
-        await writeBrowserEvidence(join(artifacts, "phase-results.json"), completedPhases, { signal: abort.signal });
-        console.log(`Completed browser phase: ${phase.name}`);
-    }
-    testResult = { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };
-} catch (error) {
-    console.error(`Browser regression failed; artifacts: ${artifacts}`);
-    await writeFile(
-        join(artifacts, "failure.json"),
-        JSON.stringify({
-            status: interrupted ? "interrupted" : "failed",
-            signal: interrupted,
-            error: describeBrowserEvidenceError(error),
-        }),
-    );
-    if (!interrupted) throw error;
-} finally {
-    await cleanup();
-}
-if (testResult && !interrupted) {
-    const resultPath = join(artifacts, "result.json");
+async function stopBackend({ child, closed }) {
+    if (!child.pid || child.exitCode !== null || child.signalCode !== null) return closed;
+    child.kill("SIGTERM");
+    const force = setTimeout(() => child.kill("SIGKILL"), 5_000);
     try {
-        await writeBrowserEvidence(resultPath, testResult, { signal: abort.signal, discardOnAbort: true });
-        abort.signal.throwIfAborted();
-        process.stdout.write(JSON.stringify(testResult, null, 2) + `\nArtifacts: ${artifacts}\n`);
-    } catch (error) {
-        await rm(resultPath, { force: true });
-        await writeFile(
-            join(artifacts, "failure.json"),
-            JSON.stringify({
-                status: interrupted ? "interrupted" : "failed",
-                signal: interrupted,
-                error: describeBrowserEvidenceError(error),
-            }),
-        );
-        if (!interrupted) throw error;
+        await closed;
+    } finally {
+        clearTimeout(force);
     }
 }
 
-function cleanup() {
-    return (cleanupPromise ??= (async () => {
-        const errors = [];
-        const attempt = async (action) => {
-            try {
-                await action();
-            } catch (error) {
-                errors.push(describeBrowserEvidenceError(error));
-            }
+async function startBackend({ workspace, webapp, backends, signal }, prefix) {
+    signal.throwIfAborted();
+    const child = spawn(
+        binary,
+        ["serve", "-w", workspace, "--webapp-dir", webapp, "--bind", "127.0.0.1:0", "--root-path", prefix || "/"],
+        { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const backend = { child, prefix, log: "", closed: new Promise((resolve) => child.once("close", resolve)) };
+    backends.push(backend);
+
+    return new Promise((resolve, reject) => {
+        const label = `Forma WebApp at ${prefix || "/"}`;
+        const ready = /forma serve listening on (http:\/\/127\.0\.0\.1:\d+)\r?\n/u;
+        const deadline = setTimeout(() => finish(new Error(`${label} did not become ready`)), 30_000);
+        const cancel = () => finish(signal.reason);
+        function finish(error, origin) {
+            clearTimeout(deadline);
+            signal.removeEventListener("abort", cancel);
+            if (error) reject(error);
+            else resolve(origin);
+        }
+        signal.addEventListener("abort", cancel, { once: true });
+        const consume = (data) => {
+            backend.log += data;
+            if (backend.origin) return;
+            backend.origin = backend.log.match(ready)?.[1];
+            if (backend.origin) finish(undefined, backend.origin);
         };
-        // Startup has settled before finally runs: a close cannot race a later open.
-        if (browserStarted) await attempt(() => browserCommand("close"));
-        for (const backend of backends) await attempt(() => stop(backend));
-        for (const server of staticServers)
-            await attempt(async () => {
-                server.closeAllConnections();
-                await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-            });
-        await attempt(() => writeFile(join(artifacts, "backend.log"), backendLog));
-        await attempt(() => rm(temporary, { recursive: true, force: true }));
-        await writeFile(
-            join(artifacts, "cleanup.json"),
-            JSON.stringify(
-                {
-                    status: errors.length ? "failed" : "passed",
-                    interrupted,
-                    backends: backends.map((backend) => ({
-                        pid: backend.pid,
-                        exitCode: backend.exitCode,
-                        signal: backend.signalCode,
-                    })),
-                    errors,
-                },
-                null,
-                2,
-            ),
-        );
-        if (errors.length) throw new Error(`Cleanup failed: ${errors.join("; ")}`);
-    })());
+        child.stdout.on("data", consume);
+        child.stderr.on("data", consume);
+        child.once("error", (cause) => finish(new Error(`Could not start ${label}`, { cause })));
+        void backend.closed.then(() => {
+            if (!backend.origin)
+                finish(new Error(`${label} exited (${child.exitCode ?? child.signalCode}):\n${backend.log}`));
+        });
+    });
 }
+
+async function startStaticBuild({ workspace, evidenceDir, staticServers, signal }, prefix, directory) {
+    signal.throwIfAborted();
+    const label = prefix ? "static-build" : "static-root-build";
+    const { server, origin } = await startStaticServer(prefix, directory);
+    staticServers.push({ server, origin });
+    const args = [
+        "site",
+        "build",
+        "-w",
+        workspace,
+        "--out",
+        directory,
+        "--base-url",
+        origin,
+        "--root-path",
+        prefix || "/",
+        "--json",
+    ];
+    const build = execute(binary, args, {
+        cwd: root,
+        timeout: 60_000,
+        maxBuffer: 8 * 1024 * 1024,
+        killSignal: "SIGKILL",
+        signal,
+    });
+    const closed = new Promise((resolve) => build.child.once("close", resolve));
+    const { stdout, stderr } = await build
+        .catch(async (cause) => {
+            await writeFile(
+                join(evidenceDir, label + ".log"),
+                `${cause.stdout ?? ""}${cause.stderr ?? ""}\n${describeBrowserEvidenceError(cause)}`,
+            );
+            throw new Error(`Forma ${label} failed:\n${cause.stdout ?? ""}${cause.stderr ?? ""}`, { cause });
+        })
+        .finally(() => closed);
+    await writeFile(join(evidenceDir, label + ".log"), stdout + stderr);
+    await writeFile(join(evidenceDir, label + ".json"), stdout);
+    const { status, diagnostics } = JSON.parse(stdout);
+    const [ambiguity] = diagnostics;
+    if (
+        status !== "warning" ||
+        diagnostics.length !== 1 ||
+        ambiguity.code !== "entryRef.ambiguous" ||
+        ambiguity.path !== "notes/sub/short-path-source.md" ||
+        ambiguity.actual !== "guides/ambiguous.md?x=1#section"
+    )
+        throw new Error(`Unexpected static fixture diagnostics: ${JSON.stringify(diagnostics)}`);
+    return origin;
+}
+
+async function startMarkdownWorkspace(worker) {
+    const { workspace, temporary, webapp, evidenceDir, signal } = worker;
+    const markdownCases = await prepareMarkdownWorkspace(workspace);
+    signal.throwIfAborted();
+    await cp(join(root, "packages/webapp/dist"), webapp, { recursive: true });
+    const rpcOrigin = await startBackend(worker, "");
+    const staticOrigin = await startStaticBuild(worker, "/preview", join(temporary, "site"));
+    const previewOrigin = await startBackend(worker, "/preview");
+    const staticRootOrigin = await startStaticBuild(worker, "", join(temporary, "site-root"));
+    const hosts = [
+        { name: "webapp", origin: rpcOrigin, root: "", graph: "/-/views/graph" },
+        { name: "static", origin: staticOrigin, root: "/preview", graph: "/-/views/graph/" },
+    ];
+    const routeMatrix = [
+        { name: "webapp", root: "", origin: rpcOrigin },
+        { name: "webapp", root: "/preview", origin: previewOrigin },
+        { name: "static", root: "", origin: staticRootOrigin },
+        { name: "static", root: "/preview", origin: staticOrigin },
+    ];
+    return { ...markdownCases, hosts, routeMatrix, evidenceDir };
+}
+
+export const markdownFixtures = {
+    markdownWorker: [
+        async ({}, use, workerInfo) => {
+            const evidenceDir = join(workerInfo.project.outputDir, `workspace-worker-${workerInfo.workerIndex}`);
+            await mkdir(evidenceDir, { recursive: true });
+            const temporary = await mkdtemp(join(await realpath(tmpdir()), "forma-markdown-browser-"));
+            const abort = new AbortController();
+            const backends = [];
+            const staticServers = [];
+            const worker = {
+                temporary,
+                evidenceDir,
+                workspace: join(temporary, "workspace"),
+                webapp: join(temporary, "webapp"),
+                backends,
+                staticServers,
+                signal: abort.signal,
+                setup: undefined,
+            };
+            try {
+                await use(worker);
+            } finally {
+                // Playwright can interrupt setup before markdownWorkspace calls use().
+                abort.abort(new Error("Markdown workspace teardown"));
+                await worker.setup?.catch(() => {});
+                const stopped = await Promise.allSettled([
+                    ...backends.map(stopBackend),
+                    ...staticServers.map(({ server }) => closeStaticServer(server)),
+                ]);
+                const evidence = await Promise.allSettled([
+                    writeFile(
+                        join(evidenceDir, "backend.log"),
+                        backends.map(({ prefix, log }) => `Forma WebApp at ${prefix || "/"}\n${log}`).join("\n"),
+                    ),
+                    rm(temporary, { recursive: true, force: true }),
+                ]);
+                const errors = [...stopped, ...evidence]
+                    .filter(({ status }) => status === "rejected")
+                    .map(({ reason }) => reason);
+                await writeFile(
+                    join(evidenceDir, "cleanup.json"),
+                    JSON.stringify(
+                        {
+                            status: errors.length ? "failed" : "passed",
+                            temporary,
+                            backends: backends.map(({ child, origin, prefix }) => ({
+                                pid: child.pid,
+                                exitCode: child.exitCode,
+                                signal: child.signalCode,
+                                origin,
+                                prefix,
+                            })),
+                            staticOrigins: staticServers.map(({ origin }) => origin),
+                            errors: errors.map((error) => describeBrowserEvidenceError(error)),
+                        },
+                        null,
+                        2,
+                    ),
+                ).catch((error) => errors.push(error));
+                if (errors.length) throw new AggregateError(errors, "Markdown workspace cleanup failed");
+            }
+        },
+        { scope: "worker", timeout: 200_000 },
+    ],
+    markdownWorkspace: [
+        async ({ markdownWorker }, use) => {
+            markdownWorker.setup = startMarkdownWorkspace(markdownWorker);
+            await use(await markdownWorker.setup);
+        },
+        { scope: "worker", timeout: 200_000 },
+    ],
+};

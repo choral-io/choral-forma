@@ -28,7 +28,7 @@ The current application code implements the P0 read, inspect, check, render, ser
 
 ## WebApp React Compiler
 
-The WebApp uses the native React Compiler through `@vitejs/plugin-react` and the development-only `oxc-transform-react` dependency. RPC and static builds share the compiler configuration in `packages/webapp/vite.config.mjs`. This replaces the Babel compiler pipeline; the native compiler path is still marked experimental upstream, so upgrades require both builds and representative browser checks. `scripts/react-compiler.test.mjs` verifies that each mode actually emits memoization code.
+The WebApp uses the native React Compiler through `@vitejs/plugin-react` and the development-only `oxc-transform-react` dependency. RPC and static builds share the compiler configuration in `packages/webapp/vite.config.mjs`. This replaces the Babel compiler pipeline; the native compiler path is still marked experimental upstream, so upgrades require both builds and representative browser checks. `packages/webapp/scripts/react-compiler.test.mjs` verifies that each mode actually emits memoization code.
 
 Use `compiler: false` in that configuration to disable it globally, or a function-level `"use no memo"` directive for a specific compatibility issue. Update the enabled-compiler regression expectations when deliberately disabling it. Application correctness must not depend on memoization; do not remove existing manual memoization without checking its semantics.
 
@@ -133,6 +133,10 @@ pnpm check:examples -- --forma-bin target/debug/forma
 ```
 
 The gate runs `config summary --sources`, `check`, and `workspace health` for each example. It also builds the minimal, product R&D, and FDE examples under `/preview` and checks representative HTML pages against their sitemaps. The Getting Started export runs in a dedicated browser check in CI. For the FDE examples, the gate verifies partition contracts and workspace-local references, checks for sensitive data, and runs the engineering fixture and its Node tests. It also checks that the exported sites exclude the other workspace's overview and the unreferenced engineering fixture files.
+
+After the builds above, run the Getting Started browser check locally with `pnpm exec playwright install chromium --no-shell` and `pnpm test:browser:getting-started`. The Playwright report and failure evidence are under `dist/getting-started-browser/`.
+
+Run `pnpm test:browser:reader` with the same Chromium installation to check the Reader probes independently. Its report and failure evidence are under `dist/reader-browser/`.
 
 Serve the read-only WebApp and RPC backend from an example workspace:
 

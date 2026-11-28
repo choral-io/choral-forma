@@ -139,25 +139,41 @@ jobs:
           echo "artifactFiles=$(find "${site}" -type f | wc -l | tr -d ' ')" >> "${GITHUB_STEP_SUMMARY}"
           printf '%s\n' "${GITHUB_SHA}" > "${site}/-/.forma-source-sha"
 
-      - name: Install pinned Playwright CLI and Chromium
+      - name: Install pinned Chromium
         shell: bash
         run: |
           set -euo pipefail
-          tools_dir="${RUNNER_TEMP}/forma-site-browser-tools"
-          npm install --prefix "${tools_dir}" --no-audit --no-fund @playwright/cli@0.1.24
-          "${tools_dir}/node_modules/.bin/playwright" install --with-deps chromium
-          chromium="$(node -p 'require(process.argv[1]).chromium.executablePath()' "${tools_dir}/node_modules/playwright")"
+          pnpm exec playwright install --with-deps chromium --no-shell
+          chromium="$(node --input-type=module -e 'import { chromium } from "@playwright/test"; console.log(chromium.executablePath())')"
           test -x "${chromium}"
-          echo "FORMA_SITE_PLAYWRIGHT_CLI=${tools_dir}/node_modules/.bin/playwright-cli" >> "${GITHUB_ENV}"
           echo "FORMA_SITE_CHROMIUM=${chromium}" >> "${GITHUB_ENV}"
 
       - name: Verify reader browser regressions
-        run: node scripts/run-reader-browser-regressions.mjs
+        id: reader-browser
+        run: pnpm test:browser:reader
+
+      - name: Upload Reader browser failure evidence
+        if: failure() && steps.reader-browser.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: reader-browser-evidence
+          path: dist/reader-browser
 
       - name: Verify Getting Started directory and index document in Chromium
-        run: node scripts/markdown-browser-regression.mjs --getting-started
+        id: getting-started
+        run: pnpm test:browser:getting-started
+
+      - name: Upload Getting Started browser failure evidence
+        if: failure() && steps.getting-started.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: getting-started-browser-evidence
+          path: dist/getting-started-browser
 
       - name: Verify static site on local Cloudflare runtime
+        id: cloudflare-regression
+        env:
+          TMPDIR: ${{ runner.temp }}
         shell: bash
         run: |
           set -euo pipefail
@@ -166,9 +182,19 @@ jobs:
             --artifact-dir "${GITHUB_WORKSPACE}/dist/site" \
             --source-sha "${GITHUB_SHA}" \
             --config "${GITHUB_WORKSPACE}/wrangler.jsonc" \
-            --playwright-cli "${FORMA_SITE_PLAYWRIGHT_CLI}" \
             --chromium-executable "${FORMA_SITE_CHROMIUM}" \
             --report "${RUNNER_TEMP}/forma-static-site-verification.json"
+
+      - name: Upload Cloudflare failure evidence
+        if: failure() && steps.cloudflare-regression.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: forma-static-site-failure-evidence
+          path: |
+            ${{ runner.temp }}/forma-static-site-verification.json
+            ${{ runner.temp }}/forma-cloudflare-*/*-service.log
+            ${{ runner.temp }}/forma-cloudflare-*/*-browser/**
+            ${{ runner.temp }}/forma-cloudflare-*/wrangler-logs/**
 
       - name: Upload static site verification report
         uses: actions/upload-artifact@v7
@@ -310,7 +336,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check aligned release versions
-        run: node scripts/check-release-version.mjs
+        run: node scripts/release-version.mjs check
 
       - name: Check, lint, test, and build extension
         run: |

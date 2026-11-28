@@ -388,21 +388,47 @@ test("binds release and deployment recovery paths to the exact source", async ()
     assert.match(verifySite, /-\/\.forma-source-sha/u);
 });
 
-test("runs the four reader browser regressions once with the static-site browser tools", async () => {
+test("runs the reader browser regressions once with the static-site browser tools", async () => {
     const source = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     const ci = parseWorkflow(source, "ci.yml");
-    const command = "node scripts/run-reader-browser-regressions.mjs";
+    const command = "pnpm test:browser:reader";
     const steps = Object.values(ci.jobs).flatMap((definition) => definition.steps ?? []);
     assert.equal(steps.filter((step) => step.run?.includes(command)).length, 1);
     const siteSteps = job(ci, "site").steps;
     const reader = siteSteps.findIndex((step) => step.run === command);
-    const install = siteSteps.findIndex(
-        (step) => step.run?.includes("FORMA_SITE_PLAYWRIGHT_CLI=") && step.run.includes("FORMA_SITE_CHROMIUM="),
-    );
+    const install = siteSteps.findIndex((step) => step.run?.includes("FORMA_SITE_CHROMIUM="));
     const cloudflare = siteSteps.findIndex((step) => step.run?.includes("scripts/site-cloudflare-regression.mjs"));
     assert.ok(install >= 0 && install < reader && reader < cloudflare);
+    assert.equal(siteSteps[reader].id, "reader-browser");
     assert.equal(siteSteps[reader]["continue-on-error"], undefined);
     assert.equal(siteSteps[reader].if, undefined);
+    const chromiumInstalls = siteSteps.flatMap((step) =>
+        (step.run ?? "").split("\n").filter((line) => /\binstall\b.*\bchromium\b/u.test(line)),
+    );
+    assert.deepEqual(chromiumInstalls, ["pnpm exec playwright install --with-deps chromium --no-shell"]);
+    assert.match(siteSteps[install].run, /from "@playwright\/test"/u);
+    assert.doesNotMatch(
+        siteSteps.map((step) => step.run ?? "").join("\n"),
+        /@playwright\/cli|FORMA_SITE_PLAYWRIGHT_CLI/u,
+    );
+    assert.match(siteSteps[cloudflare].run, /--chromium-executable "\$\{FORMA_SITE_CHROMIUM\}"/u);
+    assert.equal(siteSteps[cloudflare].env.TMPDIR, "${{ runner.temp }}");
+    const cloudflareEvidence = siteSteps.find((step) => step.with?.name === "forma-static-site-failure-evidence");
+    assert.equal(cloudflareEvidence?.if, "failure() && steps.cloudflare-regression.outcome == 'failure'");
+    assert.match(cloudflareEvidence.with.path, /forma-cloudflare-\*\/\*-browser\/\*\*/u);
+    const readerEvidence = siteSteps.find((step) => step.with?.name === "reader-browser-evidence");
+    assert.equal(readerEvidence?.if, "failure() && steps.reader-browser.outcome == 'failure'");
+    assert.equal(readerEvidence.with.path, "dist/reader-browser");
+
+    const gettingStarted = siteSteps.findIndex((step) => step.id === "getting-started");
+    assert.ok(reader < gettingStarted && gettingStarted < cloudflare);
+    const pilot = siteSteps[gettingStarted];
+    assert.match(pilot.run, /pnpm test:browser:getting-started/u);
+    assert.equal(pilot["continue-on-error"], undefined);
+    assert.equal(pilot.if, undefined);
+    const evidence = siteSteps.find((step) => step.with?.name === "getting-started-browser-evidence");
+    assert.equal(evidence?.if, "failure() && steps.getting-started.outcome == 'failure'");
+    assert.equal(evidence.with.path, "dist/getting-started-browser");
 });
 
 test("uses floating major tags for every remote action", async () => {

@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { createServer } from "vite";
 
-const root = fileURLToPath(new URL("../packages/webapp/", import.meta.url));
-const require = createRequire(new URL("../packages/webapp/package.json", import.meta.url));
-const { createServer } = await import(pathToFileURL(require.resolve("vite")).href);
+const root = fileURLToPath(new URL("../", import.meta.url));
 
 for (const mode of ["production", "static"]) {
     test(`actual ${mode} config emits React Compiler memoization`, async () => {
@@ -22,7 +20,7 @@ for (const mode of ["production", "static"]) {
                 cacheDir,
                 configFile: join(root, "vite.config.mjs"),
                 logLevel: "error",
-                server: { middlewareMode: true, hmr: false, watch: null },
+                server: { middlewareMode: true, hmr: false, ws: false, watch: null },
                 optimizeDeps: { noDiscovery: true, include: [] },
                 plugins: [
                     {

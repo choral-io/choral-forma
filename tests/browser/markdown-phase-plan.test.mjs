@@ -1,13 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-    markdownBrowserPhases,
-    parseMarkdownBrowserPhase,
-    validateMarkdownBrowserPhase,
-} from "./markdown-browser-protocol.mjs";
+import { markdownBrowserPhases, validateMarkdownBrowserPhase } from "./markdown-phase-plan.mjs";
 
 const phase = { name: "static", expectedResults: ["image checks", "P1 checks", "raw checks"] };
-const report = (results) => ({ status: "FORMA_MARKDOWN_BROWSER_PASSED", results });
+const report = (results) => ({ results });
 test("accepts all required checks", () => {
     assert.deepEqual(validateMarkdownBrowserPhase(report(phase.expectedResults), phase).results, phase.expectedResults);
 });
@@ -20,14 +16,8 @@ for (const [name, results] of [
 ])
     test(`rejects ${name}`, () => assert.throws(() => validateMarkdownBrowserPhase(report(results), phase)));
 
-test("rejects wrong status and malformed result shapes", () => {
-    for (const result of [
-        null,
-        {},
-        { results: phase.expectedResults },
-        { status: "failed", results: phase.expectedResults },
-        { status: "FORMA_MARKDOWN_BROWSER_PASSED", results: "checks" },
-    ])
+test("rejects malformed result shapes", () => {
+    for (const result of [null, {}, { results: "checks" }])
         assert.throws(() => validateMarkdownBrowserPhase(result, phase));
 });
 
@@ -99,13 +89,6 @@ test("plans isolated disclosure, navigation, and existing regression coverage fo
     ])
         assert.throws(() => markdownBrowserPhases(hosts, sourceIds));
 });
-test("rejects ambiguous, malformed and error-bearing CLI output", () => {
-    const output = `### Result\n${JSON.stringify(report(phase.expectedResults))}\n`;
-    assert.deepEqual(parseMarkdownBrowserPhase(output, phase).results, phase.expectedResults);
-    for (const malformed of ["", "### Result\n{invalid}\n", output + output, `### Error\nfailed\n${output}`])
-        assert.throws(() => parseMarkdownBrowserPhase(malformed, phase));
-});
-
 test("requires every source-case journal before accepting a phase", () => {
     for (const family of ["reading", "callouts", "disclosures"]) {
         const phase = {
