@@ -565,6 +565,8 @@ async function writeFixture(temporary, name) {
         "notes/with space.zh-hans.md": "# Fixture Translated Note\n\n## Fixture Section\n",
         "notes/.index.md": "# Fixture Directory Introduction\n\n## Directory Section\n",
         "notes/report.html.md": "# Fixture Dotted Note\n",
+        "notes/report.json.md": "# Fixture Report\n\n[Download JSON](/-/raw/notes/report.json)\n",
+        "notes/report.json": '{"status":"ready"}\n',
         "notes/percent%2F.md": "# Fixture Literal Escape\n",
         "diagram.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>\n',
     };
@@ -676,6 +678,15 @@ async function positiveGroup(context) {
             ];
             assert(requiredKinds.every((kind) => data.manifest.routes.some((route) => route.kind === kind)));
             assert(data.manifest.resources.some(({ path }) => path === "diagram.svg"));
+            const json = data.manifest.resources.find(({ path }) => path === "notes/report.json");
+            assert(json, "The fixture JSON is missing from the resource manifest");
+            assert.equal(json.mediaType, "application/json");
+            assert.equal(json.publicPath, publicPath(data.config, "/-/raw/notes/report.json"));
+            assert.deepEqual(json.referencedBy, ["/notes/report.json.md"]);
+            assert.deepEqual(
+                await readFile(artifactFile(output, json.outputPath)),
+                await readFile(resolve(workspace, json.path)),
+            );
             assert(data.manifest.entries.some(({ variants }) => variants.length > 0));
             assert(data.manifest.routes.some((route) => route.kind === "taxonomyTerm" && route.id === "a%2Fb"));
             const fixture = data.manifest.entries.find(({ path }) => path === "notes/with space.md");

@@ -779,6 +779,99 @@ fn site_build_keeps_directory_links_out_of_resource_inventory() {
 }
 
 #[test]
+fn json_sidecar_keeps_its_entry_route_and_exports_explicit_raw_links() {
+    let root = fixture_root("site-json-sidecar");
+    copy_starter_workspace(&root);
+    let source = b"{\"status\":\"published\"}\n";
+    std::fs::write(root.join("notes/record.json"), source).unwrap();
+    std::fs::write(root.join("notes/draft.json"), b"{}\n").unwrap();
+    std::fs::write(
+        root.join("uncollected.md"),
+        "[Uncollected download](/-/raw/notes/draft.json)\n",
+    )
+    .unwrap();
+    let sidecar = "notes/record.json.md";
+    let content = "---\nkind: note\ntitle: Record\nsummary: JSON resource description.\n---\n\n[Record](./record.json)\n\n[Draft](./draft.json)\n";
+    std::fs::write(root.join(sidecar), content).unwrap();
+
+    let build = || {
+        forma(&root)
+            .args([
+                "site",
+                "build",
+                "--out",
+                "dist/site",
+                "--base-url",
+                "https://example.test",
+                "--root-path",
+                "/preview",
+                "--json",
+            ])
+            .output()
+            .unwrap()
+    };
+    let build_and_read_sidecar = || {
+        let output = build();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        std::fs::read_to_string(root.join("dist/site").join(sidecar).join("index.html")).unwrap()
+    };
+    let exported = root.join("dist/site/-/raw/notes");
+    let html = build_and_read_sidecar();
+    assert!(html.contains(r#"href="/preview/notes/record.json.md">Record</a>"#));
+    assert!(!html.contains("/preview/-/raw/notes/record.json"));
+    assert!(!exported.join("record.json").exists());
+
+    let download = "[Download JSON](/-/raw/notes/record.json?download=1#data)";
+    std::fs::write(root.join(sidecar), format!("{content}\n{download}\n")).unwrap();
+    let rendered = forma_core::render_file(&root, sidecar, "markdown").unwrap();
+    assert_eq!(rendered.file.path, sidecar);
+    let markdown = rendered.render.markdown.unwrap();
+    assert!(markdown.contains("[Record](./record.json)"));
+    assert!(markdown.contains(download));
+
+    let html = build_and_read_sidecar();
+    assert!(
+        html.contains(
+            r#"href="/preview/-/raw/notes/record.json?download=1#data">Download JSON</a>"#
+        )
+    );
+    assert!(html.contains(r#"href="/preview/notes/record.json.md">Record</a>"#));
+    assert!(!html.contains("/preview/-/raw/notes/draft.json"));
+    assert_eq!(std::fs::read(exported.join("record.json")).unwrap(), source);
+    assert!(!exported.join("draft.json").exists());
+    assert!(!root.join("dist/site/notes/record.json").exists());
+
+    std::fs::write(
+        root.join("notes/missing-resource.md"),
+        "---\nkind: note\ntitle: Missing resource\nsummary: Explicit download without an original.\n---\n\n[Download missing JSON](/-/raw/notes/missing.json)\n",
+    )
+    .unwrap();
+    let failed = build();
+    assert!(!failed.status.success());
+    let result: Value = serde_json::from_slice(&failed.stdout).unwrap();
+    assert!(
+        result["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| {
+                diagnostic["code"] == "site.buildFailed"
+                    && diagnostic["message"]
+                        .as_str()
+                        .is_some_and(|message| message.contains("notes/missing.json"))
+            }),
+        "{result}"
+    );
+    assert_eq!(std::fs::read(exported.join("record.json")).unwrap(), source);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn site_build_preflights_output_filesystem_equivalence_and_preserves_prior_artifact() {
     use forma_core::routes::taxonomy_term_route_path;
     use std::fs;

@@ -69,6 +69,12 @@ The builder exports the effective workspace projection and configured routes, no
 
 Only resources referenced by exported content or declared workspace presentation are copied, under `-/raw/`. Forma rejects path traversal, symlinks, non-regular resource files, hidden path components, and configuration-source documents; it does not copy arbitrary workspace or repository files. Names suggesting private or local content do not exclude otherwise eligible referenced resources.
 
+To publish a JSON original, link to its `/-/raw/` URL from an exported Markdown page. For example, `[Download JSON](/-/raw/reports/report.json)` publishes the regular file `reports/report.json`. The link works with `forma serve`, and the static builder adds the deployment root path to the URL.
+
+An included description such as `reports/report.json.md` keeps its Markdown URL. Ordinary links such as `./report.json` retain document resolution, including the existing description alias. Use the explicit raw link to include the JSON bytes in the static artifact.
+
+When upgrading an existing workspace, check explicit JSON links that previously relied on `forma serve`. Static builds now include the referenced original and fail if it is missing or unsafe.
+
 ### Trusted-Author Publication Boundary
 
 Referenced SVG files are copied as bytes after path-safety checks; they are not sanitized. This does not make untrusted SVG or workspace content an accepted input class. Static artifacts must be built and published by trusted authors, and untrusted artifacts must not receive production credentials or be served from a production origin.

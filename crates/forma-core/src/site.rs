@@ -735,7 +735,8 @@ fn build_static_site_snapshot_from_loaded(
     let spaces = static_spaces(workspace, &discovery.index.entries);
 
     if let Some(logo) = &workspace.config.workspace.logo
-        && let Some(candidate) = resource_candidate(&logo.path, ".", true, &config_paths, root_path)
+        && let Some(candidate) =
+            resource_candidate(&logo.path, ".", true, false, &config_paths, root_path)
     {
         resources
             .entry(candidate.path.clone())
@@ -1290,6 +1291,15 @@ fn static_reference_href(
     let (path, query) = without_fragment
         .split_once('?')
         .map_or((without_fragment, ""), |(path, query)| (path, query));
+    if let Some(raw) = explicit_json_resource_path(reference) {
+        let resource = resource_candidate(&raw, ".", false, true, config_paths, root_path)?;
+        return Some(with_resource_suffix(
+            resource.public_path,
+            query,
+            fragment,
+            true,
+        ));
+    }
     let heading_fragment = if markdown_uri {
         crate::routes::decode_public_path_once(fragment)
     } else {
@@ -1369,7 +1379,8 @@ fn static_reference_href(
     // no entry alias exists so normal resource diagnostics remain available.
     let known_directory = reference.syntax == crate::markdown::FormaReferenceSyntax::MarkdownLink
         && directory.is_some();
-    if let Some(candidate) = resource_candidate(&normalized, ".", false, config_paths, root_path)
+    if let Some(candidate) =
+        resource_candidate(&normalized, ".", false, false, config_paths, root_path)
         && ((!ambiguous && alias.is_none() && !known_directory)
             || source.root().join(&normalized).is_file())
     {
@@ -1826,12 +1837,20 @@ fn collect_document_resources(
         ) {
             continue;
         }
-        let Some(path) = normalized_resource_path(source_path, reference) else {
+        let explicit_json = explicit_json_resource_path(reference);
+        let is_explicit_json = explicit_json.is_some();
+        let Some(path) = explicit_json.or_else(|| normalized_resource_path(source_path, reference))
+        else {
             continue;
         };
-        let Some(candidate) =
-            resource_candidate(&path, source_route, false, config_paths, root_path)
-        else {
+        let Some(candidate) = resource_candidate(
+            &path,
+            source_route,
+            false,
+            is_explicit_json,
+            config_paths,
+            root_path,
+        ) else {
             continue;
         };
         // Collect only destinations the link resolver actually publishes as raw
@@ -1863,6 +1882,24 @@ fn collect_document_resources(
             })
             .or_insert(candidate);
     }
+}
+
+fn explicit_json_resource_path(reference: &crate::markdown::FormaReference) -> Option<String> {
+    if reference.syntax != crate::markdown::FormaReferenceSyntax::MarkdownLink
+        || reference.intent != FormaReferenceIntent::Link
+    {
+        return None;
+    }
+    let path = reference
+        .target
+        .trim()
+        .split(['?', '#'])
+        .next()?
+        .strip_prefix(RAW_ROUTE_PREFIX)?
+        .strip_prefix('/')?;
+    let path = WorkspacePath::parse_config(decode_markdown_uri_path(path)?).ok()?;
+    (media_type_for_workspace_path(path.as_str()) == Some("application/json"))
+        .then(|| path.as_str().to_string())
 }
 
 fn normalized_resource_path(
@@ -1899,13 +1936,18 @@ fn resource_candidate(
     path: &str,
     source_route: &str,
     workspace_presentation: bool,
+    explicit_json: bool,
     config_paths: &BTreeSet<&str>,
     root_path: &str,
 ) -> Option<StaticSiteResourceCandidate> {
     if !resource_path_is_publishable(path, config_paths.iter().copied()) {
         return None;
     }
-    let media_type = published_resource_media_type(path)?;
+    let media_type = if explicit_json {
+        "application/json"
+    } else {
+        published_resource_media_type(path)?
+    };
     Some(StaticSiteResourceCandidate {
         path: path.to_string(),
         public_path: public_url(root_path, &raw_route_path(path)),

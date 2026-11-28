@@ -551,6 +551,8 @@ Guidelines should be introduced before a full policy engine because they replace
 
 The deferred Actions and Triggers model is captured separately in [[product/forma-actions-triggers-concept]]. It should stay P1+ until single-entry write operations and reviewable change proposals are concrete enough to consume it.
 
+The [Choral Flows DSL Beta.2 guide](flows-dsl/definition.schema.json.md) describes a workflow Definition for reviewed knowledge publication and provides its JSON Schema.
+
 ### Managed Views
 
 Views should be managed Markdown definitions under `.forma/views/**/*.md`. They are file-based facts, but not ordinary knowledge notes. Their frontmatter defines rendering behavior; their Markdown body explains purpose, usage, and maintenance context.
