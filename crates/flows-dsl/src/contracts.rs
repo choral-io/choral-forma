@@ -71,6 +71,35 @@ impl Contracts {
         })
     }
 
+    /// Export the same normalized Schema used by validation, with its reachable resources.
+    pub(crate) fn standalone(&self, schema: Option<&Value>) -> Result<Value> {
+        let Some(schema) = schema else {
+            return Ok(Value::Bool(true));
+        };
+        let mut pending = BTreeSet::new();
+        let mut root = normalize(schema, &mut pending)?;
+        let Value::Object(fields) = &mut root else {
+            return Ok(root);
+        };
+        fields.insert(
+            "$schema".into(),
+            Value::from("https://json-schema.org/draft/2020-12/schema"),
+        );
+        let mut definitions = Map::new();
+        while let Some(name) = pending.pop_first() {
+            let key = format!("name-{name}");
+            if definitions.contains_key(&key) {
+                continue;
+            }
+            let named = self.named.get(name).ok_or_else(|| definition("contract"))?;
+            definitions.insert(key, normalize(named, &mut pending)?);
+        }
+        if !definitions.is_empty() {
+            fields.insert("$defs".into(), Value::Object(definitions));
+        }
+        Ok(root)
+    }
+
     pub(crate) fn check(&self, key: &str, value: &Value, stage: ErrorStage) -> Result<()> {
         let validator = self
             .validators
@@ -136,7 +165,9 @@ fn normalize<'a>(schema: &'a Value, references: &mut BTreeSet<&'a str>) -> Resul
     for (key, value) in source {
         let normalized = match key.as_str() {
             "type" | "required" | "minimum" | "maximum" | "exclusiveMinimum"
-            | "exclusiveMaximum" | "title" | "description" | "const" | "minLength" => value.clone(),
+            | "exclusiveMaximum" | "title" | "description" | "const" | "enum" | "minLength" => {
+                value.clone()
+            }
             "items" | "additionalProperties" => normalize(value, references)?,
             "properties" => Value::Object(
                 value

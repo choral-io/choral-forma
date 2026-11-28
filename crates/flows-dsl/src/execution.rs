@@ -6,8 +6,8 @@ use serde_json::value::RawValue;
 use serde_json::{Value, json};
 
 use crate::{
-    DEFINITION_PROFILE, DefinitionError, ErrorStage, MAX_BYTES, Mode, Operation, Plan, Result,
-    Roots, Step, ValueBudget, compile, definition, encoded_size, input_key, output_key, parse,
+    DEFINITION_PROFILE, DefinitionError, ErrorStage, MAX_BYTES, Operation, Plan, Result, Roots,
+    Step, ValueBudget, compile_execution, encoded_size, input_key, output_key, parse,
     parse_document, values::same_json,
 };
 
@@ -26,7 +26,7 @@ fn execution(code: &'static str) -> DefinitionError {
 /// Hosts resolve the returned procedure targets before admitting an instance.
 pub fn validate_execution(source: &str) -> Result<String> {
     let document = parse_document(source)?;
-    let plan = compile(&document, Mode::Replay)?.ok_or_else(|| definition("schemas_only"))?;
+    let plan = compile_execution(&document)?;
     let mut calls = Vec::new();
     let mut submissions = Vec::new();
     for &i in &plan.order {
@@ -35,12 +35,28 @@ pub fn validate_execution(source: &str) -> Result<String> {
             Operation::Call { target, .. } => {
                 calls.push(json!({"position":step.id,"target":target}))
             }
-            Operation::Watch(w) => submissions.push(format!("{}/{}", step.id, w.local)),
+            Operation::Watch(w) => submissions.push(w.position(step.id)),
             Operation::Pure => {}
         }
     }
-    Ok(json!({"version":VERSION,"profile":DEFINITION_PROFILE,"id":plan.id,"entry":plan.steps[plan.order[0]].id,
-        "delivery":plan.delivery.map(|i| plan.steps[i].id),"calls":calls,"submissions":submissions}).to_string())
+    let delivery = match plan.deliveries.as_slice() {
+        [only] => Some(plan.steps[*only].id),
+        _ => None,
+    };
+    let mut inventory = json!({
+        "version": VERSION, "profile": DEFINITION_PROFILE, "id": plan.id,
+        "entry": plan.entry().id, "delivery": delivery,
+        "calls": calls, "submissions": submissions,
+    });
+    if plan.deliveries.len() > 1 {
+        inventory["deliveryCandidates"] = json!(
+            plan.deliveries
+                .iter()
+                .map(|&i| plan.steps[i].id)
+                .collect::<Vec<_>>()
+        );
+    }
+    Ok(inventory.to_string())
 }
 
 /// Replay a versioned journal against its immutable source, revision, instance and entry input.
@@ -54,7 +70,7 @@ pub fn replay_execution(
     journal_json: &str,
 ) -> Result<String> {
     let document = parse_document(source)?;
-    let plan = compile(&document, Mode::Replay)?.ok_or_else(|| definition("schemas_only"))?;
+    let plan = compile_execution(&document)?;
     if !identifier(revision) || !identifier(instance) {
         return Err(execution("address"));
     }
@@ -65,13 +81,8 @@ pub fn replay_execution(
     if journal.version != VERSION || journal.facts.len() > MAX_FACTS {
         return Err(execution("journal"));
     }
-    let input = parse(input_json, ErrorStage::Input)?;
-    ValueBudget::default().charge(&input, 0, ErrorStage::Input)?;
-    let entry = &plan.steps[plan.order[0]];
-    if entry.input_schema.is_some() {
-        plan.contracts
-            .check(&input_key(entry.id), &input, ErrorStage::Input)?;
-    }
+    let entry = plan.entry();
+    let input = entry.entry_input().parse(input_json, &plan.contracts)?;
     let mut run = Run::new(&plan, revision, instance, input);
     run.advance();
     let mut used_bytes = 32; // Compact journal envelope and final delimiter.
@@ -200,6 +211,7 @@ impl Event {
 
 enum State {
     Pending,
+    Excluded,
     Call {
         input: Value,
         argument: Value,
@@ -265,6 +277,21 @@ impl<'a, 's> Run<'a, 's> {
             if !matches!(self.states[i], State::Pending) {
                 continue;
             }
+            // A definitive exclusion wins even if another prerequisite has not settled.
+            if step
+                .needs
+                .iter()
+                .any(|need| match &self.states[self.indices[need.from]] {
+                    State::Excluded => true,
+                    State::Succeeded {
+                        exit: Some(exit), ..
+                    } => !need.admits(exit),
+                    _ => false,
+                })
+            {
+                self.states[i] = State::Excluded;
+                continue;
+            }
             if step
                 .needs
                 .iter()
@@ -277,7 +304,7 @@ impl<'a, 's> Run<'a, 's> {
                 Err(e) => self.failure = Some((i, e)),
             }
         }
-        // Every dependency is unconditional in this slice. A tolerated source cannot supply it.
+        // Excluded work owes nothing. A required dependency on a tolerated call is still missing.
         if self.failure.is_none()
             && !self
                 .states
@@ -292,8 +319,11 @@ impl<'a, 's> Run<'a, 's> {
                 .find(|&i| matches!(self.states[i], State::Pending))
             {
                 self.failure = Some((i, execution("unsatisfied_dependency")));
-            } else if let Some(i) = self.plan.delivery
-                && matches!(self.states[i], State::Tolerated)
+            } else if let Some(&i) = self
+                .plan
+                .deliveries
+                .iter()
+                .find(|&&i| matches!(self.states[i], State::Tolerated))
             {
                 self.failure = Some((i, execution("missing_delivery")));
             }
@@ -440,14 +470,8 @@ impl<'a, 's> Run<'a, 's> {
                 let Payload::Json(value) = &payload else {
                     unreachable!()
                 };
-                ValueBudget::default().charge(value, 0, ErrorStage::Input)?;
-                if w.input_schema.is_some() {
-                    self.plan.contracts.check(
-                        &format!("local-input-{}", step.id),
-                        value,
-                        ErrorStage::Input,
-                    )?;
-                }
+                w.submission_input(step.id)
+                    .check(value, &self.plan.contracts)?;
                 // Admission succeeded. Any subsequent binding or decision failure is durable.
                 if let Err(e) = self.submit(i, value) {
                     self.failure = Some((i, e));
@@ -551,7 +575,7 @@ impl<'a, 's> Run<'a, 's> {
                         State::Open { results, .. } => results.len(),
                         _ => 0,
                     };
-                    waits.push(json!({"address":self.address(&format!("{}/{}",step.id,w.local)), "accepting":matches!(self.states[i],State::Open{..}),"count":count}));
+                    waits.push(json!({"address":self.address(&w.position(step.id)), "accepting":matches!(self.states[i],State::Open{..}),"count":count}));
                 }
                 (_, State::Tolerated) => tolerated.push(self.address(step.id)),
                 (
@@ -570,12 +594,15 @@ impl<'a, 's> Run<'a, 's> {
         if let Some((i, e)) = self.failure {
             result["failure"] = json!({"position":self.plan.steps[i].id,"error":e.to_string()});
         }
-        if let Some(i) = self.plan.delivery
-            && let State::Succeeded {
-                output: Some(v), ..
+        // Admission proves that at most one candidate can occur for the chosen exit.
+        for &i in &self.plan.deliveries {
+            if let State::Succeeded {
+                output: Some(value),
+                ..
             } = &self.states[i]
-        {
-            result["deliveryJson"] = Value::String(v.to_string());
+            {
+                result["deliveryJson"] = Value::String(value.to_string());
+            }
         }
         result
     }

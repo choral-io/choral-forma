@@ -1,0 +1,64 @@
+{
+  "dsl": "choral/flows-v1-beta.2",
+  "schemas": {
+    "Amount": { "type": "number", "exclusiveMinimum": 1.0000000000000001 },
+    "Request": {
+      "type": "object",
+      "title": "Registration request",
+      "properties": {
+        "amount": { "$ref": "Amount" }
+      },
+      "required": ["amount"]
+    },
+    "Receipt": {
+      "type": "object",
+      "description": "An independently supplied review receipt.",
+      "properties": {
+        "amount": { "$ref": "Amount" },
+        "otherAmounts": { "type": "array", "items": { "$ref": "Amount" } },
+        "$ref": { "const": { "$ref": "literal-data" } },
+        "labels": { "enum": [{ "$ref": "literal-label" }] }
+      },
+      "required": ["amount"]
+    },
+    "Review": { "$ref": "Receipt" }
+  },
+  "definition": {
+    "id": "reviewContracts",
+    "steps": [
+      {
+        "id": "register",
+        "input": { "schema": { "$ref": "Request" } },
+        "call": { "target": "registerReview@1" },
+        "output": {}
+      },
+      {
+        "id": "review",
+        "watch": {
+          "observe": {
+            "registration": { "from": "register" },
+            "submission": {
+              "needs": { "ack": { "from": "register", "require": "success" } },
+              "input": { "schema": { "$ref": "Review" } },
+              "output": { "bind": { "$ref": "$input#" } }
+            }
+          },
+          "cases": [
+            {
+              "on": "submission",
+              "when": true,
+              "exit": "received",
+              "output": { "bind": { "$ref": "submission#/results/0" } }
+            }
+          ]
+        }
+      },
+      {
+        "id": "handoff",
+        "needs": { "result": { "from": "review", "require": "output" } },
+        "input": { "bind": { "$ref": "result#" } },
+        "output": { "bind": { "$ref": "$input#" } }
+      }
+    ]
+  }
+}

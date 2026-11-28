@@ -9,6 +9,7 @@ use crate::{
 /// One directly observed output and one addressed local submission, gated by that source.
 pub(super) struct Watcher<'a> {
     pub local: &'a str,
+    pub local_need: Dependency<'a>,
     observed: &'a str,
     pub input_schema: Option<&'a Value>,
     local_output: Binding,
@@ -23,6 +24,10 @@ struct Case<'a> {
 }
 
 impl<'a> Watcher<'a> {
+    pub fn exits(&self) -> impl Iterator<Item = &'a str> + '_ {
+        self.cases.iter().map(|case| case.exit)
+    }
+
     pub fn compile_step(raw: &'a Value, id: &'a str) -> Result<Step<'a>> {
         let unsupported = || definition("unsupported_watch");
         let watch = &raw["watch"];
@@ -40,15 +45,18 @@ impl<'a> Watcher<'a> {
             .find(|(k, _)| *k != observed)
             .ok_or_else(unsupported)?;
         let needs = step["needs"].as_object().ok_or_else(unsupported)?;
+        let Some((alias, gate)) = needs.iter().next() else {
+            return Err(unsupported());
+        };
         if connection.get("collect").is_some()
             || needs.len() != 1
             || ["call", "flow", "remaining"]
                 .iter()
                 .any(|k| step.get(k).is_some())
             || step["input"].get("bind").is_some()
-            || !needs.values().all(|edge| {
-                edge["from"] == from && edge["require"] == "success" && edge.get("exit").is_none()
-            })
+            || gate["from"] != from
+            || gate["require"] != "success"
+            || gate.get("exit").is_some()
         {
             return Err(unsupported());
         }
@@ -80,6 +88,12 @@ impl<'a> Watcher<'a> {
         }
         let watcher = Self {
             local,
+            local_need: Dependency {
+                alias,
+                from,
+                require: "success",
+                exits: Vec::new(),
+            },
             observed,
             input_schema: step["input"].get("schema"),
             local_schema: step["output"].get("schema"),
@@ -95,6 +109,7 @@ impl<'a> Watcher<'a> {
                 alias: observed,
                 from,
                 require: "output",
+                exits: Vec::new(),
             }],
             input_schema: None,
             input: None,
@@ -105,9 +120,14 @@ impl<'a> Watcher<'a> {
         })
     }
 
+    pub fn position(&self, owner: &str) -> String {
+        format!("{owner}/{}", self.local)
+    }
+
     pub fn schemas(&self, id: &str) -> [Option<(String, &'a Value)>; 2] {
         [
-            self.input_schema.map(|s| (format!("local-input-{id}"), s)),
+            self.input_schema
+                .map(|s| (crate::external_input::submission_key(id), s)),
             self.local_schema.map(|s| (format!("local-output-{id}"), s)),
         ]
     }

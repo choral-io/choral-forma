@@ -1,0 +1,77 @@
+dsl: choral/flows-v1-beta.2
+schemas:
+  Publication:
+    type: object
+    required: [status, entryId, revisionId]
+    additionalProperties: false
+    properties:
+      status: { enum: [applied, closed] }
+      entryId: { type: [string, "null"] }
+      revisionId: { type: [string, "null"] }
+definition:
+  id: governedKnowledgePublication
+  steps:
+    - id: createProposal
+      input: { schema: { type: string, minLength: 1 } }
+      call: { target: createKnowledgeProposal@1 }
+      output:
+        bind:
+          sourceId: { $ref: "$input#" }
+          proposalId: { $ref: "$result#/proposalId" }
+
+    - id: publication
+      watch:
+        observe:
+          proposal: { from: createProposal }
+          receipt:
+            needs: { created: { from: createProposal, require: success } }
+            input: { schema: { $ref: Publication } }
+            output: { bind: { $ref: "$input#" } }
+        cases:
+          - on: receipt
+            when:
+              $expr:
+                lang: choral-cel/v1
+                args: { status: { $ref: "receipt#/results/0/status" } }
+                code: 'status == "applied"'
+            exit: applied
+            output:
+              bind:
+                sourceId: { $ref: "proposal#/results/0/sourceId" }
+                entryId: { $ref: "receipt#/results/0/entryId" }
+                revisionId: { $ref: "receipt#/results/0/revisionId" }
+          - on: receipt
+            when:
+              $expr:
+                lang: choral-cel/v1
+                args: { status: { $ref: "receipt#/results/0/status" } }
+                code: 'status == "closed"'
+            exit: closed
+            output:
+              bind:
+                sourceId: { $ref: "proposal#/results/0/sourceId" }
+                proposalId: { $ref: "proposal#/results/0/proposalId" }
+                entryId: { $ref: "receipt#/results/0/entryId" }
+                revisionId: { $ref: "receipt#/results/0/revisionId" }
+
+    - id: enqueueIndex
+      needs: { publication: { from: publication, require: output, exit: applied } }
+      input: { bind: { $ref: "publication#" } }
+      call: { target: enqueueKnowledgeIndex@1 }
+      output:
+        bind:
+          sourceId: { $ref: "$input#/sourceId" }
+          status: { $ref: "$result#/status" }
+          entryId: { $ref: "$result#/entryId" }
+          revisionId: { $ref: "$result#/revisionId" }
+
+    - id: closeProposal
+      needs: { publication: { from: publication, require: output, exit: closed } }
+      input: { bind: { $ref: "publication#" } }
+      output:
+        bind:
+          sourceId: { $ref: "$input#/sourceId" }
+          proposalId: { $ref: "$input#/proposalId" }
+          status: closed
+          entryId: { $ref: "$input#/entryId" }
+          revisionId: { $ref: "$input#/revisionId" }

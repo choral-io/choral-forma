@@ -1,0 +1,75 @@
+{
+  "review-handoff.yaml": {
+    "version": 1,
+    "profile": "choral/flows-v1-beta.2",
+    "id": "reviewHandoff",
+    "entry": "register",
+    "deliveryCandidates": ["handoff"],
+    "steps": [
+      { "id": "register", "kind": "call", "needs": [], "target": "registerReview@1" },
+      {
+        "id": "review",
+        "kind": "watch",
+        "needs": [],
+        "observe": [
+          { "alias": "request", "from": "register" },
+          {
+            "alias": "submission",
+            "position": "review/submission",
+            "needs": [{ "alias": "registered", "from": "register", "require": "success" }]
+          }
+        ],
+        "cases": [{ "on": "submission", "exit": "recorded" }]
+      },
+      {
+        "id": "handoff",
+        "kind": "process",
+        "needs": [{ "alias": "reviewed", "from": "review", "require": "output" }]
+      },
+      {
+        "id": "journal",
+        "kind": "call",
+        "needs": [{ "alias": "reviewed", "from": "review", "require": "output" }],
+        "target": "registerReceipt@1"
+      }
+    ]
+  },
+  "knowledge-publication-exits.yaml": {
+    "version": 1,
+    "profile": "choral/flows-v1-beta.2",
+    "id": "governedKnowledgePublication",
+    "entry": "createProposal",
+    "deliveryCandidates": ["closeProposal", "enqueueIndex"],
+    "steps": [
+      { "id": "createProposal", "kind": "call", "target": "createKnowledgeProposal@1", "needs": [] },
+      {
+        "id": "publication",
+        "kind": "watch",
+        "needs": [],
+        "observe": [
+          { "alias": "proposal", "from": "createProposal" },
+          {
+            "alias": "receipt",
+            "position": "publication/receipt",
+            "needs": [{ "alias": "created", "from": "createProposal", "require": "success" }]
+          }
+        ],
+        "cases": [
+          { "on": "receipt", "exit": "applied" },
+          { "on": "receipt", "exit": "closed" }
+        ]
+      },
+      {
+        "id": "closeProposal",
+        "kind": "process",
+        "needs": [{ "alias": "publication", "from": "publication", "require": "output", "exit": ["closed"] }]
+      },
+      {
+        "id": "enqueueIndex",
+        "kind": "call",
+        "target": "enqueueKnowledgeIndex@1",
+        "needs": [{ "alias": "publication", "from": "publication", "require": "output", "exit": ["applied"] }]
+      }
+    ]
+  }
+}

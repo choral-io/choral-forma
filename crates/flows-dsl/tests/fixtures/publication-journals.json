@@ -1,0 +1,102 @@
+{
+  "inputJson": "\"source-1\"",
+  "revision": "publication-v1",
+  "instance": "ingest-1",
+  "applied": {
+    "version": 1,
+    "facts": [
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "createProposal"
+        },
+        "event": {
+          "kind": "dispatch"
+        }
+      },
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "createProposal"
+        },
+        "event": {
+          "kind": "returned",
+          "payloadJson": "{\"proposalId\":\"proposal-1\"}"
+        }
+      },
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "publication/receipt"
+        },
+        "event": {
+          "kind": "submission",
+          "payloadJson": "{\"status\":\"applied\",\"entryId\":\"entry-1\",\"revisionId\":\"revision-1\"}",
+          "id": "receipt-1"
+        }
+      },
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "enqueueIndex"
+        },
+        "event": {
+          "kind": "dispatch"
+        }
+      },
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "enqueueIndex"
+        },
+        "event": {
+          "kind": "returned",
+          "payloadJson": "{\"status\":\"index-requested\",\"entryId\":\"entry-1\",\"revisionId\":\"revision-2\"}"
+        }
+      }
+    ]
+  },
+  "closed": {
+    "version": 1,
+    "facts": [
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "createProposal"
+        },
+        "event": {
+          "kind": "dispatch"
+        }
+      },
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "createProposal"
+        },
+        "event": {
+          "kind": "returned",
+          "payloadJson": "{\"proposalId\":\"proposal-1\"}"
+        }
+      },
+      {
+        "address": {
+          "revision": "publication-v1",
+          "instance": "ingest-1",
+          "position": "publication/receipt"
+        },
+        "event": {
+          "kind": "submission",
+          "payloadJson": "{\"status\":\"closed\",\"entryId\":null,\"revisionId\":null}",
+          "id": "receipt-1"
+        }
+      }
+    ]
+  }
+}

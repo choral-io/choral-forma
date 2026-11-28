@@ -352,3 +352,20 @@ fn local_output_budget_bounds_the_whole_observation() {
         "output:size"
     );
 }
+
+#[test]
+fn a_named_watcher_exit_enables_the_required_receipt() {
+    let source = SOURCE.replace(
+        "    - id: journal\n      needs: { reviewed: { from: review, require: output } }",
+        "    - id: journal\n      needs: { reviewed: { from: review, require: output, exit: recorded } }",
+    );
+    let inventory = validate_execution(&source).unwrap();
+    assert_eq!(inventory, validate_execution(SOURCE).unwrap());
+    let journal = facts();
+    for n in 0..=journal.len() {
+        assert_eq!(
+            replay(&source, INPUT, &journal[..n]).unwrap(),
+            replay(SOURCE, INPUT, &journal[..n]).unwrap()
+        );
+    }
+}

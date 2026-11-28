@@ -4,10 +4,14 @@ mod bindings;
 mod contracts;
 mod error;
 mod execution;
+mod external_input;
+mod topology;
 mod values;
 mod watcher;
 
 pub use execution::{replay_execution, validate_execution};
+pub use external_input::{execution_input_schema, validate_execution_input};
+pub use topology::execution_topology;
 use watcher::Watcher;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -27,10 +31,19 @@ pub const PREVIEW_VERSION: u32 = 1;
 
 const MAX_STEPS: usize = 256;
 
+#[derive(serde::Serialize)]
 struct Dependency<'a> {
     alias: &'a str,
     from: &'a str,
     require: &'a str,
+    #[serde(rename = "exit", skip_serializing_if = "Vec::is_empty")]
+    exits: Vec<&'a str>,
+}
+
+impl Dependency<'_> {
+    fn admits(&self, exit: &str) -> bool {
+        self.exits.is_empty() || self.exits.contains(&exit)
+    }
 }
 
 struct Step<'a> {
@@ -101,12 +114,23 @@ impl<'a> Step<'a> {
                 let from = edge["from"]
                     .as_str()
                     .filter(|from| *from != "$context")
-                    .filter(|_| edge.get("exit").is_none())
+                    .filter(|_| mode == Mode::Replay || edge.get("exit").is_none())
                     .ok_or_else(|| definition("dependency"))?;
                 let require = edge["require"]
                     .as_str()
                     .ok_or_else(|| definition("dependency"))?;
+                // The document grammar has already checked name syntax, nonempty lists and uniqueness.
+                let exits = match edge.get("exit") {
+                    None => Vec::new(),
+                    Some(Value::String(name)) => vec![name.as_str()],
+                    Some(Value::Array(names)) => names
+                        .iter()
+                        .map(|v| v.as_str().ok_or_else(|| definition("dependency")))
+                        .collect::<Result<_>>()?,
+                    _ => return Err(definition("dependency")),
+                };
                 Ok(Dependency {
+                    exits,
                     alias,
                     from,
                     require,
@@ -144,8 +168,14 @@ struct Plan<'a> {
     id: &'a str,
     steps: Vec<Step<'a>>,
     order: Vec<usize>,
-    delivery: Option<usize>,
+    deliveries: Vec<usize>,
     contracts: Contracts,
+}
+
+impl<'a> Plan<'a> {
+    fn entry(&self) -> &Step<'a> {
+        &self.steps[self.order[0]]
+    }
 }
 
 fn parse_document(source: &str) -> Result<Value> {
@@ -168,6 +198,10 @@ fn compile(document: &Value, mode: Mode) -> Result<Option<Plan<'_>>> {
     compile_definition(definition, named, mode).map(Some)
 }
 
+fn compile_execution(document: &Value) -> Result<Plan<'_>> {
+    compile(document, Mode::Replay)?.ok_or_else(|| definition("schemas_only"))
+}
+
 fn compile_definition<'a>(
     raw: &'a Value,
     named: Option<&serde_json::Map<String, Value>>,
@@ -187,7 +221,7 @@ fn compile_definition<'a>(
         .iter()
         .map(|raw| Step::compile(raw, mode))
         .collect::<Result<Vec<_>>>()?;
-    let (order, delivery) = order_steps(&steps)?;
+    let (order, deliveries) = order_steps(&steps)?;
     let schemas = steps.iter().flat_map(|step| {
         let local = match &step.operation {
             Operation::Watch(watch) => watch.schemas(step.id),
@@ -207,12 +241,12 @@ fn compile_definition<'a>(
         id,
         steps,
         order,
-        delivery,
+        deliveries,
         contracts,
     })
 }
 
-fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Option<usize>)> {
+fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Vec<usize>)> {
     let by_name: BTreeMap<_, _> = steps
         .iter()
         .enumerate()
@@ -221,6 +255,7 @@ fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Option<usize>)> {
     if by_name.len() != steps.len() {
         return Err(definition("duplicate_step"));
     }
+    let mut routing_watcher = None;
     let mut dependents = vec![Vec::new(); steps.len()];
     let mut remaining = Vec::new();
     for (index, step) in steps.iter().enumerate() {
@@ -232,6 +267,22 @@ fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Option<usize>)> {
             if dependency.require == "output" && !steps[from].publishes {
                 return Err(definition("dependency"));
             }
+            if !dependency.exits.is_empty() {
+                let Operation::Watch(watcher) = &steps[from].operation else {
+                    return Err(definition("dependency"));
+                };
+                if dependency
+                    .exits
+                    .iter()
+                    .any(|name| !watcher.exits().any(|exit| exit == *name))
+                {
+                    return Err(definition("dependency"));
+                }
+                if routing_watcher.is_some_and(|(previous, _)| previous != from) {
+                    return Err(definition("unsupported_exit_routing"));
+                }
+                routing_watcher = Some((from, watcher));
+            }
             dependents[from].push(index);
         }
         remaining.push(step.needs.len());
@@ -241,12 +292,14 @@ fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Option<usize>)> {
         .enumerate()
         .filter_map(|(index, count)| (*count == 0).then_some((steps[index].id, index)))
         .collect();
-    let mut deliveries =
-        (0..steps.len()).filter(|&i| dependents[i].is_empty() && steps[i].publishes);
-    let delivery = deliveries.next();
+    let terminals: Vec<_> = (0..steps.len())
+        .filter(|&i| dependents[i].is_empty() && steps[i].publishes)
+        .collect();
     if ready.len() != 1
-        || deliveries.next().is_some()
-        || delivery.is_some_and(|i| matches!(steps[i].operation, Operation::Watch(_)))
+        || (routing_watcher.is_none() && terminals.len() > 1)
+        || terminals
+            .iter()
+            .any(|&i| matches!(steps[i].operation, Operation::Watch(_)))
     {
         return Err(definition("entry_or_delivery"));
     }
@@ -264,7 +317,48 @@ fn order_steps(steps: &[Step<'_>]) -> Result<(Vec<usize>, Option<usize>)> {
     if order.len() != steps.len() {
         return Err(definition("cycle"));
     }
-    Ok((order, delivery))
+    let deliveries = if let Some((_, watcher)) = routing_watcher {
+        routed_deliveries(steps, &order, &by_name, &terminals, watcher)?
+    } else {
+        terminals
+    };
+    Ok((order, deliveries))
+}
+
+fn routed_deliveries(
+    steps: &[Step<'_>],
+    order: &[usize],
+    by_name: &BTreeMap<&str, usize>,
+    terminals: &[usize],
+    watcher: &Watcher<'_>,
+) -> Result<Vec<usize>> {
+    let mut candidates = BTreeSet::new();
+    // One routing Watcher gives a finite list of paths even when it has many descendants.
+    for exit in watcher.exits() {
+        let mut active = vec![false; steps.len()];
+        for &i in order {
+            active[i] = steps[i]
+                .needs
+                .iter()
+                .all(|n| active[by_name[n.from]] && n.admits(exit));
+            if !active[i] && matches!(steps[i].operation, Operation::Watch(_)) {
+                // An observation cannot exclude its owning Watcher. Conditional Watcher
+                // scopes need an explicit child or an independently releasable wait.
+                return Err(definition("unsupported_watch"));
+            }
+        }
+        let mut reachable = terminals.iter().copied().filter(|&i| active[i]);
+        let delivery = reachable.next();
+        if reachable.next().is_some() || (delivery.is_none() && !terminals.is_empty()) {
+            return Err(definition("entry_or_delivery"));
+        }
+        candidates.extend(delivery);
+    }
+    Ok(order
+        .iter()
+        .copied()
+        .filter(|i| candidates.contains(i))
+        .collect())
 }
 
 fn input_key(id: &str) -> String {

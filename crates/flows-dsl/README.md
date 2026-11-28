@@ -44,7 +44,7 @@ Both Beta.2 acceptance cases use synthetic data. The integration tests also use 
 
 - One inferred entry and one terminal delivery, connected by ordinary steps.
 - YAML and JSON Definition source with unique string keys. Inputs are JSON.
-- Local named Schema resources, property and item projection, and the business Schema keywords `const`, `minLength`, `type`, `properties`, `required`, `items`, `additionalProperties`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `title`, and `description`. A sole `$ref` can refer to an in-document resource.
+- Local named Schema resources, property and item projection, and the business Schema keywords `const`, `enum`, `minLength`, `type`, `properties`, `required`, `items`, `additionalProperties`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `title`, and `description`. A sole `$ref` can refer to an in-document resource.
 - JSON Pointer bindings and CEL expressions with JSON scalar results.
 - Bounded source, data, expressions, and CEL comprehension iteration. Hosts should run untrusted evaluations in a terminable worker with an outer deadline and memory limits.
 
@@ -52,7 +52,7 @@ The grammar covers the full beta document shape. The pure entry points accept or
 
 ## Replayable calls and reviews
 
-`validate_execution(source)` returns a JSON inventory of the entry, the optional delivery step, all call positions and targets, and local submission positions. Resolve every listed target before starting an instance. `replay_execution(source, revision, instance, input_json, journal_json)` returns a JSON projection. Both functions take strings and return `Result<String, DefinitionError>`.
+`validate_execution(source)` returns a JSON inventory of the entry, potential delivery steps, all call positions and targets, and local submission positions. Resolve every listed target before starting an instance. `replay_execution(source, revision, instance, input_json, journal_json)` returns a JSON projection. Both functions take strings and return `Result<String, DefinitionError>`.
 
 The host stores the immutable Definition revision and source, a unique instance ID, the exact entry input and the ordered version-1 journal. Supply the same values on recovery. Start with `{"version":1,"facts":[]}`. The projection is derived. The [review Definition](examples/review-handoff.yaml) and [ordered synthetic journal](tests/fixtures/review-journal.json) exercise registration, one addressed review, a formal Handoff, and required receipt registration.
 
@@ -68,6 +68,53 @@ assert_eq!(result["deliveryJson"], r#"{"amount":1.0000000000000001,"matterId":"M
 ```
 
 Run `cargo test --locked -p flows-dsl --test execution` from the workspace root to exercise every journal prefix, duplicate admissions and failure controls.
+
+### Reading the executable topology
+
+`execution_topology(source: &str) -> Result<String, DefinitionError>` returns a static graph as JSON. It uses the same Definition compiler and diagnostics as `validate_execution`. A host can draw the graph before starting an instance. The [expected graphs](tests/fixtures/execution-topologies.json) cover the review and publication examples.
+
+Version 1 includes `version`, `profile`, the Definition `id`, its `entry` step ID, and `steps` in dependency order with ties broken by step ID. The `deliveryCandidates` array lists possible formal deliveries in that order and is empty for completion-only Definitions.
+
+- Each top-level step has its DSL `id`, a `kind` (`process`, `call` or `watch`), and a `needs` array. A call also gives its procedure `target`.
+- A dependency carries its own `alias`, the source step ID in `from`, and `require` (`success` or `output`). An exit filter adds `exit` as an array of names, including for a single name. Omission allows any exit.
+- A Watcher's `observe` array contains the direct observation first (`alias`, `from`) and the addressed local submission second (`alias`, `position`, `needs`). For example, the review observes the output of `register` and separately gates `review/submission` on that call's success. The gate belongs to the submission. The Watcher's top-level `needs` is empty.
+- Each Watcher case gives its local observation alias in `on` and the declared `exit`, in case evaluation order. Branch predicates and bindings stay in the Definition source. Use replay to determine which exit an instance actually selected.
+
+### Reading and checking external inputs
+
+Use the fixed Definition source and a position from the inventory. The entry takes its step ID (for example `register`), and an externally supplied Watcher input takes its submission position (for example `review/submission`). Other positions return `execution:position`. Both functions check the full executable Definition first.
+
+- `execution_input_schema(source: &str, position: &str) -> Result<String, DefinitionError>` returns standalone Draft 2020-12 JSON Schema text. Objects include the dialect URI. Local named references point into the returned document's `$defs`, which contains only the named resources reachable from this input. Follow the returned references when rendering a form. A missing Schema returns `true`. Explicit Boolean Schemas return `true` or `false`.
+- `validate_execution_input(source: &str, position: &str, input_json: &str) -> Result<(), DefinitionError>` checks exact JSON text, the core's input budgets and the position's Schema. Pass the original text to preserve numeric precision. Success returns `()`. A rejected value returns the existing input diagnostic, such as `input:contract` or `input:number_range`.
+
+These operations require only the Definition and run without an instance, a journal or procedure calls. The host checks actor permissions. Replay determines whether the addressed Watcher can accept a submission at that point in the instance. Static validation covers the supplied input. Later bindings and outputs have their own checks.
+
+The [input contract example](examples/input-contracts.json) gives registration and review different contracts with a shared exact decimal bound.
+
+```rust
+use flows_dsl::{execution_input_schema, validate_execution_input};
+
+let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/input-contracts.json"));
+let position = "review/submission";
+let schema = execution_input_schema(source, position)?;
+assert!(schema.contains("1.0000000000000001"));
+validate_execution_input(source, position, r#"{"amount":1.0000000000000002}"#)?;
+# Ok::<(), flows_dsl::DefinitionError>(())
+```
+
+### Watcher exit routing
+
+An ordinary step can require a Watcher's success or output on one named exit or a nonempty list of distinct exits. The step waits for the Watcher to release. A match enables the step once its other prerequisites are ready. A mismatch excludes that step and its downstream dependents, including their bindings and calls.
+
+The [publication Definition](examples/knowledge-publication-exits.yaml) and [two synthetic journals](tests/fixtures/publication-journals.json) use one addressed receipt. On `applied`, the execution waits for the index request to return and delivers the identifiers in the reply. On `closed`, it immediately delivers the closure record with its nullable identifiers. Replaying either journal reproduces that result. Run `cargo test --locked -p flows-dsl --test publication` for both paths.
+
+| Possible delivery positions | Fields in the validation inventory                                                        |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| None                        | `delivery: null`                                                                          |
+| One                         | `delivery` contains the step ID                                                           |
+| Several mutually exclusive  | `delivery: null` and `deliveryCandidates` lists the possible step IDs in dependency order |
+
+Each run still has a single `deliveryJson` field when a value has been produced. For a value-producing Definition, validation checks that every declared exit reaches exactly one ordinary delivery step. Completion-only Definitions may have zero value-producing terminals throughout.
 
 ### Host protocol
 
@@ -88,12 +135,12 @@ Serialize admissions per instance, for example with a transaction that compares 
 
 A submission ID identifies one fact at its original address. Equal JSON values for a known identity replay idempotently, including after closure. Changed content conflicts. Two distinct IDs with equal content each contribute one result while the wait accepts input. An invalid, early, or newly arriving late submission is rejected. Call outcomes are immutable per call address. Repeat malformed return text verbatim to replay that outcome.
 
-The projection lists calls, waits with admission readiness and adopted count, selected Watcher exits, and tolerated failure addresses. `deliveryJson` appears when the one ordinary terminal output becomes available, including the string `"null"` for an actual JSON null. It remains visible if required work later fails. Only `status: "completed"` establishes successful completion. A closed or failed instance cannot admit new work. Preserve all fields ending in `Json` as text throughout host storage.
+The projection lists calls, waits with admission readiness and adopted count, selected Watcher exits, and tolerated failure addresses. `deliveryJson` appears when the selected ordinary terminal output becomes available, including the string `"null"` for an actual JSON null. It remains visible if required work later fails. Only `status: "completed"` establishes successful completion. A closed or failed instance cannot admit new work. Preserve all fields ending in `Json` as text throughout host storage.
 
 ### Replay slice and bounds
 
-- One inferred entry, unconditional dependencies, and at most one formal delivery. A completion-only call may be a separate required terminal. Calls support authored arguments, result bindings, output Schemas and the confirmed-failure policy.
+- One inferred entry and at most one formal delivery on each successful path. Exit filters on ordinary steps may refer to one routing Watcher per Definition. Other prerequisites can use ordinary success or output dependencies. A completion-only call may be a separate required terminal. Calls support authored arguments, result bindings, output Schemas and the confirmed-failure policy.
 - A Watcher directly observes one upstream output and accepts one kind of addressed local submission after that same source succeeds. The evaluator adopts the upstream output before exposing the local step for admission. The local step has an externally supplied input and a pure output binding. Every case uses `on` with the local ID and a case-local output. Evaluate cases in authored order on each fresh submission and freeze the selected exit and output together. A terminal Watcher requires an ordinary processing handoff.
-- Each submitted fact forms its own batch. Multi-source races and simultaneous batches, timers, exit-filtered paths, imports, context, child invocations, loops, predicate calls and cancellation are outside this interface. Full two-stage orchestration and cross-host recovery require separate verification.
+- Each submitted fact forms its own batch. Multi-source races and simultaneous batches, timers, observing a conditionally excluded upstream step from another Watcher, imports, context, child invocations, loops, predicate calls and cancellation are outside this interface. Full two-stage orchestration and cross-host recovery require separate verification.
 - Version 1 accepts JSON objects for the journal, facts, addresses and events. The complete wire document fits within 4 MiB and 256 facts. A dispatch reserves a fact slot and space for an escaped 256 KiB return. Later appends preserve those reservations. On `execution:journal_capacity` the host keeps the previous prefix and performs no new effect. Compact the JSON envelope for storage and retain the original payload text. Keep duplicate deliveries out of the stored journal once verified.
 - The core checks capacity on each append. A long-lived wait or a long sequence of calls can exhaust the journal before another action is admitted. Revision, instance and submission IDs are nonempty and at most 256 UTF-8 bytes. Workers should bound evaluation time and memory.
