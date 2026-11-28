@@ -106,7 +106,10 @@ export function markdownBrowserPhases(hosts, sourceIds) {
             expectedResults: [
                 ...(noScript
                     ? []
-                    : [`${host.name}: narrow classifications keep punctuation with the term and fit the reader`]),
+                    : [
+                          `${host.name}: narrow classifications keep punctuation with the term and fit the reader`,
+                          `${host.name}: backlinks, external links and broken reference diagnostics`,
+                      ]),
                 `${noScript ? "static noscript" : host.name}: published anchors and authored heading links reach their targets`,
                 `${noScript ? "static noscript" : host.name}: View projection and footnotes retain their fragment targets`,
                 `${noScript ? "static noscript" : host.name}: author links open raw resources with URI suffixes`,

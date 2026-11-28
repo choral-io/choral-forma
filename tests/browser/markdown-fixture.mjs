@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -35,6 +36,11 @@ async function prepareMarkdownWorkspace(workspace) {
         ["notes/sub/guides/nearby.md", "# Nearby target\n\n## Section\n"],
         ["notes/guides/ambiguous.md", "# First ambiguous target\n\n## Section\n"],
         ["alternate/guides/ambiguous.md", "# Second ambiguous target\n\n## Section\n"],
+        ["notes/related-source.md", "# Related source\n\n[Read the related target](related-target.md).\n"],
+        [
+            "notes/related-target.md",
+            "# Related target\n\n[External guide](https://example.test/guide)\n\n[Protocol-relative guide](//example.test/guide)\n\n[Missing note](missing-related-note.md)\n",
+        ],
     ]) {
         const source = join(workspace, path);
         await mkdir(dirname(source), { recursive: true });
@@ -572,15 +578,15 @@ async function startStaticBuild({ workspace, evidenceDir, staticServers, signal 
     await writeFile(join(evidenceDir, label + ".log"), stdout + stderr);
     await writeFile(join(evidenceDir, label + ".json"), stdout);
     const { status, diagnostics } = JSON.parse(stdout);
-    const [ambiguity] = diagnostics;
-    if (
-        status !== "warning" ||
-        diagnostics.length !== 1 ||
-        ambiguity.code !== "entryRef.ambiguous" ||
-        ambiguity.path !== "notes/sub/short-path-source.md" ||
-        ambiguity.actual !== "guides/ambiguous.md?x=1#section"
-    )
-        throw new Error(`Unexpected static fixture diagnostics: ${JSON.stringify(diagnostics)}`);
+    assert.equal(status, "warning", "Expected the static fixture to build with reference diagnostics");
+    assert.deepEqual(
+        diagnostics.map(({ code, path, actual }) => [code, path, actual]).sort(),
+        [
+            ["entryRef.ambiguous", "notes/sub/short-path-source.md", "guides/ambiguous.md?x=1#section"],
+            ["entryRef.unresolved", "notes/related-target.md", "missing-related-note.md"],
+        ],
+        "Unexpected static fixture diagnostics",
+    );
     return origin;
 }
 

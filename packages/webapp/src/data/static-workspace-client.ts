@@ -356,7 +356,11 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                         outline: detail.headings.filter(isDashboardHeading),
                     },
                 ],
-                diagnostics: detail.diagnostics ?? [],
+                diagnostics:
+                    detail.diagnostics ??
+                    manifest.diagnostics.filter(
+                        (diagnostic) => diagnostic.path === detail.path || diagnostic.routePath === detail.routePath,
+                    ),
                 relations: mapEntryRelations(detail, entriesByPath),
             };
             return rendered;

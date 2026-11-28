@@ -1,3 +1,5 @@
+import { expect } from "@playwright/test";
+
 import { observeReader } from "../../scripts/reader-browser-diagnostics.mjs";
 
 /** Runs against the real WebApp and static hosts in fresh browser contexts. */
@@ -1213,6 +1215,42 @@ export async function markdownBrowserScenarios(browser, options, attach) {
             );
         }
     };
+    const relatedDocuments = async (current, host) => {
+        const base = host.origin + host.root;
+        const response = await current.goto(`${base}/notes/related-target.md`);
+        assert(response?.ok(), `${host.name}: related target response`);
+        const main = current.getByRole("main");
+        const related = main.getByRole("region", { name: "Related documents" });
+        const backlinks = related.getByRole("list", { name: /^Backlinks/u });
+        const backlink = backlinks.getByRole("link", { name: /^Related source\b/u });
+        const sourcePath = `${host.root}/notes/related-source.md`;
+        await expect(backlinks.getByRole("link")).toHaveCount(1);
+        await expect(backlink).toHaveAttribute("href", sourcePath);
+
+        const outgoing = related.getByRole("list", { name: /^Outgoing references/u });
+        for (const [label, href] of [
+            ["External guide", "https://example.test/guide"],
+            ["Protocol-relative guide", "//example.test/guide"],
+        ]) {
+            const link = outgoing.getByRole("link", { name: `${label} (opens in a new tab)`, exact: true });
+            await expect(link).toHaveAttribute("href", href);
+            await expect(link).toHaveAttribute("target", "_blank");
+        }
+        await expect(outgoing.getByText("unresolved", { exact: true })).toHaveCount(0);
+
+        const diagnostics = main
+            .locator("details")
+            .filter({ has: current.locator("summary", { hasText: /^Diagnostics/u }) });
+        await diagnostics.locator("summary").click();
+        const broken = diagnostics.getByRole("article").filter({ hasText: "entryRef.unresolved" });
+        await expect(broken.getByText("missing-related-note.md", { exact: true })).toBeVisible();
+        await expect(diagnostics.getByText("entryRef.ambiguous", { exact: true })).toHaveCount(0);
+        await expect(diagnostics.getByText("unresolved-link", { exact: true })).toHaveCount(0);
+
+        await backlink.click();
+        await expect(current).toHaveURL(host.origin + sourcePath);
+        await expect(main.getByRole("heading", { name: "Related source", level: 1 })).toBeVisible();
+    };
     const resourceLinkClicks = async (current, host, noScript) => {
         const base = host.origin + host.root;
         const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
@@ -1727,6 +1765,9 @@ export async function markdownBrowserScenarios(browser, options, attach) {
                     results.push(
                         `${host.name}: narrow classifications keep punctuation with the term and fit the reader`,
                     );
+                    await relatedDocuments(current, host);
+                    assertCleanPage();
+                    results.push(`${host.name}: backlinks, external links and broken reference diagnostics`);
                 }
                 await publishedHeadingTargets(current, host, options.noScript);
                 await headingNavigation(current, host, options.noScript);
