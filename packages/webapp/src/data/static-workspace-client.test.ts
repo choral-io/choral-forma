@@ -203,6 +203,75 @@ describe("StaticWorkspaceClient", () => {
         });
     });
 
+    it("links backlinks to their source and distinguishes external links from unresolved references", async () => {
+        const sourceEntry = {
+            ...dashboard.entries[0],
+            id: "notes--source",
+            path: "notes/source.md",
+            routePath: "/notes/source.md",
+            title: "Source",
+            variants: [],
+            dataPath: `entries/${"4".repeat(64)}.json`,
+        };
+        const backlink = {
+            sourcePath: sourceEntry.path,
+            sourceTitle: "Source",
+            targetPath: entryTarget.sourcePath,
+            targetTitle: "One",
+        };
+        const detail = {
+            ...dashboard.entries[0],
+            markdown: "# One",
+            headings: [],
+            backlinks: [backlink],
+            outgoing: [
+                {
+                    ...backlink,
+                    sourcePath: entryTarget.sourcePath,
+                    targetPath: sourceEntry.path,
+                    targetTitle: "Source",
+                },
+                {
+                    ...backlink,
+                    sourcePath: entryTarget.sourcePath,
+                    targetPath: "https://example.com/docs",
+                    targetTitle: "Docs",
+                },
+                {
+                    ...backlink,
+                    sourcePath: entryTarget.sourcePath,
+                    targetPath: "notes/missing.md",
+                    targetTitle: "Missing",
+                },
+            ],
+        };
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) =>
+                path === `${dataBaseUrl}/dashboard.json`
+                    ? json({ ...dashboard, entries: [...dashboard.entries, sourceEntry] })
+                    : json(detail),
+            ),
+        );
+        const client = new StaticWorkspaceClient(config());
+        const result = await client.getEntry("notes/one.md", await contextFor(client));
+        const sourceLink = {
+            kind: "internal",
+            label: "Source",
+            targetEntryId: sourceEntry.id,
+            targetRoutePath: sourceEntry.routePath,
+            targetPath: sourceEntry.path,
+        };
+        expect(result.relations).toEqual({
+            backlinks: [sourceLink],
+            outgoing: [
+                sourceLink,
+                { kind: "external", label: "Docs", targetPath: "https://example.com/docs" },
+                { kind: "unresolved", label: "Missing", targetPath: "notes/missing.md" },
+            ],
+        });
+    });
+
     it("uses generated local data with an explicit artifact base", async () => {
         const fetch = vi.fn((path: string) => {
             if (path === `${previewBase}/dashboard.json`) return json(dashboard);

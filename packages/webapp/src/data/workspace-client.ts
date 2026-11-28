@@ -2,6 +2,7 @@ import type {
     CalendarProjection,
     DirectoryIntroduction,
     GanttProjection,
+    ReferenceEdge,
     ViewDocumentHeadings,
 } from "@choral-forma/shared";
 
@@ -95,6 +96,29 @@ export interface DashboardEntryLink {
 export interface DashboardEntryRelations {
     outgoing: DashboardEntryLink[];
     backlinks: DashboardEntryLink[];
+}
+
+export function mapEntryRelations(
+    references: { outgoing?: ReferenceEdge[]; backlinks?: ReferenceEdge[] },
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardEntryRelations {
+    const mapLink = (path: string, title: string | undefined): DashboardEntryLink => {
+        const entry = entriesByPath.get(path);
+        // Core indexes HTTP(S), protocol-relative, and mailto URLs as external body references.
+        const external = /^(?:https?:\/\/|\/\/|mailto:)/u.test(path);
+        return {
+            kind: entry ? "internal" : external ? "external" : "unresolved",
+            label: title ?? path,
+            targetEntryId: entry?.id,
+            targetRoutePath: entry?.routePath,
+            targetPath: path,
+        };
+    };
+
+    return {
+        outgoing: (references.outgoing ?? []).map((edge) => mapLink(edge.targetPath, edge.targetTitle)),
+        backlinks: (references.backlinks ?? []).map((edge) => mapLink(edge.sourcePath, edge.sourceTitle)),
+    };
 }
 
 export interface DashboardSpace {

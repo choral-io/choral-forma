@@ -28,7 +28,7 @@ use crate::document::{
 use crate::index::{
     Discovery, DiscoveryRuntime, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
     config_error_diagnostic, discover_loaded_workspace, discover_loaded_workspace_with_runtime,
-    resolve_space_entry_path, title_for_entry,
+    is_external_target, resolve_space_entry_path, title_for_entry,
 };
 use crate::markdown::{
     FormaMarkdownDocument, MarkdownFragmentProjection, resolve_markdown_title,
@@ -3778,18 +3778,12 @@ fn unique_internal_non_self_reference_targets(
     references
         .iter()
         .filter(|reference| {
-            !is_external_reference_target(&reference.target_path)
+            !is_external_target(&reference.target_path)
+                && !reference.target_path.starts_with('#')
                 && reference.target_path != source_path
         })
         .map(|reference| reference.target_path.clone())
         .collect()
-}
-
-fn is_external_reference_target(target: &str) -> bool {
-    target.starts_with("http://")
-        || target.starts_with("https://")
-        || target.starts_with("mailto:")
-        || target.starts_with('#')
 }
 
 fn workspace_health_finding_sort_key(
@@ -8261,6 +8255,42 @@ conventions:
         }));
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_health_excludes_protocol_relative_links_from_internal_outgoing_references() {
+        let root = fixture_root("workspace-health-protocol-relative");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/external.md"),
+            "---\nkind: note\ntitle: External\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n[Remote](//example.com/docs)\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/internal.md"),
+            "---\nkind: note\ntitle: Internal\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n[Remote](//example.com/docs) and [another note](external.md).\n",
+        )
+        .unwrap();
+
+        let result = workspace_health(&root).unwrap();
+        fs::remove_dir_all(root).unwrap();
+
+        let has_no_internal_outgoing = |path| {
+            result.findings.iter().any(|finding| {
+                finding.category == WorkspaceHealthCategory::NoOutgoingReferences
+                    && finding.path == path
+            })
+        };
+        assert!(has_no_internal_outgoing("notes/external.md"));
+        assert!(!has_no_internal_outgoing("notes/internal.md"));
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == WorkspaceHealthCategory::BrokenReference
+                && matches!(
+                    finding.path.as_str(),
+                    "notes/external.md" | "notes/internal.md"
+                )
+        }));
     }
 
     #[test]

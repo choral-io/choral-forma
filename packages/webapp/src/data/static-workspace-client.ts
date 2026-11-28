@@ -1,5 +1,5 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
-import type { CalendarProjection, GanttProjection, ViewRenderDocument } from "@choral-forma/shared";
+import type { CalendarProjection, GanttProjection, ReferenceEdge, ViewRenderDocument } from "@choral-forma/shared";
 
 import { stringifyStaticFieldValue } from "./static-field-value";
 import { canonicalRoutePath } from "./static-route-target";
@@ -14,7 +14,6 @@ import type {
     DashboardDirectory,
     DashboardEntry,
     DashboardEntryHeading,
-    DashboardEntryLink,
     DashboardHealth,
     DashboardSpace,
     DashboardTaxonomy,
@@ -28,7 +27,7 @@ import type {
     WorkspaceDashboardContext,
     WorkspaceHealth,
 } from "./workspace-client";
-import { createWorkspaceDashboardContext, latestUpdatedAt } from "./workspace-client";
+import { createWorkspaceDashboardContext, latestUpdatedAt, mapEntryRelations } from "./workspace-client";
 
 type StaticStatus = "passed" | "warning" | "failed";
 
@@ -116,19 +115,10 @@ interface StaticEntryDetail {
     status?: StaticStatus;
     markdown: string;
     headings: { id: string; level: number; text: string }[];
-    outgoing?: StaticReferenceEdge[];
-    backlinks?: StaticReferenceEdge[];
+    outgoing?: ReferenceEdge[];
+    backlinks?: ReferenceEdge[];
     diagnostics?: StaticDiagnostic[];
     language?: string;
-}
-
-interface StaticReferenceEdge {
-    targetPath?: string;
-    targetRoutePath?: string;
-    targetEntryId?: string;
-    target?: string;
-    label?: string;
-    intent?: string;
 }
 
 interface StaticDirectorySummary {
@@ -367,10 +357,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                     },
                 ],
                 diagnostics: detail.diagnostics ?? [],
-                relations: {
-                    outgoing: (detail.outgoing ?? []).map((edge) => mapReference(edge, entriesByPath)),
-                    backlinks: (detail.backlinks ?? []).map((edge) => mapReference(edge, entriesByPath)),
-                },
+                relations: mapEntryRelations(detail, entriesByPath),
             };
             return rendered;
         });
@@ -566,21 +553,6 @@ function mapTaxonomy(
                 .filter((entry): entry is DashboardEntry => Boolean(entry)),
             status: "healthy",
         })),
-    };
-}
-
-function mapReference(
-    edge: StaticReferenceEdge,
-    entriesByPath: ReadonlyMap<string, DashboardEntry>,
-): DashboardEntryLink {
-    const targetPath = edge.targetPath ?? edge.target ?? "";
-    const target = entriesByPath.get(targetPath);
-    return {
-        kind: edge.targetRoutePath || target ? "internal" : "unresolved",
-        label: edge.label ?? targetPath,
-        targetEntryId: edge.targetEntryId ?? target?.id,
-        targetRoutePath: edge.targetRoutePath ?? target?.routePath,
-        targetPath,
     };
 }
 

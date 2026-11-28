@@ -5,7 +5,6 @@ import {
     type FileReferencesResult,
     type FileRenderResult,
     type OperationStatus,
-    type ReferenceEdge,
     type ViewRenderFieldValue,
     type ViewRenderItem,
     type ViewRenderOutput,
@@ -25,7 +24,6 @@ import type {
     DashboardEntry,
     DashboardEntryBlock,
     DashboardEntryHeading,
-    DashboardEntryLink,
     DashboardHealth,
     DashboardHealthFinding,
     DashboardSpace,
@@ -40,7 +38,7 @@ import type {
     WorkspaceDashboardContext,
     WorkspaceHealth,
 } from "./workspace-client";
-import { latestUpdatedAt } from "./workspace-client";
+import { latestUpdatedAt, mapEntryRelations } from "./workspace-client";
 
 export class RouteReadError extends Error {
     readonly code: "route.generationMismatch" | "route.unavailable" | "route.superseded";
@@ -422,10 +420,7 @@ function mapEntryDetail(
         status: mapStatus(renderResult.status),
         body: mapRenderedBody(renderResult, entriesByPath),
         diagnostics: mergeDiagnostics(renderResult.diagnostics, referencesResult.diagnostics),
-        relations: {
-            outgoing: referencesResult.outgoing.map((edge) => mapReferenceEdge(edge, "outgoing", entriesByPath)),
-            backlinks: referencesResult.backlinks.map((edge) => mapReferenceEdge(edge, "backlink", entriesByPath)),
-        },
+        relations: mapEntryRelations(referencesResult, entriesByPath),
     };
 }
 
@@ -519,33 +514,6 @@ function htmlToEntryBlock(
         html: document.body.innerHTML,
         outline: headings,
     };
-}
-
-function mapReferenceEdge(
-    edge: ReferenceEdge,
-    direction: "outgoing" | "backlink",
-    entriesByPath: ReadonlyMap<string, DashboardEntry>,
-): DashboardEntryLink {
-    const targetPath = direction === "outgoing" ? edge.targetPath : edge.sourcePath;
-    const targetTitle =
-        direction === "outgoing" ? (edge.targetTitle ?? edge.targetPath) : (edge.sourceTitle ?? edge.sourcePath);
-    const targetEntry = entriesByPath.get(targetPath);
-
-    return {
-        kind: mapReferenceKind(edge, targetEntry),
-        label: targetTitle,
-        targetEntryId: targetEntry?.id,
-        targetRoutePath: targetEntry?.routePath,
-        targetPath,
-    };
-}
-
-function mapReferenceKind(edge: ReferenceEdge, targetEntry: DashboardEntry | undefined): DashboardEntryLink["kind"] {
-    if (targetEntry) {
-        return "internal";
-    }
-
-    return edge.targetPath.includes("://") ? "external" : "unresolved";
 }
 
 function mapView(view: WorkspaceDashboardResult["views"][number]): DashboardView {
